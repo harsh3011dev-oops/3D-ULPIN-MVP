@@ -7,3 +7,4 @@ pygeohash==1.2.0
 scikit-image==0.22.0
 pytest==8.1.1
 pytest-cov==5.0.0
+requests==2.31.0

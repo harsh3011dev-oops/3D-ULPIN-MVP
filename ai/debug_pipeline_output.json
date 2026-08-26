@@ -1,0 +1,593 @@
+{
+    "status": "success",
+    "building_id": "bldg-sanjeevni-narela-001",
+    "footprint": {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [
+                    0.5,
+                    0.5
+                ],
+                [
+                    0.5,
+                    204.5
+                ],
+                [
+                    127.5,
+                    204.5
+                ],
+                [
+                    132.5,
+                    315.5
+                ],
+                [
+                    0.5,
+                    385.5
+                ],
+                [
+                    8.5,
+                    496.5
+                ],
+                [
+                    511.5,
+                    511.5
+                ],
+                [
+                    511.5,
+                    9.5
+                ],
+                [
+                    0.5,
+                    0.5
+                ]
+            ]
+        ]
+    },
+    "height": 10.5,
+    "floor_count": 3,
+    "extrusion_3d": {
+        "type": "Building3D",
+        "z_min": 0.0,
+        "z_max": 10.5,
+        "floor_height_m": 3.5
+    },
+    "units": [
+        {
+            "unit_id": "UNIT_F01_A01",
+            "floor": 1,
+            "label": "A01",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            256.0,
+                            256.0
+                        ],
+                        [
+                            256.0,
+                            5.0
+                        ],
+                        [
+                            0.5,
+                            0.5
+                        ],
+                        [
+                            0.5,
+                            204.5
+                        ],
+                        [
+                            127.5,
+                            204.5
+                        ],
+                        [
+                            129.81981981981983,
+                            256.0
+                        ],
+                        [
+                            256.0,
+                            256.0
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                117.90394851049626,
+                135.060854314558
+            ],
+            "area_sqm": 715913425500000.0,
+            "z_min": 0.0,
+            "z_max": 3.5,
+            "ulpin": "PARCEL_SANJEEVNI_HOSPITAL_NARELA-BLDGSANJ-F01-UA01-zpbpcru"
+        },
+        {
+            "unit_id": "UNIT_F01_B01",
+            "floor": 1,
+            "label": "B01",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            511.5,
+                            9.5
+                        ],
+                        [
+                            256.0,
+                            5.0
+                        ],
+                        [
+                            256.0,
+                            256.0
+                        ],
+                        [
+                            511.5,
+                            256.0
+                        ],
+                        [
+                            511.5,
+                            9.5
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                131.621608040201,
+                383.36482412060303
+            ],
+            "area_sqm": 783068855625000.0,
+            "z_min": 0.0,
+            "z_max": 3.5,
+            "ulpin": "PARCEL_SANJEEVNI_HOSPITAL_NARELA-BLDGSANJ-F01-UB01-zzzzzzz"
+        },
+        {
+            "unit_id": "UNIT_F01_A02",
+            "floor": 1,
+            "label": "A02",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            256.0,
+                            256.0
+                        ],
+                        [
+                            129.81981981981983,
+                            256.0
+                        ],
+                        [
+                            132.5,
+                            315.5
+                        ],
+                        [
+                            0.5,
+                            385.5
+                        ],
+                        [
+                            8.5,
+                            496.5
+                        ],
+                        [
+                            256.0,
+                            503.8807157057654
+                        ],
+                        [
+                            256.0,
+                            256.0
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                395.4484371428745,
+                147.8176109649163
+            ],
+            "area_sqm": 610171021653578.5,
+            "z_min": 0.0,
+            "z_max": 3.5,
+            "ulpin": "PARCEL_SANJEEVNI_HOSPITAL_NARELA-BLDGSANJ-F01-UA02-zrcpgxv"
+        },
+        {
+            "unit_id": "UNIT_F01_B02",
+            "floor": 1,
+            "label": "B02",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            511.5,
+                            256.0
+                        ],
+                        [
+                            256.0,
+                            256.0
+                        ],
+                        [
+                            256.0,
+                            503.8807157057654
+                        ],
+                        [
+                            511.5,
+                            511.5
+                        ],
+                        [
+                            511.5,
+                            256.0
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                381.85478952721604,
+                384.39455095862763
+            ],
+            "area_sqm": 792325147721421.5,
+            "z_min": 0.0,
+            "z_max": 3.5,
+            "ulpin": "PARCEL_SANJEEVNI_HOSPITAL_NARELA-BLDGSANJ-F01-UB02-zzzzzzz"
+        },
+        {
+            "unit_id": "UNIT_F02_A01",
+            "floor": 2,
+            "label": "A01",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            256.0,
+                            256.0
+                        ],
+                        [
+                            256.0,
+                            5.0
+                        ],
+                        [
+                            0.5,
+                            0.5
+                        ],
+                        [
+                            0.5,
+                            204.5
+                        ],
+                        [
+                            127.5,
+                            204.5
+                        ],
+                        [
+                            129.81981981981983,
+                            256.0
+                        ],
+                        [
+                            256.0,
+                            256.0
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                117.90394851049626,
+                135.060854314558
+            ],
+            "area_sqm": 715913425500000.0,
+            "z_min": 3.5,
+            "z_max": 7.0,
+            "ulpin": "PARCEL_SANJEEVNI_HOSPITAL_NARELA-BLDGSANJ-F02-UA01-zpbpcru"
+        },
+        {
+            "unit_id": "UNIT_F02_B01",
+            "floor": 2,
+            "label": "B01",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            511.5,
+                            9.5
+                        ],
+                        [
+                            256.0,
+                            5.0
+                        ],
+                        [
+                            256.0,
+                            256.0
+                        ],
+                        [
+                            511.5,
+                            256.0
+                        ],
+                        [
+                            511.5,
+                            9.5
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                131.621608040201,
+                383.36482412060303
+            ],
+            "area_sqm": 783068855625000.0,
+            "z_min": 3.5,
+            "z_max": 7.0,
+            "ulpin": "PARCEL_SANJEEVNI_HOSPITAL_NARELA-BLDGSANJ-F02-UB01-zzzzzzz"
+        },
+        {
+            "unit_id": "UNIT_F02_A02",
+            "floor": 2,
+            "label": "A02",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            256.0,
+                            256.0
+                        ],
+                        [
+                            129.81981981981983,
+                            256.0
+                        ],
+                        [
+                            132.5,
+                            315.5
+                        ],
+                        [
+                            0.5,
+                            385.5
+                        ],
+                        [
+                            8.5,
+                            496.5
+                        ],
+                        [
+                            256.0,
+                            503.8807157057654
+                        ],
+                        [
+                            256.0,
+                            256.0
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                395.4484371428745,
+                147.8176109649163
+            ],
+            "area_sqm": 610171021653578.5,
+            "z_min": 3.5,
+            "z_max": 7.0,
+            "ulpin": "PARCEL_SANJEEVNI_HOSPITAL_NARELA-BLDGSANJ-F02-UA02-zrcpgxv"
+        },
+        {
+            "unit_id": "UNIT_F02_B02",
+            "floor": 2,
+            "label": "B02",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            511.5,
+                            256.0
+                        ],
+                        [
+                            256.0,
+                            256.0
+                        ],
+                        [
+                            256.0,
+                            503.8807157057654
+                        ],
+                        [
+                            511.5,
+                            511.5
+                        ],
+                        [
+                            511.5,
+                            256.0
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                381.85478952721604,
+                384.39455095862763
+            ],
+            "area_sqm": 792325147721421.5,
+            "z_min": 3.5,
+            "z_max": 7.0,
+            "ulpin": "PARCEL_SANJEEVNI_HOSPITAL_NARELA-BLDGSANJ-F02-UB02-zzzzzzz"
+        },
+        {
+            "unit_id": "UNIT_F03_A01",
+            "floor": 3,
+            "label": "A01",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            256.0,
+                            256.0
+                        ],
+                        [
+                            256.0,
+                            5.0
+                        ],
+                        [
+                            0.5,
+                            0.5
+                        ],
+                        [
+                            0.5,
+                            204.5
+                        ],
+                        [
+                            127.5,
+                            204.5
+                        ],
+                        [
+                            129.81981981981983,
+                            256.0
+                        ],
+                        [
+                            256.0,
+                            256.0
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                117.90394851049626,
+                135.060854314558
+            ],
+            "area_sqm": 715913425500000.0,
+            "z_min": 7.0,
+            "z_max": 10.5,
+            "ulpin": "PARCEL_SANJEEVNI_HOSPITAL_NARELA-BLDGSANJ-F03-UA01-zpbpcru"
+        },
+        {
+            "unit_id": "UNIT_F03_B01",
+            "floor": 3,
+            "label": "B01",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            511.5,
+                            9.5
+                        ],
+                        [
+                            256.0,
+                            5.0
+                        ],
+                        [
+                            256.0,
+                            256.0
+                        ],
+                        [
+                            511.5,
+                            256.0
+                        ],
+                        [
+                            511.5,
+                            9.5
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                131.621608040201,
+                383.36482412060303
+            ],
+            "area_sqm": 783068855625000.0,
+            "z_min": 7.0,
+            "z_max": 10.5,
+            "ulpin": "PARCEL_SANJEEVNI_HOSPITAL_NARELA-BLDGSANJ-F03-UB01-zzzzzzz"
+        },
+        {
+            "unit_id": "UNIT_F03_A02",
+            "floor": 3,
+            "label": "A02",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            256.0,
+                            256.0
+                        ],
+                        [
+                            129.81981981981983,
+                            256.0
+                        ],
+                        [
+                            132.5,
+                            315.5
+                        ],
+                        [
+                            0.5,
+                            385.5
+                        ],
+                        [
+                            8.5,
+                            496.5
+                        ],
+                        [
+                            256.0,
+                            503.8807157057654
+                        ],
+                        [
+                            256.0,
+                            256.0
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                395.4484371428745,
+                147.8176109649163
+            ],
+            "area_sqm": 610171021653578.5,
+            "z_min": 7.0,
+            "z_max": 10.5,
+            "ulpin": "PARCEL_SANJEEVNI_HOSPITAL_NARELA-BLDGSANJ-F03-UA02-zrcpgxv"
+        },
+        {
+            "unit_id": "UNIT_F03_B02",
+            "floor": 3,
+            "label": "B02",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            511.5,
+                            256.0
+                        ],
+                        [
+                            256.0,
+                            256.0
+                        ],
+                        [
+                            256.0,
+                            503.8807157057654
+                        ],
+                        [
+                            511.5,
+                            511.5
+                        ],
+                        [
+                            511.5,
+                            256.0
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                381.85478952721604,
+                384.39455095862763
+            ],
+            "area_sqm": 792325147721421.5,
+            "z_min": 7.0,
+            "z_max": 10.5,
+            "ulpin": "PARCEL_SANJEEVNI_HOSPITAL_NARELA-BLDGSANJ-F03-UB02-zzzzzzz"
+        }
+    ],
+    "validation": {
+        "valid": true,
+        "overlaps_detected": false,
+        "overlapping_units": [],
+        "out_of_bounds": [],
+        "errors": []
+    },
+    "osm_source": false
+}
