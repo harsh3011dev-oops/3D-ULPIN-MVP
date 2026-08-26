@@ -1,0 +1,36 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv
+env/
+
+# Node
+node_modules/
+dist/
+build/
+.next/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Project specific
+*.log
+uploads/
+temp/
+.cache/
+
+# Database
+*.db
+*.sqlite3
+
+# Environment
+.env.local
+.env.*.local
