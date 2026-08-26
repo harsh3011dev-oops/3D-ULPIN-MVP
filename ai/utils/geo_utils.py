@@ -5,18 +5,21 @@ OPENCAGE_API_KEY = os.getenv("OPENCAGE_API_KEY", "617a0507a3c8468aae0b5ffd61273e
 
 def geocode_address(address: str) -> dict:
     """
-    Convert a text address (e.g., 'Connaught Place, New Delhi') into GPS coordinates (lat, lon)
-    and bounding box using the OpenCage Geocoding API.
+    Convert a text address or Plus Code (e.g., 'Connaught Place, New Delhi' or 'V36Q+J6V Narela')
+    into GPS coordinates (lat, lon) using OpenCage Geocoding API with India locality boosting.
 
     Args:
-        address (str): Place name or address string.
+        address (str): Place name, street address, or Plus Code string.
 
     Returns:
         dict: Geocoded location data containing lat, lon, formatted_address, and bounds.
     """
     try:
-        url = f"https://api.opencagedata.com/geocode/v1/json?q={requests.utils.quote(address)}&key={OPENCAGE_API_KEY}"
-        print(f"Geocoding address via OpenCage API: '{address}'...")
+        clean_addr = address.strip()
+        encoded_addr = requests.utils.quote(clean_addr)
+        url = f"https://api.opencagedata.com/geocode/v1/json?q={encoded_addr}&key={OPENCAGE_API_KEY}&countrycode=in&limit=1&no_annotations=0"
+        
+        print(f"Geocoding address via OpenCage API: '{clean_addr}'...")
         response = requests.get(url, timeout=10)
         
         if response.status_code == 200:
@@ -29,13 +32,13 @@ def geocode_address(address: str) -> dict:
                 lon = geometry.get("lng")
                 formatted = first.get("formatted")
                 
-                print(f"Successfully geocoded '{address}' -> [{lat}, {lon}] ({formatted})")
+                print(f"Successfully geocoded '{clean_addr}' -> [{lat}, {lon}] ({formatted})")
                 return {
                     "lat": lat,
                     "lon": lon,
                     "formatted_address": formatted
                 }
-        print(f"Warning: OpenCage returned no results for '{address}'")
+        print(f"Warning: OpenCage returned no results for '{clean_addr}'")
         return None
     except Exception as e:
         print(f"Geocoding error: {e}")
