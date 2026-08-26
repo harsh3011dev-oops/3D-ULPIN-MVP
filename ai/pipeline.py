@@ -1,5 +1,5 @@
 try:
-    from ai.footprint_detection import detect_building_footprint
+    from ai.footprint_detection import detect_building_footprint, detect_multi_building_footprints
     from ai.extrusion import extrude_building
     from ai.floor_division import divide_into_floors, divide_floor_into_units
     from ai.ulpin_generation import generate_ulpin
@@ -7,7 +7,7 @@ try:
     from ai.utils.image_utils import download_satellite_image
     from ai.utils.geo_utils import fetch_osm_building_metadata, geocode_address
 except ModuleNotFoundError:
-    from footprint_detection import detect_building_footprint
+    from footprint_detection import detect_building_footprint, detect_multi_building_footprints
     from extrusion import extrude_building
     from floor_division import divide_into_floors, divide_floor_into_units
     from ulpin_generation import generate_ulpin
@@ -20,11 +20,11 @@ from shapely.geometry import shape
 
 def process_building(input_data: dict) -> dict:
     """
-    Orchestrate the SMART AI pipeline:
+    Orchestrate the SMART AI pipeline for a single building:
     1. Resolve Address to GPS via OpenCage Geocoding (if address provided)
     2. Extract centroid from Parcel Boundary
     3. Query OpenStreetMap for building height & floors (or use overrides/defaults)
-    4. Download satellite image from ESRI World Imagery
+    4. Download satellite image from ESRI World Imagery / Stadia Maps
     5. Detect footprint from downloaded satellite image
     6. Extrude building footprint to 3D
     7. Slice building into floors & units
@@ -57,48 +57,35 @@ def process_building(input_data: dict) -> dict:
         if not parcel_boundary or "coordinates" not in parcel_boundary:
             raise ValueError("Invalid parcel boundary or address provided.")
 
-        # Step 1: Calculate centroid of the parcel boundary
         boundary_shape = shape(parcel_boundary)
         centroid = boundary_shape.centroid
         lon, lat = centroid.x, centroid.y
 
-        # Step 2: Query OSM for building height/floors
         osm_data = fetch_osm_building_metadata(lat, lon)
         
-        # Determine Floor Count & Height (OSM -> User Override -> Smart Defaults)
         floor_count = input_data.get("floor_count")
         if floor_count:
             floor_count = int(floor_count)
         else:
             floor_count = osm_data.get("floor_count") or 3
-            print(f"Using floor count: {floor_count}")
 
         height_meters = input_data.get("height_meters")
         if height_meters:
             height_meters = float(height_meters)
         else:
             height_meters = osm_data.get("height_meters") or float(floor_count * 3.5)
-            print(f"Using height: {height_meters}m")
 
-        # Step 3: Download satellite image via ESRI
         image_path = download_satellite_image(parcel_boundary)
-
-        # Step 4: Detect building footprint from the downloaded image
         footprint_geojson = detect_building_footprint(image_path, parcel_boundary)
 
-        # Step 5: Extrude 3D building
         extrusion = extrude_building(footprint_geojson, height_meters, floor_count)
-
-        # Step 6: Divide building into floors
         floors = divide_into_floors(footprint_geojson, height_meters, floor_count)
 
-        # Step 7: Divide floors into units (4 units per floor for MVP)
         all_units = []
         for floor in floors:
             floor_units = divide_floor_into_units(floor, units_per_floor=4)
             all_units.extend(floor_units)
 
-        # Step 8: Generate ULPIN for each unit
         for unit in all_units:
             ulpin = generate_ulpin(
                 parcel_id=parcel_id,
@@ -109,7 +96,6 @@ def process_building(input_data: dict) -> dict:
             )
             unit["ulpin"] = ulpin
 
-        # Step 9: Validate units spatially
         validation_report = validate_spatial_data(all_units, footprint_geojson)
 
         return {
@@ -135,11 +121,92 @@ def process_building(input_data: dict) -> dict:
             "message": str(e)
         }
 
-if __name__ == "__main__":
-    # Test text address geocoding pipeline!
-    test_input = {
-        "parcel_id": "PARCEL_NOIDA_SECTOR62",
-        "building_id": "bldg-noida-sec62",
-        "address": "Sector 62, Noida, Uttar Pradesh, India"
-    }
-    print(process_building(test_input))
+
+def process_multi_building_parcel(input_data: dict) -> dict:
+    """
+    Orchestrate the SMART AI pipeline for a Multi-Building Parcel (e.g. Housing Society, Campus):
+    Detects multiple building footprints in a single land parcel and generates 3D ULPINs for each.
+    """
+    try:
+        parcel_id = input_data.get("parcel_id", "MULTI_PARCEL")
+        parcel_boundary = input_data.get("parcel_boundary")
+        address = input_data.get("address")
+        max_buildings = input_data.get("max_buildings", 5)
+
+        if address and not parcel_boundary:
+            geo_info = geocode_address(address)
+            if geo_info:
+                lat, lon = geo_info["lat"], geo_info["lon"]
+                delta = 0.001  # Larger 110m bounding box for multi-building parcel
+                parcel_boundary = {
+                    "type": "Polygon",
+                    "coordinates": [[
+                        [lon - delta, lat - delta],
+                        [lon + delta, lat - delta],
+                        [lon + delta, lat + delta],
+                        [lon - delta, lat + delta],
+                        [lon - delta, lat - delta]
+                    ]]
+                }
+
+        if not parcel_boundary or "coordinates" not in parcel_boundary:
+            raise ValueError("Invalid parcel boundary or address provided.")
+
+        boundary_shape = shape(parcel_boundary)
+        centroid = boundary_shape.centroid
+        lon, lat = centroid.x, centroid.y
+
+        image_path = download_satellite_image(parcel_boundary, zoom=18)
+        footprints = detect_multi_building_footprints(image_path, parcel_boundary, min_area=30, max_buildings=max_buildings)
+
+        floor_count = input_data.get("floor_count", 3)
+        height_meters = input_data.get("height_meters", 10.5)
+
+        processed_buildings = []
+        total_units_count = 0
+
+        for idx, fp in enumerate(footprints, start=1):
+            bldg_id = f"{parcel_id}-BLDG{idx:02d}"
+
+            extrusion = extrude_building(fp, height_meters, floor_count)
+            floors = divide_into_floors(fp, height_meters, floor_count)
+
+            bldg_units = []
+            for floor in floors:
+                floor_units = divide_floor_into_units(floor, units_per_floor=4)
+                bldg_units.extend(floor_units)
+
+            for unit in bldg_units:
+                ulpin = generate_ulpin(
+                    parcel_id=parcel_id,
+                    building_id=bldg_id,
+                    floor_number=unit["floor"],
+                    unit_label=unit["label"],
+                    centroid=unit["centroid"]
+                )
+                unit["ulpin"] = ulpin
+
+            total_units_count += len(bldg_units)
+            processed_buildings.append({
+                "building_id": bldg_id,
+                "building_index": idx,
+                "footprint": fp,
+                "height": height_meters,
+                "floor_count": floor_count,
+                "units_count": len(bldg_units),
+                "units": bldg_units
+            })
+
+        return {
+            "status": "success",
+            "parcel_id": parcel_id,
+            "total_buildings_detected": len(processed_buildings),
+            "total_units_generated": total_units_count,
+            "buildings": processed_buildings
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }

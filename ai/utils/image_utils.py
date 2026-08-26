@@ -12,6 +12,12 @@ STADIA_TILE_URL = "https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/
 # Fallback: ESRI World Imagery
 ESRI_TILE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
 
+# Global dict to store geo bounds of last downloaded image (used by footprint_detection.py)
+_last_image_bounds = {
+    "min_lon": None, "max_lon": None,
+    "min_lat": None, "max_lat": None
+}
+
 
 def _latlon_to_tile(lat: float, lon: float, zoom: int):
     """Convert latitude/longitude to tile X, Y, Z coordinates."""
@@ -19,6 +25,14 @@ def _latlon_to_tile(lat: float, lon: float, zoom: int):
     x = int((lon + 180.0) / 360.0 * n)
     y = int((1.0 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2.0 * n)
     return x, y
+
+
+def _tile_to_latlon(tx: int, ty: int, zoom: int):
+    """Convert tile X, Y, Z to top-left corner latitude/longitude of that tile."""
+    n = 2 ** zoom
+    lon = tx / n * 360.0 - 180.0
+    lat = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * ty / n))))
+    return lat, lon
 
 
 def download_satellite_image(
@@ -47,6 +61,16 @@ def download_satellite_image(
         grid_size = 2
         half = grid_size // 2
         stitched = Image.new("RGB", (tile_size * grid_size, tile_size * grid_size))
+
+        # Compute geographic bounds of the stitched image
+        top_left_lat, top_left_lon = _tile_to_latlon(center_x - half, center_y - half, zoom)
+        bot_right_lat, bot_right_lon = _tile_to_latlon(center_x + half + 1, center_y + half + 1, zoom)
+
+        # Store bounds globally so footprint_detection.py can use them
+        _last_image_bounds["min_lon"] = top_left_lon
+        _last_image_bounds["max_lon"] = bot_right_lon
+        _last_image_bounds["min_lat"] = bot_right_lat   # Note: lat decreases going down
+        _last_image_bounds["max_lat"] = top_left_lat
 
         # Try Stadia Maps first, then ESRI
         primary_success = False
@@ -79,6 +103,7 @@ def download_satellite_image(
         if primary_success:
             stitched.save(output_path)
             print(f"Fine-tuned Satellite Image saved to: {output_path}")
+            print(f"Image Geo Bounds: [{_last_image_bounds['min_lat']:.4f},{_last_image_bounds['min_lon']:.4f}] to [{_last_image_bounds['max_lat']:.4f},{_last_image_bounds['max_lon']:.4f}]")
             return output_path
         else:
             return _get_fallback_image()
