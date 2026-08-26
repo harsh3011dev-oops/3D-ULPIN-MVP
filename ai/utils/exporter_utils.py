@@ -54,9 +54,32 @@ def export_to_obj(pipeline_output: dict, output_path: str = "exports/building.ob
         coords = coords[:-1]
 
     n = len(coords)
+    if n == 0:
+        raise ValueError("No coordinates in polygon.")
+
+    # Convert geographic coordinates (degrees) to local metric meters (centered at 0,0)
+    # 1 deg latitude ~ 110540 meters, 1 deg longitude ~ 111320 * cos(lat) meters
+    import math
+    center_x = sum(x for x, y in coords) / n
+    center_y = sum(y for x, y in coords) / n
+    lat_rad = math.radians(center_y)
+    m_per_deg_lon = 111320.0 * math.cos(lat_rad)
+    m_per_deg_lat = 110540.0
+
+    metric_coords = []
+    for x, y in coords:
+        # Check if coordinates are in degrees (GPS) or already in pixels/meters
+        if abs(x) <= 180 and abs(y) <= 90:
+            local_x = (x - center_x) * m_per_deg_lon
+            local_z = (y - center_y) * m_per_deg_lat
+        else:
+            # Fallback for pixel coordinates: center and scale
+            local_x = (x - center_x) * 0.1
+            local_z = (y - center_y) * 0.1
+        metric_coords.append((local_x, local_z))
 
     lines = [
-        f"# 3D ULPIN Building Export",
+        f"# 3D ULPIN Building Export (Local Metric Units)",
         f"# Building ID: {building_id}",
         f"# Height: {height}m",
         "",
@@ -65,10 +88,10 @@ def export_to_obj(pipeline_output: dict, output_path: str = "exports/building.ob
     ]
 
     # Define vertices: bottom ring first, then top ring
-    for x, y in coords:
-        lines.append(f"v {x:.6f} 0.0 {y:.6f}")   # Ground (z=0)
-    for x, y in coords:
-        lines.append(f"v {x:.6f} {height:.2f} {y:.6f}")  # Roof (z=height)
+    for lx, lz in metric_coords:
+        lines.append(f"v {lx:.3f} 0.000 {lz:.3f}")   # Ground (y=0)
+    for lx, lz in metric_coords:
+        lines.append(f"v {lx:.3f} {height:.3f} {lz:.3f}")  # Roof (y=height)
 
     lines.append("")
     lines.append("# Walls (side faces)")
