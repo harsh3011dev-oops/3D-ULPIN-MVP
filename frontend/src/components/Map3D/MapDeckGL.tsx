@@ -203,7 +203,7 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       </DeckGL>
 
       {/* Floating Toolbar Controls */}
-      <div className="map-toolbar glass-panel absolute top-4 right-4 flex flex-col gap-2 p-2 z-10 bg-slate-900/90 border-white/10 shadow-xl">
+      <div className="map-toolbar absolute top-4 right-4 flex flex-col gap-2 p-2 z-10 bg-slate-900/90 backdrop-blur border border-white/10 rounded-lg shadow-xl">
         <button
           className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center text-gray-300 bg-slate-800/80 border border-white/10 hover:text-white hover:bg-blue-600 transition-all shadow-md"
           onClick={handleRotate}
@@ -245,7 +245,7 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       </div>
 
       {/* Geographic Coordinates & Location Banner Header */}
-      <div className="location-banner-header glass-panel absolute top-4 left-4 p-2.5 z-10 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur rounded-lg border-blue-500/40 shadow-xl">
+      <div className="location-banner-header absolute top-4 left-4 p-2.5 z-10 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur rounded-lg border border-blue-500/40 shadow-xl">
         <div className="w-7 h-7 rounded-md bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center justify-center">
           <MapPin size={16} />
         </div>
@@ -262,7 +262,7 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       {/* Hover Unit Tooltip Overlay */}
       {hoverInfo && hoverInfo.object && (
         <div
-          className="unit-hover-tooltip glass-panel fade-in absolute z-20 pointer-events-none p-3 border border-blue-500/40 shadow-glow rounded-lg bg-slate-900/95"
+          className="unit-hover-tooltip fade-in absolute z-20 pointer-events-none p-3 border border-blue-500/40 shadow-xl rounded-lg bg-slate-900/95 backdrop-blur"
           style={{ left: hoverInfo.x + 15, top: hoverInfo.y - 40 }}
         >
           <div className="tooltip-header flex items-center gap-2">

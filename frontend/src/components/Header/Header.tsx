@@ -1,56 +1,105 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Box, Upload, Compass, Globe, Cpu } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Box, Upload, Compass, Search } from 'lucide-react';
 import './Header.css';
+
+const NAV_ITEMS = [
+  { label: 'Home',       icon: Upload,  to: '/' },
+  { label: 'Explore',    icon: Search,  to: '/explore' },
+  { label: '3D Explorer',icon: Compass, to: '/map/bldg-tajmahal-007' },
+];
 
 export default function Header() {
   const location = useLocation();
   const isHome = location.pathname === '/';
   const isMap = location.pathname.startsWith('/map');
+  const [hoveredNav, setHoveredNav] = useState<string | null>(null);
+
+  const activeRoute = isHome ? '/' : isMap ? '/map' : '/';
 
   return (
-    <header className="app-header">
-      {/* Brand */}
-      <div className="header-brand">
-        <Link to="/" className="brand-logo">
-          <div className="logo-icon-wrapper">
-            <Box size={20} />
-          </div>
+    <>
+      {/* SVG Gooey filter — hidden, rendered for CSS filter */}
+      <svg style={{ position: 'absolute', width: 0, height: 0 }} aria-hidden>
+        <defs>
+          <filter id="gooey">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
+            <feColorMatrix
+              in="blur"
+              mode="matrix"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9"
+              result="gooey"
+            />
+            <feComposite in="SourceGraphic" in2="gooey" operator="atop" />
+          </filter>
+        </defs>
+      </svg>
+
+      <motion.header
+        className="app-header"
+        initial={{ y: -100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+      >
+        {/* Brand — Left */}
+        <Link to="/" className="header-brand">
+          <motion.div
+            className="logo-icon-wrapper"
+            whileHover={{ scale: 1.08, rotate: 4 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 300 }}
+          >
+            <Box size={18} />
+          </motion.div>
           <div className="brand-text">
-            <span className="brand-title">3D ULPIN</span>
+            <span className="brand-title font-display">3D ULPIN</span>
             <span className="brand-tagline">Cadastral Intelligence</span>
           </div>
+          <span className="badge-mvp">MVP</span>
         </Link>
-        <span className="badge-mvp">MVP</span>
-      </div>
 
-      {/* Nav */}
-      <nav className="header-nav">
-        <Link to="/" className={`nav-link ${isHome ? 'active' : ''}`}>
-          <Upload size={15} />
-          <span>Submit Building</span>
-        </Link>
-        <Link to="/map/bldg-tajmahal-007" className={`nav-link ${isMap ? 'active' : ''}`}>
-          <Compass size={15} />
-          <span>3D Explorer</span>
-        </Link>
-      </nav>
+        {/* Center Gooey Nav */}
+        <nav
+          className="header-nav-gooey"
+          onMouseLeave={() => setHoveredNav(null)}
+        >
+          <div className="gooey-pill-track" style={{ filter: 'url(#gooey)' }}>
+            {NAV_ITEMS.map((item) => {
+              const isActive =
+                item.to === '/' ? isHome : location.pathname.startsWith('/map');
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={`gooey-nav-item ${isActive ? 'active' : ''}`}
+                  onMouseEnter={() => setHoveredNav(item.to)}
+                >
+                  {isActive && (
+                    <motion.span
+                      className="gooey-active-blob"
+                      layoutId="gooey-active"
+                      transition={{
+                        type: 'spring',
+                        stiffness: 380,
+                        damping: 30,
+                      }}
+                    />
+                  )}
+                  <span className="gooey-nav-icon">
+                    <Icon size={14} />
+                  </span>
+                  <span className="gooey-nav-label">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
 
-      {/* Status */}
-      <div className="header-actions">
-        <div className="tech-chip">
-          <Globe size={12} />
-          <span>MapLibre</span>
-        </div>
-        <div className="tech-chip cyan">
-          <Cpu size={12} />
-          <span>deck.gl</span>
-        </div>
-        <div className="system-status-indicator">
-          <span className="status-dot"></span>
-          <span>AI Engine</span>
-        </div>
-      </div>
-    </header>
+        {/* Right — empty spacer to keep brand/nav balanced */}
+        <div className="header-actions" />
+      </motion.header>
+    </>
   );
 }

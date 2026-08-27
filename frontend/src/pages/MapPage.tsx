@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import Header from '../components/Header/Header';
 import Map3D from '../components/Map3D/Map3D';
 import FloorSelector from '../components/FloorSelector/FloorSelector';
@@ -9,25 +10,26 @@ import { getBuilding } from '../api/api';
 import { PRESETS } from '../mocks/mockBuilding';
 import { Building, Unit } from '../types';
 import {
-  Building2,
-  MapPin,
-  Layers,
-  BarChart3,
-  Search,
-  FileCheck,
-  ShieldCheck,
-  Activity
+  Building2, MapPin, Layers, BarChart3, Search,
+  FileCheck, ShieldCheck, Activity
 } from 'lucide-react';
 import './MapPage.css';
+
+const SIDEBAR_NAV = [
+  { id: 'layer',     label: 'Layer Stack',     icon: Layers },
+  { id: 'analytics', label: 'Analytics',       icon: BarChart3 },
+  { id: 'registry',  label: 'Parcel Registry', icon: Search },
+  { id: 'audit',     label: 'Permit Audit',    icon: FileCheck },
+];
 
 export default function MapPage() {
   const { buildingId } = useParams<{ buildingId: string }>();
 
-  const [building, setBuilding] = useState<Building | null>(null);
+  const [building, setBuilding]           = useState<Building | null>(null);
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
-  const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
+  const [selectedUnit, setSelectedUnit]   = useState<Unit | null>(null);
   const [activePresetKey, setActivePresetKey] = useState<string>('cyber-city');
-  const [activeTab, setActiveTab] = useState<'layer' | 'analytics' | 'registry' | 'audit'>('layer');
+  const [activeTab, setActiveTab]         = useState('layer');
 
   useEffect(() => {
     async function loadData() {
@@ -35,9 +37,7 @@ export default function MapPage() {
       const data = await getBuilding(idToFetch);
       if (data) {
         setBuilding(data);
-        if (data.units && data.units.length > 0) {
-          setSelectedUnit(data.units[0]);
-        }
+        if (data.units?.length > 0) setSelectedUnit(data.units[0]);
       }
     }
     loadData();
@@ -52,72 +52,56 @@ export default function MapPage() {
       const data = await getBuilding(presetObj.building.building_id);
       if (data) {
         setBuilding(data);
-        if (data.units && data.units.length > 0) {
-          setSelectedUnit(data.units[0]);
-        }
+        if (data.units?.length > 0) setSelectedUnit(data.units[0]);
       }
     }
   };
 
   const firstCoord = building?.footprint?.coordinates?.[0]?.[0];
-  const currentLat = firstCoord ? firstCoord[1].toFixed(4) : '28.4942';
-  const currentLng = firstCoord ? firstCoord[0].toFixed(4) : '77.0886';
-  const currentAlt = building?.height ? `${building.height}M AMSL` : '45.0M AMSL';
+  const currentLat = firstCoord ? Number(firstCoord[1]).toFixed(4) : '28.4942';
+  const currentLng = firstCoord ? Number(firstCoord[0]).toFixed(4) : '77.0886';
 
   return (
-    <div className="page-layout">
+    <div className="map-page">
       <Header />
 
-      <div className="map-page-wrapper">
+      <div className="map-content-area">
 
-        {/* ── Left Toolkit Sidebar (From Zip 1 Design) ── */}
-        <aside className="geospatial-toolkit-sidebar">
-          <div className="sidebar-section-label font-mono">GEOSPATIAL TOOLKIT</div>
-          
-          <nav className="toolkit-nav">
+        {/* ── Left Sidebar ── */}
+        <motion.aside
+          className="map-left-sidebar"
+          initial={{ x: -20, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+        >
+          <div className="sidebar-section-label">Spatial Toolkit</div>
+
+          {SIDEBAR_NAV.map(({ id, label, icon: Icon }) => (
             <button
-              className={`toolkit-nav-btn ${activeTab === 'layer' ? 'active' : ''}`}
-              onClick={() => setActiveTab('layer')}
+              key={id}
+              className={`sidebar-nav-item ${activeTab === id ? 'active' : ''}`}
+              onClick={() => setActiveTab(id)}
             >
-              <Layers size={16} />
-              <span>Layer Stack</span>
+              <Icon size={15} />
+              {label}
             </button>
+          ))}
 
-            <button
-              className={`toolkit-nav-btn ${activeTab === 'analytics' ? 'active' : ''}`}
-              onClick={() => setActiveTab('analytics')}
-            >
-              <BarChart3 size={16} />
-              <span>Analytics</span>
-            </button>
-
-            <button
-              className={`toolkit-nav-btn ${activeTab === 'registry' ? 'active' : ''}`}
-              onClick={() => setActiveTab('registry')}
-            >
-              <Search size={16} />
-              <span>Parcel Registry</span>
-            </button>
-
-            <button
-              className={`toolkit-nav-btn ${activeTab === 'audit' ? 'active' : ''}`}
-              onClick={() => setActiveTab('audit')}
-            >
-              <FileCheck size={16} />
-              <span>Permit Audit</span>
-            </button>
-          </nav>
-
-          {/* Coordinate Badge */}
-          <div className="sidebar-coords-box font-mono">
-            <div>LAT: {currentLat} N</div>
-            <div>LON: {currentLng} E</div>
-            <div>ALT: {currentAlt}</div>
+          {/* Coord badge */}
+          <div style={{
+            marginTop: 'auto', padding: '12px 10px',
+            borderTop: '1px solid var(--border-subtle)',
+            fontFamily: 'var(--font-mono)', fontSize: '0.62rem',
+            color: 'var(--text-muted)', lineHeight: 1.8
+          }}>
+            <div style={{ color: 'var(--accent-lavender)', fontWeight: 700, marginBottom: 4 }}>COORDINATES</div>
+            <div>LAT: {currentLat}° N</div>
+            <div>LON: {currentLng}° E</div>
           </div>
-        </aside>
+        </motion.aside>
 
-        {/* ── Center 3D Viewport Stage ── */}
-        <div className="map-stage-container">
+        {/* ── 3D Viewport ── */}
+        <div className="map-viewport">
           <Map3D
             building={building}
             selectedFloor={selectedFloor}
@@ -126,14 +110,18 @@ export default function MapPage() {
           />
         </div>
 
-        {/* ── Right Data & Analysis Sidebar ── */}
-        <aside className="map-sidebar">
-
+        {/* ── Right Sidebar ── */}
+        <motion.aside
+          className="map-right-sidebar"
+          initial={{ x: 20, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.4, ease: 'easeOut', delay: 0.05 }}
+        >
           {/* Location Switcher */}
-          <div className="location-switcher-card glass-panel">
-            <label className="switcher-lbl font-mono">LOCATION TARGET</label>
+          <div className="location-target-header">
+            <div className="location-target-label">Location Target</div>
             <select
-              className="location-switcher-select"
+              className="location-preset-select"
               value={activePresetKey}
               onChange={handleLocationSwitch}
             >
@@ -144,84 +132,93 @@ export default function MapPage() {
             </select>
           </div>
 
-          {/* Building Overview Summary */}
+          {/* Building Meta */}
           {building && (
-            <div className="building-summary-panel glass-panel">
-              <div className="summary-header">
-                <div className="summary-icon">
-                  <Building2 size={20} />
+            <div className="building-meta">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                  background: 'var(--accent-lavender-soft)', color: 'var(--accent-lavender)',
+                  border: '1.5px solid rgba(124,111,224,0.2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <Building2 size={16} />
                 </div>
-                <div>
-                  <h3 className="building-name">{building.building_name || 'Cadastral Building'}</h3>
-                  <p className="building-address">
-                    <MapPin size={12} />
-                    {building.address || 'Parcel Coordinates Loaded'}
-                  </p>
-                </div>
+                <h3 className="building-name font-display">
+                  {building.building_name || 'Cadastral Building'}
+                </h3>
               </div>
-
-              <div className="building-stats-strip">
-                <div className="stat-badge">
-                  <span className="stat-lbl">Height</span>
-                  <span className="stat-val">{building.height}m</span>
-                </div>
-                <div className="stat-badge">
-                  <span className="stat-lbl">Floors</span>
-                  <span className="stat-val">{building.floor_count}F</span>
-                </div>
-                <div className="stat-badge">
-                  <span className="stat-lbl">Units</span>
-                  <span className="stat-val">{building.units?.length || 0}</span>
-                </div>
+              <p className="building-address" style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
+                <MapPin size={11} style={{ flexShrink: 0, marginTop: 2 }} />
+                {building.address || 'Parcel Coordinates Loaded'}
+              </p>
+              <div className="building-stats-row">
+                <span className="bstat-chip">
+                  <Activity size={10} /> {building.height}m
+                </span>
+                <span className="bstat-chip">
+                  <Layers size={10} /> {building.floor_count}F
+                </span>
+                <span className="bstat-chip">
+                  <ShieldCheck size={10} /> {building.units?.length || 0} units
+                </span>
               </div>
             </div>
           )}
 
-          {/* Spatial Validation Alert */}
+          {/* Validation */}
           {building?.validation && (
-            <ValidationAlert validation={building.validation} />
+            <div style={{ padding: '0 14px 10px' }}>
+              <ValidationAlert validation={building.validation} />
+            </div>
           )}
 
           {/* Floor Isolator */}
           {building && (
-            <FloorSelector
-              totalFloors={building.floor_count}
-              selectedFloor={selectedFloor}
-              onSelectFloor={(floor) => setSelectedFloor(floor)}
-            />
-          )}
-
-          {/* Selected Unit Specs & Copy ULPIN Panel */}
-          {selectedUnit && (
-            <UnitCard unit={selectedUnit} />
-          )}
-
-          {/* Structural Integrity Score Panel (Zip 1 Design) */}
-          <div className="structural-score-card glass-panel">
-            <div className="score-text-group">
-              <span className="score-lbl font-mono">STRUCTURAL INTEGRITY SCORE</span>
-              <span className="score-val">
-                98.4<span className="score-pct">%</span>
-              </span>
-            </div>
-            {/* SVG Donut Chart */}
-            <svg className="score-donut" width="44" height="44" viewBox="0 0 40 40">
-              <circle className="donut-bg" cx="20" cy="20" r="16" strokeWidth="4" fill="none" />
-              <circle
-                className="donut-fill"
-                cx="20"
-                cy="20"
-                r="16"
-                strokeWidth="4"
-                fill="none"
-                strokeDasharray="100.53"
-                strokeDashoffset="1.6"
-                strokeLinecap="round"
+            <div className="floor-isolator-section">
+              <div className="section-title">Floor Isolator</div>
+              <FloorSelector
+                totalFloors={building.floor_count}
+                selectedFloor={selectedFloor}
+                onSelectFloor={(floor) => setSelectedFloor(floor)}
               />
-            </svg>
-          </div>
+            </div>
+          )}
 
-        </aside>
+          {/* Unit Cards */}
+          <div className="unit-list-area">
+            {selectedUnit && <UnitCard unit={selectedUnit} />}
+
+            {/* Structural Score */}
+            <div style={{
+              marginTop: 8, padding: '14px 16px', borderRadius: 'var(--radius-md)',
+              background: '#ffffff', border: '1.5px solid var(--border-subtle)',
+              boxShadow: 'var(--shadow-sm)', display: 'flex',
+              alignItems: 'center', justifyContent: 'space-between'
+            }}>
+              <div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem',
+                  color: 'var(--text-muted)', textTransform: 'uppercase',
+                  letterSpacing: '0.8px', marginBottom: 4 }}>
+                  Structural Integrity
+                </div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem',
+                  fontWeight: 800, color: 'var(--primary)' }}>
+                  98.4<span style={{ fontSize: '0.85rem', fontWeight: 400,
+                    color: 'var(--text-muted)' }}>%</span>
+                </div>
+              </div>
+              <svg width="44" height="44" viewBox="0 0 40 40">
+                <circle cx="20" cy="20" r="16" strokeWidth="4" fill="none"
+                  stroke="var(--surface-container)" />
+                <circle cx="20" cy="20" r="16" strokeWidth="4" fill="none"
+                  stroke="var(--accent-sage)" strokeDasharray="100.53"
+                  strokeDashoffset="1.6" strokeLinecap="round"
+                  style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }} />
+              </svg>
+            </div>
+          </div>
+        </motion.aside>
 
       </div>
     </div>

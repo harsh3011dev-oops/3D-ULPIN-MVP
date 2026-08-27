@@ -403,7 +403,7 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
       <div ref={mountRef} className="w-full h-full min-h-[520px]" />
 
       {/* Floating Controls */}
-      <div className="map-toolbar glass-panel absolute top-4 right-4 flex flex-col gap-2 p-2 z-10">
+      <div className="map-toolbar absolute top-4 right-4 flex flex-col gap-2 p-2 z-10 bg-slate-900/90 backdrop-blur border border-white/10 rounded-lg shadow-xl">
         <button
           className={`toolbar-btn w-9 h-9 rounded-md flex items-center justify-center border transition-all shadow-md ${
             autoRotate ? 'bg-amber-600 border-amber-400 text-white shadow-glow' : 'bg-slate-800/80 border-white/10 text-gray-300 hover:bg-amber-600 hover:text-white'
@@ -442,7 +442,7 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
       </div>
 
       {/* Location Banner Header */}
-      <div className="location-banner-header glass-panel absolute top-4 left-4 p-2.5 z-10 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur rounded-lg border-amber-500/40">
+      <div className="location-banner-header absolute top-4 left-4 p-2.5 z-10 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur rounded-lg border border-amber-500/40 shadow-xl">
         <div className="w-7 h-7 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center">
           <MapPin size={16} />
         </div>
@@ -458,7 +458,7 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
 
       {/* Hover Info Badge */}
       {hoveredUnitId && (
-        <div className="absolute bottom-16 left-4 z-10 glass-panel p-3 border border-amber-500/40 bg-slate-900/90 shadow-glow rounded-lg">
+        <div className="absolute bottom-16 left-4 z-10 p-3 border border-amber-500/40 bg-slate-900/90 backdrop-blur shadow-xl rounded-lg">
           <div className="flex items-center gap-2">
             <Sparkles size={14} className="text-amber-400" />
             <span className="text-xs font-extrabold text-white">Click to Select Cadastral Zone</span>

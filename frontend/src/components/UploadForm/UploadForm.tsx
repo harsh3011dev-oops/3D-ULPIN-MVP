@@ -118,10 +118,10 @@ export default function UploadForm() {
     <div className="upload-form-card glass-panel fade-in">
       <div className="form-header">
         <div className="header-icon-box">
-          <Sparkles size={24} />
+          <Sparkles size={22} />
         </div>
         <div>
-          <h2 className="form-title">Submit Building for 3D ULPIN Generation</h2>
+          <h2 className="form-title font-display">Submit Building for 3D ULPIN Generation</h2>
           <p className="form-subtitle">
             Convert 2D aerial imagery and cadastral plot records into a 3D Volumetric deck.gl + MapLibre model.
           </p>
