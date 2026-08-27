@@ -86,7 +86,9 @@ export default function ValidationAlert({ validation }: ValidationAlertProps) {
             <div className="error-category">
               <h4 className="category-title">Audit Logs</h4>
               {validation.errors.map((err, i) => (
-                <p key={i} className="error-log-line">• {err}</p>
+                <p key={i} className="error-log-line">
+                  • {typeof err === 'string' ? err : `[${err.type}] ${err.unit_id}: ${err.description}`}
+                </p>
               ))}
             </div>
           )}

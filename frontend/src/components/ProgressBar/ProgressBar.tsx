@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cpu, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { Cpu, CheckCircle2, Loader2, AlertCircle, ScanSearch, Box, Scissors, Hash, ShieldCheck, LayoutGrid } from 'lucide-react';
 import './ProgressBar.css';
 
 interface ProgressBarProps {
@@ -9,14 +9,17 @@ interface ProgressBarProps {
   error?: string | null;
 }
 
-export default function ProgressBar({ progress, stepText, status, error }: ProgressBarProps) {
-  const steps = [
-    { title: "Footprint Detection", threshold: 25 },
-    { title: "deck.gl Extrusion", threshold: 50 },
-    { title: "Volumetric Division", threshold: 75 },
-    { title: "ULPIN Hash Generation", threshold: 100 },
-  ];
+// Exact 6-step pipeline from AI Blueprint pipeline.py
+const PIPELINE_STEPS = [
+  { title: "Footprint Detection",   desc: "OpenCV contour + Canny edge detection",  icon: ScanSearch,  threshold: 17 },
+  { title: "3D Extrusion",          desc: "Shapely 2D → Building3D with z_min/z_max", icon: Box,         threshold: 34 },
+  { title: "Floor Division",        desc: "Horizontal slicing into floor slabs",       icon: Scissors,    threshold: 51 },
+  { title: "Unit Subdivision",      desc: "Grid-based cadastral unit partitioning",    icon: LayoutGrid,  threshold: 68 },
+  { title: "ULPIN Generation",      desc: "Geohash-based unique 3D spatial IDs",      icon: Hash,        threshold: 85 },
+  { title: "Spatial Validation",    desc: "Overlap & boundary constraint checks",      icon: ShieldCheck, threshold: 100 },
+];
 
+export default function ProgressBar({ progress, stepText, status, error }: ProgressBarProps) {
   return (
     <div className="progress-bar-card glass-panel fade-in">
       <div className="progress-header">
@@ -33,9 +36,9 @@ export default function ProgressBar({ progress, stepText, status, error }: Progr
           <div>
             <h3 className="progress-title">
               {status === 'failed'
-                ? 'Processing Failed'
+                ? 'AI Pipeline Failed'
                 : progress >= 100
-                ? '3D ULPIN Cadastral Ready'
+                ? '3D ULPIN Cadastral Model Ready ✓'
                 : 'AI Volumetric Extraction Pipeline'}
             </h3>
             <p className="progress-subtitle">{stepText}</p>
@@ -57,27 +60,33 @@ export default function ProgressBar({ progress, stepText, status, error }: Progr
         </div>
       </div>
 
-      {/* Pipeline Milestone Steps */}
-      <div className="pipeline-steps-grid">
-        {steps.map((s, idx) => {
+      {/* 6-Step AI Pipeline Milestones */}
+      <div className="pipeline-steps-grid-6">
+        {PIPELINE_STEPS.map((s, idx) => {
           const isDone = progress >= s.threshold;
-          const isCurrent = progress < s.threshold && (idx === 0 || progress >= steps[idx - 1].threshold);
+          const prevThreshold = idx === 0 ? 0 : PIPELINE_STEPS[idx - 1].threshold;
+          const isCurrent = !isDone && progress >= prevThreshold;
+          const StepIcon = s.icon;
 
           return (
             <div
               key={idx}
-              className={`step-item ${isDone ? 'done' : ''} ${isCurrent ? 'current' : ''}`}
+              className={`step-item-6 ${isDone ? 'done' : ''} ${isCurrent ? 'current' : ''}`}
+              title={s.desc}
             >
-              <div className="step-indicator">
+              <div className="step-indicator-6">
                 {isDone ? (
-                  <CheckCircle2 size={16} />
+                  <CheckCircle2 size={15} />
                 ) : isCurrent ? (
-                  <Loader2 size={16} className="spinner" />
+                  <Loader2 size={15} className="spinner" />
                 ) : (
-                  <span>{idx + 1}</span>
+                  <StepIcon size={15} />
                 )}
               </div>
-              <span className="step-name">{s.title}</span>
+              <div className="step-text-6">
+                <span className="step-name-6">{s.title}</span>
+                <span className="step-desc-6">{s.desc}</span>
+              </div>
             </div>
           );
         })}

@@ -45,11 +45,11 @@ const PRESETS: Preset[] = [
   },
   {
     id: "preset-bkc",
-    name: "BKC Financial Tower (Mumbai)",
+    name: "BKC IFSC Financial Tower (Mumbai)",
     parcel_id: "PARCEL_502_MUMBAI",
     aerial_image_url: "https://images.unsplash.com/photo-1577495508048-b635879837f1?q=80&w=800",
-    height_meters: 32.0,
-    floor_count: 10,
+    height_meters: 96.0,
+    floor_count: 24,
     coords: "[[72.868, 19.065], [72.870, 19.065], [72.870, 19.067], [72.868, 19.067]]"
   }
 ];

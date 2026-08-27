@@ -3,6 +3,16 @@ export interface GeoJSONPolygon {
   coordinates: number[][][];
 }
 
+export interface Extrusion3D {
+  type: "Building3D";
+  footprint?: GeoJSONPolygon;
+  z_min: number;
+  z_max: number;
+  floor_height_m: number;
+  floor_count: number;
+  volume_m3?: number;
+}
+
 export interface Unit {
   unit_id: string;
   ulpin: string;
@@ -12,11 +22,17 @@ export interface Unit {
   z_max: number;
   floor_height_m?: number;
   area_sqm?: number;
-  centroid?: [number, number]; // [lat, lng] or [lng, lat]
+  centroid?: [number, number]; // [lat, lng]
   polygon_2d?: GeoJSONPolygon;
   status?: string;
   owner?: string;
   use_type?: string;
+}
+
+export interface ValidationError {
+  unit_id: string;
+  type: "OVERLAP" | "OUT_OF_BOUNDS";
+  description: string;
 }
 
 export interface SpatialValidation {
@@ -24,7 +40,7 @@ export interface SpatialValidation {
   overlaps_detected: boolean;
   overlapping_units?: [string, string][];
   out_of_bounds?: string[];
-  errors?: string[];
+  errors?: (string | ValidationError)[];
 }
 
 export interface Building {
@@ -38,6 +54,7 @@ export interface Building {
   height: number;
   floor_count: number;
   total_units?: number;
+  extrusion_3d?: Extrusion3D;
   units: Unit[];
   validation?: SpatialValidation;
   created_at?: string;

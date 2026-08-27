@@ -242,31 +242,42 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
       scene.add(spireMesh);
 
     } else if (isMumbai) {
-      // 🏙️ MUMBAI BKC FINANCIAL TWIN TOWERS & SKYBRIDGE
-      const podiumGeo = new THREE.BoxGeometry(15, 1.8, 11);
+      // 🏙️ MUMBAI BKC IFSC FINANCIAL HIGH-RISE TOWER (96m height / 24 Floors)
+      const podiumGeo = new THREE.BoxGeometry(15, 2.2, 11);
       const podiumMesh = new THREE.Mesh(podiumGeo, bronzeMaterial);
-      podiumMesh.position.y = 0.9;
+      podiumMesh.position.y = 1.1;
       scene.add(podiumMesh);
 
-      // Tower A
-      const towerAGeo = new THREE.BoxGeometry(5.2, 11, 8);
+      // Tower A High-rise (24 Floors)
+      const towerAGeo = new THREE.BoxGeometry(5.2, 22.0, 8);
       const towerAMesh = new THREE.Mesh(towerAGeo, blueFacadeMaterial);
-      towerAMesh.position.set(-3.5, 7.3, 0);
+      towerAMesh.position.set(-3.5, 13.2, 0);
       towerAMesh.castShadow = true;
       scene.add(towerAMesh);
 
-      // Tower B
-      const towerBGeo = new THREE.BoxGeometry(5.2, 11, 8);
+      // Tower B High-rise (24 Floors)
+      const towerBGeo = new THREE.BoxGeometry(5.2, 22.0, 8);
       const towerBMesh = new THREE.Mesh(towerBGeo, blueFacadeMaterial);
-      towerBMesh.position.set(3.5, 7.3, 0);
+      towerBMesh.position.set(3.5, 13.2, 0);
       towerBMesh.castShadow = true;
       scene.add(towerBMesh);
 
-      // Skybridge (Connecting Floor 6)
-      const bridgeGeo = new THREE.BoxGeometry(3.0, 1.6, 5.0);
-      const bridgeMesh = new THREE.Mesh(bridgeGeo, glassMaterial);
-      bridgeMesh.position.set(0, 9.5, 0);
-      scene.add(bridgeMesh);
+      // Skybridge (Connecting Floor 12 & 18)
+      const bridgeGeo1 = new THREE.BoxGeometry(3.0, 1.6, 5.0);
+      const bridgeMesh1 = new THREE.Mesh(bridgeGeo1, glassMaterial);
+      bridgeMesh1.position.set(0, 12.5, 0);
+      scene.add(bridgeMesh1);
+
+      const bridgeGeo2 = new THREE.BoxGeometry(3.0, 1.6, 5.0);
+      const bridgeMesh2 = new THREE.Mesh(bridgeGeo2, glassMaterial);
+      bridgeMesh2.position.set(0, 18.5, 0);
+      scene.add(bridgeMesh2);
+
+      // Spire / Crown
+      const crownGeo = new THREE.BoxGeometry(11, 1.2, 7);
+      const crownMesh = new THREE.Mesh(crownGeo, steelMaterial);
+      crownMesh.position.set(0, 24.8, 0);
+      scene.add(crownMesh);
 
     } else if (isDelhi) {
       // 🏛️ DELHI DWARKA SECTOR 14 COMPLEX
