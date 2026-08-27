@@ -1,7 +1,7 @@
 .floor-selector-panel {
   padding: 16px;
   width: 100%;
-  background: rgba(22, 27, 39, 0.85);
+  background: #ffffff;
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
@@ -20,19 +20,19 @@
   gap: 8px;
   font-weight: 700;
   font-size: 0.88rem;
-  color: #ffffff;
+  color: #0f172a;
 }
 
 .icon-blue {
-  color: var(--accent-blue-light);
+  color: #d97706;
 }
 
 .reset-floor-btn {
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--accent-cyan);
-  background: rgba(6, 182, 212, 0.12);
-  border: 1px solid rgba(6, 182, 212, 0.25);
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.1);
+  border: 1px solid rgba(217, 119, 6, 0.25);
   padding: 3px 10px;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -40,7 +40,7 @@
 }
 
 .reset-floor-btn:hover {
-  background: rgba(6, 182, 212, 0.25);
+  background: rgba(217, 119, 6, 0.2);
 }
 
 .slider-wrapper {
@@ -58,16 +58,16 @@
 }
 
 .current-level-tag {
-  color: var(--accent-blue-light);
+  color: #d97706;
   font-weight: 700;
 }
 
 .floor-range-slider {
   width: 100%;
-  accent-color: #ffffff;
+  accent-color: #d97706;
   height: 6px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.1);
+  background: #efeeea;
   cursor: pointer;
 }
 
@@ -84,7 +84,7 @@
   font-size: 0.75rem;
   font-weight: 600;
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.03);
+  background: #f5f3ef;
   border: 1px solid var(--border-glass);
   color: var(--text-secondary);
   text-align: center;
@@ -93,13 +93,13 @@
 }
 
 .floor-pill:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  background: #efeeea;
+  color: #0f172a;
 }
 
 .floor-pill.active {
-  background: #ffffff;
-  border-color: #ffffff;
-  color: #060a12;
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.25);
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
 }

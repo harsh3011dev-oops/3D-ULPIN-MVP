@@ -7,10 +7,10 @@
   position: sticky;
   top: 0;
   z-index: 200;
-  background: rgba(6, 10, 18, 0.85);
+  background: rgba(251, 249, 245, 0.92);
   backdrop-filter: blur(20px) saturate(1.5);
   -webkit-backdrop-filter: blur(20px) saturate(1.5);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(217, 119, 6, 0.15);
 }
 
 /* Brand */
@@ -32,11 +32,11 @@
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  background: #ffffff;
+  background: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #060a12;
+  color: var(--accent-amber);
   flex-shrink: 0;
 }
 
@@ -45,8 +45,8 @@
 .brand-title {
   font-size: 1.1rem;
   font-weight: 800;
-  letter-spacing: -0.2px;
-  color: #ffffff;
+  letter-spacing: -0.3px;
+  color: #0f172a;
   line-height: 1.2;
 }
 
@@ -59,9 +59,9 @@
 }
 
 .badge-mvp {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(217, 119, 6, 0.1);
+  color: #d97706;
+  border: 1px solid rgba(217, 119, 6, 0.25);
   font-size: 0.62rem;
   font-weight: 800;
   padding: 2px 7px;
@@ -75,8 +75,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #efeeea;
+  border: 1px solid rgba(118, 119, 125, 0.2);
   border-radius: var(--radius-full);
   padding: 4px;
 }
@@ -97,13 +97,13 @@
 
 .nav-link:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .nav-link.active {
-  color: #060a12;
-  background: #ffffff;
-  box-shadow: 0 0 14px rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  background: #0f172a;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
 }
 
 /* Actions */
@@ -117,9 +117,9 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  background: rgba(59, 130, 246, 0.12);
-  border: 1px solid rgba(59, 130, 246, 0.25);
-  color: var(--accent-blue-light);
+  background: rgba(217, 119, 6, 0.1);
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  color: #d97706;
   font-size: 0.72rem;
   font-weight: 600;
   padding: 4px 10px;
@@ -127,29 +127,29 @@
 }
 
 .tech-chip.cyan {
-  background: rgba(6, 182, 212, 0.12);
-  border-color: rgba(6, 182, 212, 0.25);
-  color: var(--accent-cyan);
+  background: rgba(8, 145, 178, 0.1);
+  border-color: rgba(8, 145, 178, 0.25);
+  color: #0891b2;
 }
 
 .system-status-indicator {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: rgba(5, 150, 105, 0.1);
+  border: 1px solid rgba(5, 150, 105, 0.25);
   padding: 4px 11px;
   border-radius: var(--radius-full);
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--accent-green);
+  color: #059669;
 }
 
 .status-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--accent-green);
+  background: #059669;
   animation: pulseGlow 2s infinite;
   flex-shrink: 0;
 }

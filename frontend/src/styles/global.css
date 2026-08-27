@@ -29,33 +29,33 @@ html, body {
   flex-direction: column;
 }
 
-/* ── Architectural Glass Panel (Deep Space Canvas) ── */
+/* ── Architectural Glass Panel (Technical Modernism) ── */
 .glass-panel {
-  background: var(--bg-glass);
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ── Gradient Text ── */
 .gradient-text {
-  background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+  background: linear-gradient(135deg, #d97706 0%, #c2410c 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* ── Primary Button (Solid White with Black Text matching DESIGN.md) ── */
+/* ── Primary Button (Solid Deep Slate with Amber Accent Hover) ── */
 .btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 12px 24px;
-  background: #ffffff;
-  color: #060a12;
+  background: #0f172a;
+  color: #ffffff;
   font-size: 0.85rem;
   font-weight: 700;
   font-family: var(--font-mono);
@@ -65,14 +65,14 @@ html, body {
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all var(--transition-normal);
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.15);
+  box-shadow: var(--shadow-sm);
   position: relative;
   overflow: hidden;
 }
 
 .btn-primary:hover {
-  background: #e2e8f0;
-  box-shadow: 0 0 28px rgba(255, 255, 255, 0.3);
+  background: #1e293b;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.2);
   transform: translateY(-1px);
 }
 .btn-primary:active { transform: translateY(0); }
@@ -91,20 +91,20 @@ select,
 textarea {
   width: 100%;
   padding: 10px 14px;
-  background: #060a12;
-  border: 1px solid var(--border-color);
+  background: var(--surface-container-low);
+  border: 1px solid rgba(118, 119, 125, 0.3);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-size: 0.88rem;
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
   transition: all var(--transition-fast);
   outline: none;
 }
 
 input:focus, select:focus, textarea:focus {
-  border-color: #ffffff;
-  box-shadow: 0 0 0 1px #ffffff;
-  background: #090d16;
+  border-color: #d97706;
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.2);
+  background: #ffffff;
 }
 
 input::placeholder, textarea::placeholder { color: var(--text-muted); }
@@ -146,26 +146,27 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 .maplibregl-map { font-family: var(--font-sans); }
 .maplibregl-ctrl-attrib { display: none !important; }
 .maplibregl-ctrl-group {
-  background: rgba(15, 19, 28, 0.9) !important;
+  background: #ffffff !important;
   border: 1px solid var(--border-color) !important;
   border-radius: var(--radius-sm) !important;
-  backdrop-filter: blur(12px) !important;
+  box-shadow: var(--shadow-sm) !important;
 }
 
 /* ── Custom Scrollbars ── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.15);
+  background: rgba(118, 119, 125, 0.3);
   border-radius: var(--radius-full);
 }
-::-webkit-scrollbar-thumb:hover { background: var(--accent-blue); }
+::-webkit-scrollbar-thumb:hover { background: #d97706; }
 
 /* ── Utility Classes ── */
-.text-blue    { color: var(--accent-blue-light); }
+.text-amber   { color: var(--accent-amber); }
+.text-orange  { color: var(--accent-orange); }
+.text-blue    { color: var(--accent-blue); }
 .text-cyan    { color: var(--accent-cyan); }
 .text-green   { color: var(--accent-green); }
-.text-amber   { color: var(--accent-amber); }
 .text-red     { color: var(--accent-red); }
 .text-purple  { color: var(--accent-purple); }
 .text-secondary { color: var(--text-secondary); }
@@ -174,17 +175,18 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 
 /* ── Card Hover Effect ── */
 .card-hover {
-  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal);
 }
 .card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+  border-color: rgba(217, 119, 6, 0.4);
+  box-shadow: var(--shadow-md);
 }
 
-/* ── Subtle Background Grid (Deep Space) ── */
+/* ── Technical Grid Overlay ── */
 .bg-grid {
   background-image:
-    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    linear-gradient(rgba(217,119,6,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(217,119,6,0.04) 1px, transparent 1px);
   background-size: 32px 32px;
 }

@@ -2,7 +2,7 @@
   padding: 20px;
   width: 100%;
   border-radius: var(--radius-md);
-  background: rgba(22, 27, 39, 0.85);
+  background: #ffffff;
   border: 1px solid var(--border-glass);
   box-shadow: var(--shadow-sm);
 }
@@ -27,8 +27,8 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.04);
-  color: #ffffff;
+  background: #f5f3ef;
+  color: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -38,7 +38,7 @@
 .empty-title {
   font-size: 1rem;
   font-weight: 700;
-  color: #ffffff;
+  color: #0f172a;
 }
 
 .empty-subtitle {
@@ -58,8 +58,8 @@
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--accent-blue-light);
-  background: rgba(59, 130, 246, 0.12);
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.1);
   padding: 2px 8px;
   border-radius: var(--radius-sm);
 }
@@ -67,7 +67,7 @@
 .unit-name {
   font-size: 1.1rem;
   font-weight: 800;
-  color: #ffffff;
+  color: #0f172a;
   margin-top: 4px;
 }
 
@@ -75,16 +75,16 @@
   font-family: var(--font-mono);
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--accent-cyan);
-  background: rgba(6, 182, 212, 0.1);
-  border: 1px solid rgba(6, 182, 212, 0.2);
+  color: #0891b2;
+  background: rgba(8, 145, 178, 0.1);
+  border: 1px solid rgba(8, 145, 178, 0.2);
   padding: 4px 8px;
   border-radius: var(--radius-sm);
 }
 
-/* ULPIN Box (Deep Space Theme) */
+/* ULPIN Box */
 .ulpin-box {
-  background: rgba(6, 10, 18, 0.8);
+  background: #f5f3ef;
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-sm);
   padding: 12px;
@@ -113,7 +113,7 @@
   font-size: 0.65rem;
   font-weight: 800;
   color: var(--accent-green);
-  background: rgba(16, 185, 129, 0.12);
+  background: rgba(5, 150, 105, 0.1);
   padding: 1px 6px;
   border-radius: var(--radius-sm);
 }
@@ -129,7 +129,7 @@
   font-family: var(--font-mono);
   font-size: 0.85rem;
   font-weight: 700;
-  color: var(--text-code);
+  color: #d97706;
   word-break: break-all;
 }
 
@@ -140,8 +140,8 @@
   padding: 6px 12px;
   border-radius: var(--radius-sm);
   font-size: 0.78rem;
-  background: #ffffff;
-  color: #060a12;
+  background: #0f172a;
+  color: #ffffff;
   flex-shrink: 0;
   border: none;
   cursor: pointer;
@@ -161,7 +161,7 @@
 }
 
 .spec-card {
-  background: rgba(255, 255, 255, 0.02);
+  background: #f5f3ef;
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-sm);
   padding: 10px;
@@ -185,7 +185,7 @@
 .spec-value {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #ffffff;
+  color: #0f172a;
 }
 
 .details-list {
@@ -193,7 +193,7 @@
   flex-direction: column;
   gap: 10px;
   margin-bottom: 20px;
-  background: rgba(6, 10, 18, 0.5);
+  background: #f5f3ef;
   padding: 12px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-glass);
@@ -215,7 +215,7 @@
 
 .detail-val {
   font-weight: 600;
-  color: #ffffff;
+  color: #0f172a;
 }
 
 .font-mono {
@@ -244,17 +244,17 @@
   font-family: var(--font-mono);
   font-size: 0.65rem;
   font-weight: 700;
-  background: rgba(59, 130, 246, 0.12);
-  border: 1px solid rgba(59, 130, 246, 0.22);
-  color: var(--accent-cyan);
+  background: rgba(217, 119, 6, 0.1);
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  color: #d97706;
   padding: 2px 6px;
   border-radius: 3px;
   cursor: help;
 }
 
 .ulpin-part:last-child {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.25);
+  background: rgba(5, 150, 105, 0.1);
+  border-color: rgba(5, 150, 105, 0.25);
   color: var(--accent-green);
 }
 

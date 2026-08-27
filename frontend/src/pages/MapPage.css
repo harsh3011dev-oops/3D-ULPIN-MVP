@@ -7,11 +7,10 @@
   background: var(--bg-primary);
 }
 
-/* ── Geospatial Toolkit Left Sidebar (Zip 1 Deep Space Theme) ── */
+/* ── Geospatial Toolkit Left Sidebar ── */
 .geospatial-toolkit-sidebar {
   padding: 16px 12px;
-  background: rgba(15, 19, 28, 0.95);
-  backdrop-filter: blur(20px);
+  background: #ffffff;
   border-right: 1px solid var(--border-glass);
   display: flex;
   flex-direction: column;
@@ -49,22 +48,22 @@
 }
 
 .toolkit-nav-btn:hover {
-  background: rgba(255, 255, 255, 0.04);
-  color: #ffffff;
+  background: #f5f3ef;
+  color: #0f172a;
 }
 
 .toolkit-nav-btn.active {
-  background: #ffffff;
-  border-color: #ffffff;
-  color: #060a12;
-  box-shadow: 0 0 16px rgba(255, 255, 255, 0.25);
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
 }
 
 .sidebar-coords-box {
   margin-top: auto;
   padding: 12px;
   border-radius: var(--radius-md);
-  background: rgba(6, 10, 18, 0.6);
+  background: #f5f3ef;
   border: 1px solid var(--border-glass);
   font-size: 0.7rem;
   color: var(--text-muted);
@@ -90,13 +89,12 @@
   gap: 12px;
   overflow-y: auto;
   height: 100%;
-  background: rgba(15, 19, 28, 0.95);
-  backdrop-filter: blur(20px);
+  background: #ffffff;
 }
 
 .map-sidebar::-webkit-scrollbar { width: 4px; }
 .map-sidebar::-webkit-scrollbar-track { background: transparent; }
-.map-sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 9999px; }
+.map-sidebar::-webkit-scrollbar-thumb { background: rgba(118, 119, 125, 0.2); border-radius: 9999px; }
 
 /* Location Switcher */
 .location-switcher-card {
@@ -104,7 +102,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: rgba(22, 27, 39, 0.85);
+  background: #ffffff;
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
@@ -120,10 +118,10 @@
 .location-switcher-select {
   width: 100%;
   padding: 9px 12px;
-  background: #060a12;
+  background: #f5f3ef;
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-sm);
-  color: #ffffff;
+  color: #0f172a;
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
@@ -132,16 +130,16 @@
 }
 
 .location-switcher-select:focus {
-  border-color: #ffffff;
+  border-color: #d97706;
 }
 
-/* Structural Score Card (Zip 1 Design Deep Space Theme) */
+/* Structural Score Card */
 .structural-score-card {
   padding: 14px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(22, 27, 39, 0.85);
+  background: #ffffff;
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
@@ -159,7 +157,7 @@
 .score-val {
   font-size: 1.5rem;
   font-weight: 800;
-  color: #ffffff;
+  color: #0f172a;
   letter-spacing: -0.5px;
 }
 
@@ -169,8 +167,8 @@
   transform: rotate(-90deg);
 }
 
-.donut-bg { stroke: rgba(255, 255, 255, 0.1); }
-.donut-fill { stroke: #ffffff; }
+.donut-bg { stroke: #efeeea; }
+.donut-fill { stroke: #d97706; }
 
 @media (max-width: 1100px) {
   .map-page-wrapper {
