@@ -1,8 +1,14 @@
 import React from 'react';
-import { Layers, Eye, EyeOff } from 'lucide-react';
+import { Layers } from 'lucide-react';
 import './FloorSelector.css';
 
-export default function FloorSelector({ totalFloors, selectedFloor, onSelectFloor }) {
+interface FloorSelectorProps {
+  totalFloors: number;
+  selectedFloor: number | null;
+  onSelectFloor: (floor: number | null) => void;
+}
+
+export default function FloorSelector({ totalFloors, selectedFloor, onSelectFloor }: FloorSelectorProps) {
   const floors = Array.from({ length: totalFloors }, (_, i) => i + 1);
 
   return (

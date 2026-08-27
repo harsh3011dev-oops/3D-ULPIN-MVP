@@ -1,10 +1,6 @@
-/**
- * Mock Units for 3D ULPIN Cadastral Visualization
- * Generated according to API_CONTRACT.md format:
- * ULPIN format: PARCEL_ID-BLDG_ID-F{floor}-U{unit}-{hash}
- */
+import { Unit } from '../types';
 
-export const mockUnits = [
+export const mockUnits: Unit[] = [
   // FLOOR 1 (Ground Floor - 0.0m to 3.5m)
   {
     unit_id: "UNIT_F1_A01",
@@ -323,7 +319,7 @@ export const mockUnits = [
     use_type: "Residential"
   },
 
-  // FLOOR 4 (10.5m to 14.0m) - Penthouse Level
+  // FLOOR 4 (10.5m to 14.0m)
   {
     unit_id: "UNIT_F4_PH01",
     ulpin: "PARCEL_001-BLDG_001-F04-U01-3307301",

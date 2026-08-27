@@ -3,23 +3,24 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header/Header';
 import ProgressBar from '../components/ProgressBar/ProgressBar';
 import { getJobStatus } from '../api/api';
-import { ArrowRight, RefreshCw } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import './ProcessingPage.css';
 
 export default function ProcessingPage() {
-  const { jobId } = useParams();
+  const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
 
   const [progress, setProgress] = useState(10);
-  const [stepText, setStepText] = useState('Initializing AI Volumetric Engine...');
-  const [status, setStatus] = useState('processing');
-  const [buildingId, setBuildingId] = useState(null);
-  const [error, setError] = useState(null);
+  const [stepText, setStepText] = useState('Initializing AI Volumetric Engine & deck.gl...');
+  const [status, setStatus] = useState<'processing' | 'done' | 'failed'>('processing');
+  const [buildingId, setBuildingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let intervalId;
+    let intervalId: any;
 
     const checkStatus = async () => {
+      if (!jobId) return;
       try {
         const data = await getJobStatus(jobId);
         setProgress(data.progress_pct ?? 0);
@@ -62,7 +63,7 @@ export default function ProcessingPage() {
 
           {status === 'done' && (
             <div className="success-redirect-box glass-panel fade-in">
-              <p>Generation Complete! Opening 3D Map Explorer...</p>
+              <p>Generation Complete! Opening deck.gl 3D Map Explorer...</p>
               <button
                 className="btn-primary"
                 onClick={() => navigate(`/map/${buildingId || '550e8400-e29b-41d4-a716-446655440000'}`)}

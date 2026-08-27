@@ -1,11 +1,18 @@
 import React from 'react';
-import { Cpu, CheckCircle2, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { Cpu, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import './ProgressBar.css';
 
-export default function ProgressBar({ progress, stepText, status, error }) {
+interface ProgressBarProps {
+  progress: number;
+  stepText: string;
+  status: string;
+  error?: string | null;
+}
+
+export default function ProgressBar({ progress, stepText, status, error }: ProgressBarProps) {
   const steps = [
     { title: "Footprint Detection", threshold: 25 },
-    { title: "3D Extrusion", threshold: 50 },
+    { title: "deck.gl Extrusion", threshold: 50 },
     { title: "Volumetric Division", threshold: 75 },
     { title: "ULPIN Hash Generation", threshold: 100 },
   ];

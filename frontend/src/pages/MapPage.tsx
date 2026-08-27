@@ -6,25 +6,27 @@ import UnitCard from '../components/UnitCard/UnitCard';
 import ValidationAlert from '../components/ValidationAlert/ValidationAlert';
 import FloorSelector from '../components/FloorSelector/FloorSelector';
 import { getBuilding, getValidation } from '../api/api';
-import { Building2, Layers, MapPin, Loader2 } from 'lucide-react';
+import { Building, SpatialValidation, Unit } from '../types';
+import { Building2, MapPin, Loader2 } from 'lucide-react';
 import './MapPage.css';
 
 export default function MapPage() {
-  const { buildingId } = useParams();
-  const [building, setBuilding] = useState(null);
-  const [validation, setValidation] = useState(null);
+  const { buildingId } = useParams<{ buildingId: string }>();
+  const [building, setBuilding] = useState<Building | null>(null);
+  const [validation, setValidation] = useState<SpatialValidation | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [selectedUnit, setSelectedUnit] = useState(null);
-  const [selectedFloor, setSelectedFloor] = useState(null);
+  const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
+  const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       try {
+        const id = buildingId || '550e8400-e29b-41d4-a716-446655440000';
         const [bData, vData] = await Promise.all([
-          getBuilding(buildingId),
-          getValidation(buildingId)
+          getBuilding(id),
+          getValidation(id)
         ]);
         setBuilding(bData);
         setValidation(vData);
@@ -37,13 +39,13 @@ export default function MapPage() {
     fetchData();
   }, [buildingId]);
 
-  if (loading) {
+  if (loading || !building) {
     return (
       <div className="page-layout">
         <Header />
         <div className="loading-stage">
-          <Loader2 size={40} className="icon-spin text-blue" />
-          <p className="loading-text">Loading 3D Volumetric Cadastral Models...</p>
+          <Loader2 size={40} className="icon-spin text-blue-500" />
+          <p className="loading-text">Loading deck.gl + MapLibre GL 3D Cadastral Models...</p>
         </div>
       </div>
     );

@@ -1,6 +1,7 @@
+import { Building, SpatialValidation } from '../types';
 import { mockUnits } from './mockUnits';
 
-export const mockBuilding = {
+export const mockBuilding: Building = {
   status: "success",
   building_id: "550e8400-e29b-41d4-a716-446655440000",
   parcel_id: "PARCEL_001_DELHI_DWARKA",
@@ -33,7 +34,7 @@ export const mockBuilding = {
   created_at: new Date().toISOString()
 };
 
-export const mockValidationInvalid = {
+export const mockValidationInvalid: SpatialValidation = {
   valid: false,
   overlaps_detected: true,
   overlapping_units: [

@@ -1,7 +1,7 @@
 import React from 'react';
 import Header from '../components/Header/Header';
 import UploadForm from '../components/UploadForm/UploadForm';
-import { Box, ShieldCheck, Cpu, ArrowRight } from 'lucide-react';
+import { Box, ShieldCheck, Cpu } from 'lucide-react';
 import './HomePage.css';
 
 export default function HomePage() {
@@ -14,7 +14,7 @@ export default function HomePage() {
         <section className="hero-section text-center">
           <div className="hero-badge">
             <Cpu size={14} />
-            <span>AI Cadastral Transformation</span>
+            <span>MapLibre GL + deck.gl 3D Cadastral System</span>
           </div>
 
           <h1 className="hero-title">
@@ -22,13 +22,13 @@ export default function HomePage() {
           </h1>
 
           <p className="hero-description">
-            Assign unique, legal 3D spatial identification numbers to high-rise property units using AI-driven aerial extrusion, ISO 19152 LADM standards, and automated collision validation.
+            Assign unique, legal 3D spatial identification numbers to high-rise property units using AI-driven extrusion, MapLibre base maps, deck.gl 3D visualization, and automated collision validation.
           </p>
 
           <div className="features-strip">
             <div className="feature-item">
               <Box size={16} className="text-blue" />
-              <span>Volumetric 3D Extrusion</span>
+              <span>deck.gl 3D Volumetric Extrusion</span>
             </div>
             <div className="feature-item">
               <ShieldCheck size={16} className="text-green" />
@@ -36,7 +36,7 @@ export default function HomePage() {
             </div>
             <div className="feature-item">
               <Cpu size={16} className="text-cyan" />
-              <span>Automated ULPIN Hash</span>
+              <span>OpenStreetMap / MapLibre GL</span>
             </div>
           </div>
         </section>

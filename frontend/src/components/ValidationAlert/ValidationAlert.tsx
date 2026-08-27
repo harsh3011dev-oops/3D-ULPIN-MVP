@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
 import { ShieldCheck, ShieldAlert, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { SpatialValidation } from '../../types';
 import './ValidationAlert.css';
 
-export default function ValidationAlert({ validation }) {
+interface ValidationAlertProps {
+  validation?: SpatialValidation | null;
+}
+
+export default function ValidationAlert({ validation }: ValidationAlertProps) {
   const [expanded, setExpanded] = useState(false);
 
   if (!validation) return null;
@@ -49,7 +54,7 @@ export default function ValidationAlert({ validation }) {
 
       {expanded && (
         <div className="validation-details-body" id="validation-errors-list">
-          {validation.overlapping_units?.length > 0 && (
+          {validation.overlapping_units && validation.overlapping_units.length > 0 && (
             <div className="error-category">
               <h4 className="category-title">
                 <AlertTriangle size={14} className="text-amber" />
@@ -63,7 +68,7 @@ export default function ValidationAlert({ validation }) {
             </div>
           )}
 
-          {validation.out_of_bounds?.length > 0 && (
+          {validation.out_of_bounds && validation.out_of_bounds.length > 0 && (
             <div className="error-category">
               <h4 className="category-title">
                 <AlertTriangle size={14} className="text-red" />
@@ -77,7 +82,7 @@ export default function ValidationAlert({ validation }) {
             </div>
           )}
 
-          {validation.errors?.length > 0 && (
+          {validation.errors && validation.errors.length > 0 && (
             <div className="error-category">
               <h4 className="category-title">Audit Logs</h4>
               {validation.errors.map((err, i) => (

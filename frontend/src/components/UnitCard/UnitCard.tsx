@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
 import { Copy, Check, Hash, Building2, Ruler, Compass, Layers, UserCheck, ShieldCheck, Download } from 'lucide-react';
+import { Unit } from '../../types';
 import './UnitCard.css';
 
-export default function UnitCard({ unit }) {
+interface UnitCardProps {
+  unit: Unit | null;
+}
+
+export default function UnitCard({ unit }: UnitCardProps) {
   const [copied, setCopied] = useState(false);
 
   if (!unit) {
@@ -14,7 +19,7 @@ export default function UnitCard({ unit }) {
           </div>
           <h4 className="empty-title">Select Volumetric Unit</h4>
           <p className="empty-subtitle">
-            Click on any 3D unit in the globe viewer to reveal its unique ULPIN, coordinates, ownership records, and floor level.
+            Click on any 3D extruded deck.gl unit in the map viewer to reveal its ULPIN hash, elevation range, owner, and coordinates.
           </p>
         </div>
       </div>
@@ -27,7 +32,6 @@ export default function UnitCard({ unit }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -46,6 +50,7 @@ Registered Owner: ${unit.owner || 'Government Cadastral Registry'}
 Usage Type: ${unit.use_type || 'Residential'}
 Centroid Coordinates: Lat ${unit.centroid?.[0]}, Lng ${unit.centroid?.[1]}
 Spatial Status: Validated Non-Overlapping (ISO 19152 LADM 3D Compliant)
+Engine: deck.gl + MapLibre GL JS 3D Volumetric Extrusion
     `.trim();
 
     const blob = new Blob([certText], { type: 'text/plain;charset=utf-8' });

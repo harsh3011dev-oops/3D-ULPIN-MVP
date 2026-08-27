@@ -1,10 +1,21 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Image, Layers, MapPin, Sparkles, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Building2, Image, Layers, MapPin, Sparkles, ArrowRight } from 'lucide-react';
 import { createBuilding } from '../../api/api';
+import { CreateBuildingPayload } from '../../types';
 import './UploadForm.css';
 
-const PRESETS = [
+interface Preset {
+  id: string;
+  name: string;
+  parcel_id: string;
+  aerial_image_url: string;
+  height_meters: number;
+  floor_count: number;
+  coords: string;
+}
+
+const PRESETS: Preset[] = [
   {
     id: "preset-delhi",
     name: "Dwarka Sector 14 Complex (Delhi)",
@@ -37,7 +48,7 @@ const PRESETS = [
 export default function UploadForm() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     parcel_id: PRESETS[0].parcel_id,
@@ -47,11 +58,11 @@ export default function UploadForm() {
     coords_json: PRESETS[0].coords
   });
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const applyPreset = (preset) => {
+  const applyPreset = (preset: Preset) => {
     setFormData({
       parcel_id: preset.parcel_id,
       aerial_image_url: preset.aerial_image_url,
@@ -61,24 +72,24 @@ export default function UploadForm() {
     });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      let parsedCoords;
+      let parsedCoords: number[][];
       try {
         parsedCoords = JSON.parse(formData.coords_json);
       } catch {
         parsedCoords = [[77.049, 28.592], [77.050, 28.592], [77.050, 28.593], [77.049, 28.593]];
       }
 
-      const payload = {
+      const payload: CreateBuildingPayload = {
         parcel_id: formData.parcel_id,
         aerial_image_url: formData.aerial_image_url,
-        height_meters: parseFloat(formData.height_meters),
-        floor_count: parseInt(formData.floor_count, 10),
+        height_meters: Number(formData.height_meters),
+        floor_count: Number(formData.floor_count),
         parcel_boundary: {
           type: 'Polygon',
           coordinates: [parsedCoords]
@@ -87,8 +98,8 @@ export default function UploadForm() {
 
       const res = await createBuilding(payload);
       navigate(`/processing/${res.job_id || 'job-001'}`);
-    } catch (err) {
-      setError(err.message || 'Failed to submit building. Please check backend network connection.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit building. Please check backend connection.');
     } finally {
       setLoading(false);
     }
@@ -103,7 +114,7 @@ export default function UploadForm() {
         <div>
           <h2 className="form-title">Submit Building for 3D ULPIN Generation</h2>
           <p className="form-subtitle">
-            Convert 2D aerial imagery and cadastral plot records into a 3D Volumetric ULPIN property model.
+            Convert 2D aerial imagery and cadastral plot records into a 3D Volumetric deck.gl + MapLibre model.
           </p>
         </div>
       </div>
@@ -219,7 +230,7 @@ export default function UploadForm() {
           disabled={loading}
           id="submit-building-btn"
         >
-          <span>{loading ? 'Processing AI Pipeline...' : '🚀 Generate 3D ULPIN Model'}</span>
+          <span>{loading ? 'Processing deck.gl Pipeline...' : '🚀 Generate 3D ULPIN Model'}</span>
           <ArrowRight size={18} />
         </button>
       </form>
