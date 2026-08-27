@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Building, Unit } from '../../types';
-import { RotateCw, Sparkles, Layers, MapPin, ZoomIn, ZoomOut } from 'lucide-react';
+import { RotateCw, Sparkles, Layers, MapPin, ZoomIn, ZoomOut, Box } from 'lucide-react';
 import './Map3D.css';
 
 interface MapThreeJSProps {
@@ -13,12 +13,12 @@ interface MapThreeJSProps {
 }
 
 const FLOOR_HEX_COLORS = [
-  0x3b82f6, // Floor 1: Blue
-  0x10b981, // Floor 2: Emerald
-  0xf59e0b, // Floor 3: Amber
-  0x8b5cf6, // Floor 4: Purple
-  0x06b6d4, // Floor 5: Cyan
-  0xec4899, // Floor 6: Pink
+  0x6366f1, // Lavender Indigo
+  0x3b82f6, // Ocean Blue
+  0x10b981, // Mint Emerald
+  0xf59e0b, // Amber Gold
+  0xec4899, // Rose Pink
+  0x8b5cf6, // Violet Purple
 ];
 
 export default function MapThreeJS({ building, selectedUnit, onUnitClick, selectedFloor }: MapThreeJSProps) {
@@ -40,7 +40,6 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
   const isTajMahal = pid.includes('TAJMAHAL') || bid.includes('tajmahal');
   const isGurugram = pid.includes('GURUGRAM') || bid.includes('gurugram');
   const isMumbai = pid.includes('MUMBAI') || bid.includes('mumbai');
-  const isDelhi = pid.includes('DELHI') || bid.includes('delhi');
 
   const firstUnit = building?.units?.[0];
   const centerLng = Number(firstUnit?.centroid?.[1]) || 77.0495;
@@ -48,224 +47,302 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
 
   autoRotateRef.current = autoRotate;
 
-  // Initialize Three.js Scene ONCE per building dataset change
   useEffect(() => {
     if (!mountRef.current) return;
 
     const width = mountRef.current.clientWidth || 800;
     const height = mountRef.current.clientHeight || 520;
 
-    // 1. Scene Setup
+    // 1. Scene Setup with Dark Architectural Backdrop
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x060a12);
-    scene.fog = new THREE.FogExp2(0x060a12, 0.008);
+    scene.background = new THREE.Color(0x080c14);
+    scene.fog = new THREE.FogExp2(0x080c14, 0.007);
     sceneRef.current = scene;
 
     // 2. Camera Setup
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
-    camera.position.set(28, 22, 28);
+    camera.position.set(30, 24, 30);
     cameraRef.current = camera;
 
-    // 3. Renderer Setup
+    // 3. High Performance Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.35;
+    renderer.toneMappingExposure = 1.4;
 
     mountRef.current.innerHTML = '';
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // 4. OrbitControls
+    // 4. Orbit Controls
     const totalFloors = building?.floor_count || 4;
-    const targetY = isTajMahal ? 5.5 : isGurugram ? 8.0 : isMumbai ? 6.5 : (totalFloors * 1.5) / 2;
+    const targetY = isTajMahal ? 6.0 : isGurugram ? 9.0 : isMumbai ? 12.0 : (totalFloors * 1.6) / 2;
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.target.set(0, targetY, 0);
-    controls.maxPolarAngle = Math.PI / 2 - 0.01;
-    controls.minDistance = 8;
-    controls.maxDistance = 120;
+    controls.maxPolarAngle = Math.PI / 2 - 0.02;
+    controls.minDistance = 6;
+    controls.maxDistance = 140;
     controlsRef.current = controls;
 
-    // 5. Lighting System
-    const ambientLight = new THREE.AmbientLight(0xfff8ed, 1.2);
+    // 5. Multi-Source Architectural Lighting
+    const ambientLight = new THREE.AmbientLight(0xfff8f0, 1.4);
     scene.add(ambientLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfffaed, 2.2);
-    sunLight.position.set(35, 55, 30);
+    const sunLight = new THREE.DirectionalLight(0xfffbef, 2.5);
+    sunLight.position.set(40, 60, 35);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
     sunLight.shadow.bias = -0.0001;
     scene.add(sunLight);
 
-    const cyanRimLight = new THREE.PointLight(0x00f0ff, 2.5, 60);
-    cyanRimLight.position.set(-20, 30, -20);
+    const cyanRimLight = new THREE.PointLight(0x7c6fe0, 3.0, 70);
+    cyanRimLight.position.set(-25, 35, -25);
     scene.add(cyanRimLight);
 
-    // 6. Ground Grid Base
-    const gridHelper = new THREE.GridHelper(60, 30, 0x3b82f6, 0x1f2937);
+    const warmFillLight = new THREE.DirectionalLight(0xe06f8f, 0.8);
+    warmFillLight.position.set(-30, 20, 20);
+    scene.add(warmFillLight);
+
+    // 6. Ground Base & Site Grid
+    const gridHelper = new THREE.GridHelper(70, 35, 0x7c6fe0, 0x1e293b);
     gridHelper.position.y = -0.01;
     scene.add(gridHelper);
 
-    const groundGeo = new THREE.PlaneGeometry(60, 60);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x0a1324, roughness: 0.7 });
+    const groundGeo = new THREE.PlaneGeometry(70, 70);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x0b1329, roughness: 0.8, metalness: 0.2 });
     const groundMesh = new THREE.Mesh(groundGeo, groundMat);
     groundMesh.rotation.x = -Math.PI / 2;
     groundMesh.receiveShadow = true;
     scene.add(groundMesh);
 
-    const unitMap = new Map<string, THREE.Mesh>();
-    const units = building?.units || [];
+    // Landscaping: Surrounding road curb & pathway accents
+    const roadRingGeo = new THREE.RingGeometry(20, 21.5, 32);
+    const roadRingMat = new THREE.MeshBasicMaterial({ color: 0x334155, side: THREE.DoubleSide });
+    const roadRingMesh = new THREE.Mesh(roadRingGeo, roadRingMat);
+    roadRingMesh.rotation.x = -Math.PI / 2;
+    roadRingMesh.position.y = 0.005;
+    scene.add(roadRingMesh);
 
     // Materials Palette
     const glassMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x00f0ff,
-      metalness: 0.2,
-      roughness: 0.15,
-      transmission: 0.45,
+      color: 0x93c5fd,
+      metalness: 0.1,
+      roughness: 0.1,
+      transmission: 0.6,
       transparent: true,
       opacity: 0.85,
       clearcoat: 1.0,
-      clearcoatRoughness: 0.1,
+      clearcoatRoughness: 0.05,
+      wireframe: wireframeMode
+    });
+
+    const facadeMetalMaterial = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      metalness: 0.85,
+      roughness: 0.25,
       wireframe: wireframeMode
     });
 
     const blueFacadeMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x1e3a8a,
-      metalness: 0.3,
+      color: 0x1e40af,
+      metalness: 0.4,
       roughness: 0.2,
-      clearcoat: 0.9,
+      clearcoat: 0.8,
       wireframe: wireframeMode
     });
 
     const bronzeMaterial = new THREE.MeshStandardMaterial({
       color: 0xd97706,
-      metalness: 0.8,
-      roughness: 0.3,
+      metalness: 0.85,
+      roughness: 0.25,
       wireframe: wireframeMode
     });
 
     const steelMaterial = new THREE.MeshStandardMaterial({
-      color: 0x64748b,
-      metalness: 0.9,
-      roughness: 0.2,
-      wireframe: wireframeMode
-    });
-
-    const goldMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffd700,
+      color: 0x475569,
       metalness: 0.9,
       roughness: 0.2,
       wireframe: wireframeMode
     });
 
     const marbleMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0xf7f5f0,
-      roughness: 0.18,
+      color: 0xf8fafc,
+      roughness: 0.15,
       metalness: 0.05,
-      clearcoat: 0.9,
+      clearcoat: 0.95,
       wireframe: wireframeMode
     });
 
-    // Preset architectural models
+    // 7. Architectural Building Models with High-Detail Elements
     if (isTajMahal) {
+      // Marble Plinth Base
       const plinthMesh = new THREE.Mesh(new THREE.BoxGeometry(16, 1.4, 16), marbleMaterial);
       plinthMesh.position.y = 0.7;
+      plinthMesh.castShadow = true;
+      plinthMesh.receiveShadow = true;
       scene.add(plinthMesh);
 
-      const mainBuildingMesh = new THREE.Mesh(new THREE.BoxGeometry(10, 6.5, 10), marbleMaterial);
-      mainBuildingMesh.position.y = 4.65;
+      // Main Octagonal Structure
+      const mainBuildingMesh = new THREE.Mesh(new THREE.BoxGeometry(10.5, 7.0, 10.5), marbleMaterial);
+      mainBuildingMesh.position.y = 4.9;
+      mainBuildingMesh.castShadow = true;
+      mainBuildingMesh.receiveShadow = true;
       scene.add(mainBuildingMesh);
 
-      const drumMesh = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 2.2, 32), marbleMaterial);
-      drumMesh.position.y = 8.8;
+      // Central High Drum
+      const drumMesh = new THREE.Mesh(new THREE.CylinderGeometry(2.8, 2.8, 2.6, 32), marbleMaterial);
+      drumMesh.position.y = 9.7;
+      drumMesh.castShadow = true;
       scene.add(drumMesh);
 
-      const domeMesh = new THREE.Mesh(new THREE.SphereGeometry(3.0, 32, 24, 0, Math.PI * 2, 0, Math.PI * 0.72), marbleMaterial);
-      domeMesh.position.y = 9.8;
+      // Onion Dome
+      const domeMesh = new THREE.Mesh(new THREE.SphereGeometry(3.2, 32, 24, 0, Math.PI * 2, 0, Math.PI * 0.72), marbleMaterial);
+      domeMesh.position.y = 11.0;
+      domeMesh.castShadow = true;
       scene.add(domeMesh);
 
-      const finialMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.18, 2.2, 16), goldMaterial);
-      finialMesh.position.y = 12.8;
+      // Golden Finial Spire
+      const finialMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.2, 2.6, 16), new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9, roughness: 0.1 }));
+      finialMesh.position.y = 14.3;
       scene.add(finialMesh);
 
-      [ [7.0, 7.0], [-7.0, 7.0], [7.0, -7.0], [-7.0, -7.0] ].forEach(([x, z]) => {
-        const shaftMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.6, 12, 24), marbleMaterial);
-        shaftMesh.position.set(x, 7.4, z);
-        scene.add(shaftMesh);
+      // 4 Minarets at corners
+      [ [7.2, 7.2], [-7.2, 7.2], [7.2, -7.2], [-7.2, -7.2] ].forEach(([x, z]) => {
+        const minaretMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 13.5, 24), marbleMaterial);
+        minaretMesh.position.set(x, 8.15, z);
+        minaretMesh.castShadow = true;
+        scene.add(minaretMesh);
 
-        const cupolaDomeMesh = new THREE.Mesh(new THREE.SphereGeometry(0.65, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.7), marbleMaterial);
-        cupolaDomeMesh.position.set(x, 14.3, z);
-        scene.add(cupolaDomeMesh);
+        const cupolaMesh = new THREE.Mesh(new THREE.SphereGeometry(0.75, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.7), marbleMaterial);
+        cupolaMesh.position.set(x, 15.2, z);
+        scene.add(cupolaMesh);
       });
     } else if (isGurugram) {
-      const podiumMesh = new THREE.Mesh(new THREE.BoxGeometry(14, 2.0, 14), steelMaterial);
-      podiumMesh.position.y = 1.0;
+      // Gurugram High-Rise IT Tower
+      const podiumMesh = new THREE.Mesh(new THREE.BoxGeometry(15, 2.2, 15), facadeMetalMaterial);
+      podiumMesh.position.y = 1.1;
+      podiumMesh.castShadow = true;
       scene.add(podiumMesh);
 
-      const towerMesh = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 5.2, 14, 32), glassMaterial);
-      towerMesh.position.y = 9.0;
+      // Main Glass Cylinder Tower
+      const towerMesh = new THREE.Mesh(new THREE.CylinderGeometry(4.8, 5.4, 18, 36), glassMaterial);
+      towerMesh.position.y = 11.2;
+      towerMesh.castShadow = true;
       scene.add(towerMesh);
 
-      const helipadMesh = new THREE.Mesh(new THREE.CylinderGeometry(4.8, 4.8, 0.4, 32), steelMaterial);
-      helipadMesh.position.y = 16.2;
+      // Structural mullion rings around glass facade
+      for (let y = 3; y <= 19; y += 3) {
+        const ringGeo = new THREE.TorusGeometry(5.0 - (y * 0.03), 0.08, 8, 36);
+        const ringMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.9, roughness: 0.2 });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.rotation.x = Math.PI / 2;
+        ringMesh.position.y = y;
+        scene.add(ringMesh);
+      }
+
+      // Helipad Roof Platform
+      const helipadMesh = new THREE.Mesh(new THREE.CylinderGeometry(5.0, 5.0, 0.4, 36), steelMaterial);
+      helipadMesh.position.y = 20.4;
+      helipadMesh.castShadow = true;
       scene.add(helipadMesh);
 
-      const spireMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.2, 5.0, 16), steelMaterial);
-      spireMesh.position.y = 18.7;
+      // Helipad H Letter Mark
+      const hBar1 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.05, 2.4), new THREE.MeshBasicMaterial({ color: 0xf8fafc }));
+      hBar1.position.set(-0.8, 20.62, 0);
+      scene.add(hBar1);
+
+      const hBar2 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.05, 2.4), new THREE.MeshBasicMaterial({ color: 0xf8fafc }));
+      hBar2.position.set(0.8, 20.62, 0);
+      scene.add(hBar2);
+
+      const hCross = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.05, 0.4), new THREE.MeshBasicMaterial({ color: 0xf8fafc }));
+      hCross.position.set(0, 20.62, 0);
+      scene.add(hCross);
+
+      // Communications Spire with Red LED Beacon Light
+      const spireMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.22, 6.0, 16), steelMaterial);
+      spireMesh.position.y = 23.4;
       scene.add(spireMesh);
+
+      const beaconLight = new THREE.PointLight(0xef4444, 2.0, 15);
+      beaconLight.position.set(0, 26.5, 0);
+      scene.add(beaconLight);
+
+      const beaconSphere = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+      beaconSphere.position.set(0, 26.5, 0);
+      scene.add(beaconSphere);
+
     } else if (isMumbai) {
-      const podiumMesh = new THREE.Mesh(new THREE.BoxGeometry(15, 2.2, 11), bronzeMaterial);
-      podiumMesh.position.y = 1.1;
+      // Mumbai Twin Financial Tower Complex
+      const podiumMesh = new THREE.Mesh(new THREE.BoxGeometry(16, 2.4, 12), bronzeMaterial);
+      podiumMesh.position.y = 1.2;
+      podiumMesh.castShadow = true;
       scene.add(podiumMesh);
 
-      const towerAMesh = new THREE.Mesh(new THREE.BoxGeometry(5.2, 22.0, 8), blueFacadeMaterial);
-      towerAMesh.position.set(-3.5, 13.2, 0);
+      // Tower A & B
+      const towerAMesh = new THREE.Mesh(new THREE.BoxGeometry(5.6, 24.0, 8.5), blueFacadeMaterial);
+      towerAMesh.position.set(-3.8, 14.4, 0);
+      towerAMesh.castShadow = true;
       scene.add(towerAMesh);
 
-      const towerBMesh = new THREE.Mesh(new THREE.BoxGeometry(5.2, 22.0, 8), blueFacadeMaterial);
-      towerBMesh.position.set(3.5, 13.2, 0);
+      const towerBMesh = new THREE.Mesh(new THREE.BoxGeometry(5.6, 24.0, 8.5), blueFacadeMaterial);
+      towerBMesh.position.set(3.8, 14.4, 0);
+      towerBMesh.castShadow = true;
       scene.add(towerBMesh);
 
-      const bridgeMesh1 = new THREE.Mesh(new THREE.BoxGeometry(3.0, 1.6, 5.0), glassMaterial);
-      bridgeMesh1.position.set(0, 12.5, 0);
-      scene.add(bridgeMesh1);
+      // Connecting Skybridges
+      [14.0, 20.0].forEach(y => {
+        const bridgeMesh = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.8, 5.5), glassMaterial);
+        bridgeMesh.position.set(0, y, 0);
+        scene.add(bridgeMesh);
+      });
 
-      const bridgeMesh2 = new THREE.Mesh(new THREE.BoxGeometry(3.0, 1.6, 5.0), glassMaterial);
-      bridgeMesh2.position.set(0, 18.5, 0);
-      scene.add(bridgeMesh2);
-
-      const crownMesh = new THREE.Mesh(new THREE.BoxGeometry(11, 1.2, 7), steelMaterial);
-      crownMesh.position.set(0, 24.8, 0);
+      // Rooftop Crown Structure
+      const crownMesh = new THREE.Mesh(new THREE.BoxGeometry(12, 1.4, 7.5), steelMaterial);
+      crownMesh.position.set(0, 27.1, 0);
       scene.add(crownMesh);
+
     } else {
-      const baseMesh = new THREE.Mesh(new THREE.BoxGeometry(12, 1.6, 12), steelMaterial);
-      baseMesh.position.y = 0.8;
+      // Generic Architectural Block Model
+      const baseMesh = new THREE.Mesh(new THREE.BoxGeometry(13, 1.8, 13), steelMaterial);
+      baseMesh.position.y = 0.9;
+      baseMesh.castShadow = true;
       scene.add(baseMesh);
 
-      const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(9.5, (totalFloors * 1.5), 9.5), glassMaterial);
-      bodyMesh.position.y = 0.8 + (totalFloors * 1.5) / 2;
+      const heightM = Math.max(totalFloors * 1.8, 8);
+      const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(10, heightM, 10), glassMaterial);
+      bodyMesh.position.y = 0.9 + heightM / 2;
+      bodyMesh.castShadow = true;
       scene.add(bodyMesh);
+
+      // Rooftop HVAC Equipment Box
+      const hvacMesh = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.2, 3.5), steelMaterial);
+      hvacMesh.position.set(0, 0.9 + heightM + 0.6, 0);
+      scene.add(hvacMesh);
     }
 
-    // Units
+    // 8. 3D Spatial Units (Floor Strata Volumes)
+    const unitMap = new Map<string, THREE.Mesh>();
+    const units = building?.units || [];
+
     units.forEach((unit) => {
       const floorNum = unit.floor_number;
-      const levelY = (floorNum - 1) * 1.65 + 1.2;
+      const levelY = (floorNum - 1) * 1.75 + 1.3;
 
-      const levelGeo = new THREE.BoxGeometry(10.5, 0.45, 10.5);
+      const levelGeo = new THREE.BoxGeometry(10.8, 0.5, 10.8);
       const baseColor = FLOOR_HEX_COLORS[(floorNum - 1) % FLOOR_HEX_COLORS.length];
 
       const levelMat = new THREE.MeshStandardMaterial({
         color: baseColor,
         transparent: true,
-        opacity: 0.35,
+        opacity: 0.4,
         wireframe: wireframeMode,
       });
 
@@ -274,11 +351,18 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
       levelMesh.userData = { unit, baseColor };
       scene.add(levelMesh);
       unitMap.set(unit.unit_id, levelMesh);
+
+      // Crisp Floor Slab Boundary Ring
+      const slabGeo = new THREE.BoxGeometry(11.0, 0.06, 11.0);
+      const slabMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.3 });
+      const slabMesh = new THREE.Mesh(slabGeo, slabMat);
+      slabMesh.position.y = levelY - 0.28;
+      scene.add(slabMesh);
     });
 
     unitMeshesRef.current = unitMap;
 
-    // Raycasting
+    // Raycasting & Interaction
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -323,14 +407,14 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
     domElem.addEventListener('pointermove', handlePointerMove);
     domElem.addEventListener('click', handleClick);
 
-    // Animation Loop
+    // Animation Render Loop
     let animId: number;
     const animate = () => {
       animId = requestAnimationFrame(animate);
       controls.update();
 
       if (autoRotateRef.current && sceneRef.current) {
-        sceneRef.current.rotation.y += 0.005;
+        sceneRef.current.rotation.y += 0.004;
       }
 
       renderer.render(scene, camera);
@@ -360,7 +444,7 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
     };
   }, [building, wireframeMode]);
 
-  // Dynamically update materials without tearing down WebGL scene
+  // Update unit selection & floor isolation styles
   useEffect(() => {
     unitMeshesRef.current.forEach((mesh) => {
       const u = mesh.userData.unit as Unit;
@@ -371,15 +455,15 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
       const mat = mesh.material as THREE.MeshStandardMaterial;
 
       if (isSelected) {
-        mat.color.setHex(0x00f0ff);
-        mat.emissive.setHex(0x00f0ff);
-        mat.emissiveIntensity = 0.85;
-        mat.opacity = 0.9;
+        mat.color.setHex(0x7c6fe0);
+        mat.emissive.setHex(0x7c6fe0);
+        mat.emissiveIntensity = 0.9;
+        mat.opacity = 0.95;
       } else {
         mat.color.setHex(mesh.userData.baseColor);
         mat.emissive.setHex(0x000000);
         mat.emissiveIntensity = 0.0;
-        mat.opacity = 0.35;
+        mat.opacity = 0.4;
       }
     });
   }, [selectedUnit, selectedFloor]);
@@ -399,78 +483,54 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
   };
 
   return (
-    <div className="map3d-wrapper relative w-full h-full min-h-[520px] bg-[#0a0f1d] rounded-xl overflow-hidden shadow-2xl">
-      <div ref={mountRef} className="w-full h-full min-h-[520px]" />
+    <div className="threejs-map-container">
+      <div className="threejs-canvas-wrapper" ref={mountRef} />
 
-      {/* Floating Controls */}
-      <div className="map-toolbar absolute top-4 right-4 flex flex-col gap-2 p-2 z-10 bg-slate-900/90 backdrop-blur border border-white/10 rounded-lg shadow-xl">
+      {/* Toolbar Overlays */}
+      <div className="threejs-toolbar">
         <button
-          className={`toolbar-btn w-9 h-9 rounded-md flex items-center justify-center border transition-all shadow-md ${
-            autoRotate ? 'bg-amber-600 border-amber-400 text-white shadow-glow' : 'bg-slate-800/80 border-white/10 text-gray-300 hover:bg-amber-600 hover:text-white'
-          }`}
+          className={`toolbar-btn ${autoRotate ? 'active' : ''}`}
           onClick={() => setAutoRotate(!autoRotate)}
-          title="Toggle 360° Studio Auto-Rotation"
+          title="Auto Rotate Scene"
         >
-          <RotateCw size={18} className={autoRotate ? 'animate-spin' : ''} />
+          <RotateCw size={15} />
+          <span>{autoRotate ? 'Rotating' : 'Rotate'}</span>
         </button>
 
         <button
-          className={`toolbar-btn w-9 h-9 rounded-md flex items-center justify-center border transition-all shadow-md ${
-            wireframeMode ? 'bg-cyan-600 border-cyan-400 text-white shadow-glow' : 'bg-slate-800/80 border-white/10 text-gray-300 hover:bg-amber-600 hover:text-white'
-          }`}
+          className={`toolbar-btn ${wireframeMode ? 'active' : ''}`}
           onClick={() => setWireframeMode(!wireframeMode)}
-          title="Toggle Wireframe Architectural Mode"
+          title="Toggle Wireframe Structural Skeleton"
         >
-          <Layers size={18} />
+          <Layers size={15} />
+          <span>Wireframe</span>
         </button>
 
-        <button
-          className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center bg-slate-800/80 border border-white/10 text-gray-300 hover:bg-amber-600 hover:text-white transition-all shadow-md"
-          onClick={handleZoomIn}
-          title="Zoom In"
-        >
-          <ZoomIn size={18} />
-        </button>
-
-        <button
-          className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center bg-slate-800/80 border border-white/10 text-gray-300 hover:bg-amber-600 hover:text-white transition-all shadow-md"
-          onClick={handleZoomOut}
-          title="Zoom Out"
-        >
-          <ZoomOut size={18} />
-        </button>
+        <div className="zoom-controls">
+          <button className="zoom-btn" onClick={handleZoomIn} title="Zoom In"><ZoomIn size={14} /></button>
+          <button className="zoom-btn" onClick={handleZoomOut} title="Zoom Out"><ZoomOut size={14} /></button>
+        </div>
       </div>
 
-      {/* Location Banner Header */}
-      <div className="location-banner-header absolute top-4 left-4 p-2.5 z-10 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur rounded-lg border border-amber-500/40 shadow-xl">
-        <div className="w-7 h-7 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center">
+      {/* Location Banner */}
+      <div className="location-banner-header absolute top-4 left-4 p-2.5 z-10 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur rounded-lg border border-indigo-500/40 shadow-xl">
+        <div className="w-7 h-7 rounded-md bg-indigo-500/20 text-indigo-400 border border-indigo-500/40 flex items-center justify-center">
           <MapPin size={16} />
         </div>
         <div className="flex flex-col">
           <span className="text-[0.78rem] font-bold text-white leading-tight">
-            {building?.building_name || 'Cadastral Parcel'}
+            {building?.building_name || 'Cadastral Building Model'}
           </span>
-          <span className="text-[0.68rem] font-mono text-amber-300">
-            {centerLat.toFixed(5)}°N, {centerLng.toFixed(5)}°E • Height {building?.height || 14}m
+          <span className="text-[0.68rem] font-mono text-indigo-300">
+            {centerLat.toFixed(5)}°N, {centerLng.toFixed(5)}°E • Height {building?.height || 45}m ({building?.floor_count || 4} Floors)
           </span>
         </div>
       </div>
 
-      {/* Hover Info Badge */}
-      {hoveredUnitId && (
-        <div className="absolute bottom-16 left-4 z-10 p-3 border border-amber-500/40 bg-slate-900/90 backdrop-blur shadow-xl rounded-lg">
-          <div className="flex items-center gap-2">
-            <Sparkles size={14} className="text-amber-400" />
-            <span className="text-xs font-extrabold text-white">Click to Select Cadastral Zone</span>
-          </div>
-          <code className="text-[0.75rem] font-mono text-amber-300 block mt-1">{hoveredUnitId}</code>
-        </div>
-      )}
-
-      {/* Tech Stack Badge Footer */}
+      {/* Bottom Tech Badge */}
       <div className="absolute bottom-3 left-4 z-10 flex items-center gap-2 bg-slate-900/80 backdrop-blur border border-white/10 px-3 py-1.5 rounded-full text-xs text-gray-300">
-        <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-        <span className="font-semibold text-amber-400">Three.js Procedural Architectural Studio</span> + <span className="text-blue-400">PBR Materials</span>
+        <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+        <span className="font-semibold text-indigo-300">Three.js PBR Studio Engine</span>
       </div>
     </div>
   );

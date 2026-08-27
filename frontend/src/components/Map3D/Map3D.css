@@ -1,121 +1,227 @@
+/* ── 3D Viewport Main Wrapper ── */
 .map3d-wrapper {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 520px;
-  background: #0a0f1d;
-  border-radius: var(--radius-md);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #060a12;
   overflow: hidden;
 }
 
-.map3d-canvas-container {
+.deckgl-map-container,
+.threejs-map-container {
+  position: relative;
   width: 100%;
   height: 100%;
-  outline: none;
+  flex: 1;
+  overflow: hidden;
 }
 
-.map-toolbar {
+.threejs-canvas-wrapper {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Mode Toggle Switch Banner ── */
+.mode-switch-banner {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(10, 15, 29, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-full);
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.mode-switch-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.mode-switch-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mode-switch-btn.active {
+  background: var(--accent-lavender);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(124, 111, 224, 0.4);
+}
+
+/* ── Floating Controls Overlay ── */
+.floating-toolbar {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 20;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 8px;
-  z-index: 10;
+  padding: 6px;
+  background: rgba(10, 15, 29, 0.88);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
 }
 
-.toolbar-btn {
-  width: 36px;
-  height: 36px;
+.map-control-btn {
+  width: 34px;
+  height: 34px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-color);
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
   transition: all var(--transition-fast);
 }
 
-.toolbar-btn:hover {
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.12);
+.map-control-btn:hover {
+  color: #ffffff;
+  background: var(--accent-lavender);
+  border-color: var(--accent-lavender);
 }
 
-.toolbar-btn.active {
-  color: var(--accent-cyan);
-  background: rgba(6, 182, 212, 0.18);
-  border-color: rgba(6, 182, 212, 0.4);
-}
-
-.unit-hover-tooltip {
+/* Basemap Selector */
+.basemap-selector-box {
   position: absolute;
-  bottom: 24px;
-  left: 24px;
-  padding: 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  pointer-events: none;
-  z-index: 10;
-  border: 1px solid var(--accent-blue-glow);
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-}
-
-.tooltip-header {
+  top: 62px;
+  left: 14px;
+  z-index: 20;
   display: flex;
   align-items: center;
   gap: 8px;
+  background: rgba(10, 15, 29, 0.92);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(124, 111, 224, 0.25);
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  box-shadow: var(--shadow-md);
 }
 
-.tooltip-floor {
-  font-size: 0.7rem;
+.basemap-select-input {
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: var(--accent-blue);
-  background: rgba(59, 130, 246, 0.15);
-  padding: 2px 6px;
+  padding: 4px 10px;
   border-radius: var(--radius-sm);
+  border: 1px solid rgba(124, 111, 224, 0.3);
+  outline: none;
+  cursor: pointer;
 }
 
-.tooltip-title {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--text-primary);
+/* FIX dropdown option visibility */
+.basemap-select-input option,
+.location-preset-select option {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  padding: 8px 12px;
 }
 
-.tooltip-ulpin {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  color: var(--text-code);
-}
-
-.tooltip-height {
-  font-size: 0.72rem;
-  color: var(--text-secondary);
-}
-
-.height-ruler-overlay {
+/* Location Header Overlay */
+.location-overlay-banner {
   position: absolute;
-  top: 16px;
-  left: 16px;
+  top: 14px;
+  left: 14px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(10, 15, 29, 0.92);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(124, 111, 224, 0.3);
   padding: 8px 14px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.location-icon-pin {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-lavender-soft);
+  color: var(--accent-lavender);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.location-text-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  z-index: 10;
 }
 
-.ruler-title {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  color: var(--text-secondary);
+.location-bldg-title {
+  font-size: 0.8rem;
   font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
 }
 
-.ruler-val {
+.location-coords-sub {
   font-family: var(--font-mono);
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: var(--accent-cyan);
+  font-size: 0.68rem;
+  color: var(--accent-lavender);
+}
+
+/* Bottom Tech Badge */
+.tech-badge-footer {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(10, 15, 29, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  animation: pulseDot 2s infinite;
+}
+
+@keyframes pulseDot {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
 }
