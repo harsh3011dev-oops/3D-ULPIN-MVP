@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DeckGL from '@deck.gl/react';
 import { GeoJsonLayer } from '@deck.gl/layers';
 import Map from 'react-map-gl/maplibre';
 import maplibregl from 'maplibre-gl';
 import { Building, Unit } from '../../types';
-import { RotateCw, Layers } from 'lucide-react';
+import { RotateCw, Layers, Compass, Maximize2 } from 'lucide-react';
 import './Map3D.css';
 
 // CartoDB Dark Matter MapLibre style (Free OpenStreetMap-based vector/raster tiles, 0 API Key required!)
@@ -28,17 +28,45 @@ const FLOOR_RGB_COLORS: [number, number, number][] = [
 
 export default function MapDeckGL({ building, selectedUnit, onUnitClick, selectedFloor }: MapDeckGLProps) {
   const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; object: any } | null>(null);
-  const [pitch, setPitch] = useState(60);
-  const [bearing, setBearing] = useState(-20);
 
-  // Center coordinates (Delhi default)
-  const initialViewState = {
+  // Controlled ViewState for deck.gl
+  const [viewState, setViewState] = useState({
     longitude: 77.0495,
     latitude: 28.5925,
     zoom: 17.5,
-    pitch: pitch,
-    bearing: bearing,
+    pitch: 60,
+    bearing: -20,
     maxPitch: 85,
+  });
+
+  // Update viewState when building coordinates change
+  useEffect(() => {
+    if (building?.units?.[0]?.centroid) {
+      setViewState((prev) => ({
+        ...prev,
+        latitude: building.units[0].centroid![0],
+        longitude: building.units[0].centroid![1],
+      }));
+    }
+  }, [building]);
+
+  const handleRotate = () => {
+    setViewState((prev) => ({ ...prev, bearing: prev.bearing + 45 }));
+  };
+
+  const handlePitchToggle = () => {
+    setViewState((prev) => ({ ...prev, pitch: prev.pitch === 60 ? 0 : 60 }));
+  };
+
+  const handleResetCamera = () => {
+    setViewState({
+      longitude: building?.units?.[0]?.centroid?.[1] || 77.0495,
+      latitude: building?.units?.[0]?.centroid?.[0] || 28.5925,
+      zoom: 17.5,
+      pitch: 60,
+      bearing: -20,
+      maxPitch: 85,
+    });
   };
 
   // Convert Building Units to deck.gl GeoJSON Feature Collection
@@ -66,7 +94,7 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
           ]]
         }
       };
-    }).filter(f => f.properties.isFloorVisible)
+    }).filter((f) => f.properties.isFloorVisible)
   };
 
   // deck.gl GeoJsonLayer with 3D Extrusion
@@ -76,10 +104,10 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       data: unitsGeoJSON as any,
       extruded: true,
       wireframe: true,
-      getElevation: (f: any) => f.properties.z_max * 3, // Height scale for visualization
+      getElevation: (f: any) => f.properties.z_max * 3, // Height scale for 3D visual extrusion
       getFillColor: (f: any) => {
         const p = f.properties;
-        if (p.isSelected) return [0, 240, 255, 220]; // Glowing cyan selection
+        if (p.isSelected) return [0, 240, 255, 230]; // Glowing cyan selection
         const rgb = FLOOR_RGB_COLORS[(p.floor_number - 1) % FLOOR_RGB_COLORS.length];
         return [...rgb, 200];
       },
@@ -105,9 +133,10 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
   ];
 
   return (
-    <div className="map3d-wrapper relative w-full h-full min-h-[520px] bg-[#0a0f1d] rounded-xl overflow-hidden" id="cesium-globe">
+    <div className="map3d-wrapper relative w-full h-full min-h-[520px] bg-[#0a0f1d] rounded-xl overflow-hidden shadow-2xl" id="cesium-globe">
       <DeckGL
-        initialViewState={initialViewState}
+        viewState={viewState}
+        onViewStateChange={({ viewState }) => setViewState(viewState as any)}
         controller={true}
         layers={layers}
         getCursor={({ isHovering }) => (isHovering ? 'pointer' : 'grab')}
@@ -121,26 +150,34 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       {/* Floating Toolbar Controls */}
       <div className="map-toolbar glass-panel absolute top-4 right-4 flex flex-col gap-2 p-2 z-10">
         <button
-          className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center text-gray-400 bg-white/5 border border-white/10 hover:text-white hover:bg-white/10 transition-all"
-          onClick={() => setBearing((prev) => prev + 45)}
-          title="Rotate Map Bearing"
+          className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center text-gray-300 bg-slate-800/80 border border-white/10 hover:text-white hover:bg-blue-600 transition-all shadow-md"
+          onClick={handleRotate}
+          title="Rotate Camera Bearing (+45°)"
         >
           <RotateCw size={18} />
         </button>
 
         <button
-          className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center text-gray-400 bg-white/5 border border-white/10 hover:text-white hover:bg-white/10 transition-all"
-          onClick={() => setPitch((prev) => (prev === 60 ? 0 : 60))}
+          className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center text-gray-300 bg-slate-800/80 border border-white/10 hover:text-white hover:bg-blue-600 transition-all shadow-md"
+          onClick={handlePitchToggle}
           title="Toggle 2D / 3D Pitch Angle"
         >
           <Layers size={18} />
+        </button>
+
+        <button
+          className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center text-gray-300 bg-slate-800/80 border border-white/10 hover:text-white hover:bg-blue-600 transition-all shadow-md"
+          onClick={handleResetCamera}
+          title="Reset Camera View"
+        >
+          <Maximize2 size={16} />
         </button>
       </div>
 
       {/* Hover Unit Tooltip Overlay */}
       {hoverInfo && hoverInfo.object && (
         <div
-          className="unit-hover-tooltip glass-panel fade-in absolute z-20 pointer-events-none p-3 border border-blue-500/40 shadow-glow"
+          className="unit-hover-tooltip glass-panel fade-in absolute z-20 pointer-events-none p-3 border border-blue-500/40 shadow-glow rounded-lg bg-slate-900/90"
           style={{ left: hoverInfo.x + 15, top: hoverInfo.y - 40 }}
         >
           <div className="tooltip-header flex items-center gap-2">
@@ -161,7 +198,7 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       )}
 
       {/* Volumetric Height Metric Overlay */}
-      <div className="height-ruler-overlay glass-panel absolute top-4 left-4 p-2.5 z-10 flex flex-col gap-0.5">
+      <div className="height-ruler-overlay glass-panel absolute top-4 left-4 p-2.5 z-10 flex flex-col gap-0.5 bg-slate-900/80 backdrop-blur rounded-lg">
         <span className="ruler-title text-[0.68rem] uppercase text-gray-400 font-bold">Max Elevation</span>
         <span className="ruler-val font-mono text-base font-extrabold text-cyan-400">+{building?.height || 14.0}m</span>
       </div>
