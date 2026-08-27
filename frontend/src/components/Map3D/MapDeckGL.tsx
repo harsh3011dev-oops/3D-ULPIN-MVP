@@ -34,10 +34,12 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
   const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; object: any } | null>(null);
   const [selectedStyleUrl, setSelectedStyleUrl] = useState(MAP_STYLES[0].url);
 
-  // Extract center coordinates from the actual building footprint or units
+  // Extract center coordinates from the actual building footprint or units with strict numeric fallback
   const firstUnit = building?.units?.[0];
-  const centerLng = firstUnit?.centroid?.[1] || 77.0495;
-  const centerLat = firstUnit?.centroid?.[0] || 28.5925;
+  const rawLng = Number(firstUnit?.centroid?.[1]);
+  const rawLat = Number(firstUnit?.centroid?.[0]);
+  const centerLng = !isNaN(rawLng) && rawLng !== 0 ? rawLng : 77.0886;
+  const centerLat = !isNaN(rawLat) && rawLat !== 0 ? rawLat : 28.4942;
 
   // Controlled ViewState for deck.gl
   const [viewState, setViewState] = useState({
@@ -51,14 +53,18 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
 
   // Re-center camera whenever building dataset changes
   useEffect(() => {
-    if (building?.units?.[0]?.centroid) {
-      const u = building.units[0];
-      setViewState((prev) => ({
-        ...prev,
-        latitude: u.centroid![0],
-        longitude: u.centroid![1],
-        zoom: 17.8,
-      }));
+    const u = building?.units?.[0];
+    if (u && Array.isArray(u.centroid) && u.centroid.length >= 2) {
+      const lng = Number(u.centroid[1]);
+      const lat = Number(u.centroid[0]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        setViewState((prev) => ({
+          ...prev,
+          latitude: lat,
+          longitude: lng,
+          zoom: 17.8,
+        }));
+      }
     }
   }, [building]);
 

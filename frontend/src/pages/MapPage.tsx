@@ -46,6 +46,7 @@ export default function MapPage() {
   const handleLocationSwitch = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const key = e.target.value;
     setActivePresetKey(key);
+    setSelectedFloor(null);
     const presetObj = PRESETS[key];
     if (presetObj) {
       const data = await getBuilding(presetObj.building.building_id);

@@ -37,9 +37,14 @@ export default function ProcessingPage() {
   useEffect(() => {
     if (!jobId) return;
 
+    let isMounted = true;
+    let redirectTimer: ReturnType<typeof setTimeout> | null = null;
+
     const interval = setInterval(async () => {
       try {
         const data = await getJobStatus(jobId);
+        if (!isMounted) return;
+
         setProgress(data.progress_pct);
         setStepText(data.step || 'Processing...');
 
@@ -57,8 +62,10 @@ export default function ProcessingPage() {
           setBuildingId(data.building_id);
           clearInterval(interval);
 
-          setTimeout(() => {
-            navigate(`/map/${data.building_id}`);
+          redirectTimer = setTimeout(() => {
+            if (isMounted) {
+              navigate(`/map/${data.building_id}`);
+            }
           }, 1500);
         } else if (data.status === 'failed') {
           setStatus('failed');
@@ -70,7 +77,11 @@ export default function ProcessingPage() {
       }
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      if (redirectTimer) clearTimeout(redirectTimer);
+    };
   }, [jobId, navigate]);
 
   return (
