@@ -19,21 +19,7 @@ export default function HomePage() {
   const navigate = useNavigate();
 
   return (
-    <div className="page-layout bg-grid">
-      {/* ── Background Orbs Canvas ── */}
-      <div className="home-bg-canvas" aria-hidden="true">
-        <motion.div
-          className="bg-orb orb-lavender"
-          animate={{ x: [0, 40, -30, 0], y: [0, -30, 20, 0] }}
-          transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
-        />
-        <motion.div
-          className="bg-orb orb-rose"
-          animate={{ x: [0, -30, 30, 0], y: [0, 25, -15, 0] }}
-          transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-        />
-      </div>
-
+    <div className="page-layout">
       <Header />
 
       <main className="home-centered-container">
@@ -55,7 +41,7 @@ export default function HomePage() {
           {/* Heading */}
           <motion.h1 className="hero-centered-title font-display" variants={itemVariants}>
             Intelligence for the <br />
-            <span className="gradient-text font-display">Vertical Frontier</span>
+            <span style={{ color: 'var(--accent-lavender)' }} className="font-display">Vertical Frontier</span>
           </motion.h1>
 
           {/* Subtitle */}

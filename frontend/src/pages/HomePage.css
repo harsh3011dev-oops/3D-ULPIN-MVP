@@ -1,45 +1,5 @@
-/* ── Background Orbs Canvas ── */
-.home-bg-canvas {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  overflow: hidden;
-}
 
-.bg-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.4;
-  will-change: transform;
-}
 
-.orb-lavender {
-  width: 500px;
-  height: 500px;
-  top: -100px;
-  right: -50px;
-  background: radial-gradient(circle, rgba(124, 111, 224, 0.4) 0%, rgba(124, 111, 224, 0) 70%);
-}
-
-.orb-rose {
-  width: 450px;
-  height: 450px;
-  bottom: -50px;
-  left: -50px;
-  background: radial-gradient(circle, rgba(224, 111, 143, 0.35) 0%, rgba(224, 111, 143, 0) 70%);
-}
-
-.orb-sage {
-  width: 350px;
-  height: 350px;
-  top: 40%;
-  left: 30%;
-  background: radial-gradient(circle, rgba(111, 173, 155, 0.3) 0%, rgba(111, 173, 155, 0) 70%);
-}
-
-/* ── Centered Container ── */
 .home-centered-container {
   flex: 1;
   position: relative;

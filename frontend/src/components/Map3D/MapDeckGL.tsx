@@ -156,9 +156,7 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
           onUnitClick(info.object.properties as Unit);
         }
       },
-      onHover: (info) => {
-        setHoverInfo(info.object ? { x: info.x, y: info.y, object: info.object } : null);
-      },
+      onHover: () => {},
       updateTriggers: {
         getFillColor: [selectedUnit, selectedFloor],
         getLineColor: [selectedUnit]
@@ -259,29 +257,6 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
         </div>
       </div>
 
-      {/* Hover Unit Tooltip Overlay */}
-      {hoverInfo && hoverInfo.object && (
-        <div
-          className="unit-hover-tooltip fade-in absolute z-20 pointer-events-none p-3 border border-blue-500/40 shadow-xl rounded-lg bg-slate-900/95 backdrop-blur"
-          style={{ left: hoverInfo.x + 15, top: hoverInfo.y - 40 }}
-        >
-          <div className="tooltip-header flex items-center gap-2">
-            <span className="tooltip-floor text-[0.7rem] font-bold text-blue-400 bg-blue-500/15 px-1.5 py-0.5 rounded">
-              Level {hoverInfo.object.properties.floor_number}
-            </span>
-            <span className="tooltip-title text-xs font-bold text-white">
-              {hoverInfo.object.properties.unit_name || hoverInfo.object.properties.unit_id}
-            </span>
-          </div>
-          <code className="tooltip-ulpin font-mono text-[0.75rem] text-sky-300 block mt-1">
-            {hoverInfo.object.properties.ulpin}
-          </code>
-          <div className="tooltip-height text-[0.7rem] text-gray-400 mt-1 flex justify-between gap-4">
-            <span>Elevation: +{hoverInfo.object.properties.z_min}m to +{hoverInfo.object.properties.z_max}m</span>
-            <span className="font-semibold text-emerald-400">{hoverInfo.object.properties.area_sqm} m²</span>
-          </div>
-        </div>
-      )}
 
       {/* Tech Stack Badge Footer */}
       <div className="absolute bottom-3 left-4 z-10 flex items-center gap-2 bg-slate-900/80 backdrop-blur border border-white/10 px-3 py-1.5 rounded-full text-xs text-gray-300">
