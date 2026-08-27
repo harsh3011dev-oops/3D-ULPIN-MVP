@@ -27,14 +27,16 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const unitMeshesRef = useRef<Map<string, THREE.Mesh>>(new Map());
 
   const [autoRotate, setAutoRotate] = useState(false);
   const [wireframeMode, setWireframeMode] = useState(false);
   const [hoveredUnitId, setHoveredUnitId] = useState<string | null>(null);
 
+  const isTajMahal = building?.parcel_id?.includes('TAJMAHAL') || building?.building_id?.includes('tajmahal');
   const firstUnit = building?.units?.[0];
-  const centerLng = firstUnit?.centroid?.[1] || 77.0495;
-  const centerLat = firstUnit?.centroid?.[0] || 28.5925;
+  const centerLng = firstUnit?.centroid?.[1] || 78.0421;
+  const centerLat = firstUnit?.centroid?.[0] || 27.1751;
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -44,13 +46,13 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
 
     // 1. Scene Setup
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x090d16);
-    scene.fog = new THREE.FogExp2(0x090d16, 0.01);
+    scene.background = new THREE.Color(0x0a0f1d);
+    scene.fog = new THREE.FogExp2(0x0a0f1d, 0.008);
     sceneRef.current = scene;
 
-    // 2. Camera Setup - Positioned comfortably to view the full building
+    // 2. Camera Setup
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
-    camera.position.set(24, 18, 24);
+    camera.position.set(28, 20, 28);
     cameraRef.current = camera;
 
     // 3. Renderer Setup
@@ -60,163 +62,255 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.35;
 
     mountRef.current.innerHTML = '';
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // 4. OrbitControls with Target centered on Building Mid-Height
-    const totalFloors = building?.floor_count || 4;
-    const buildingHeight = totalFloors * 1.8;
-
+    // 4. OrbitControls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.target.set(0, buildingHeight / 2, 0);
+    controls.target.set(0, isTajMahal ? 5.5 : 3.5, 0);
     controls.maxPolarAngle = Math.PI / 2 - 0.01;
     controls.minDistance = 8;
     controls.maxDistance = 100;
     controlsRef.current = controls;
 
-    // 5. Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+    // 5. Warm Sun Light & Realistic Sky Lighting
+    const ambientLight = new THREE.AmbientLight(0xfff8ed, 1.2);
     scene.add(ambientLight);
 
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1.8);
-    sunLight.position.set(30, 50, 25);
+    const sunLight = new THREE.DirectionalLight(0xfffaed, 2.2);
+    sunLight.position.set(35, 55, 30);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.bias = -0.0001;
     scene.add(sunLight);
 
-    const cyanLight = new THREE.PointLight(0x00f0ff, 2.5, 60);
-    cyanLight.position.set(-20, 30, -20);
-    scene.add(cyanLight);
+    const softFillLight = new THREE.DirectionalLight(0x90caf9, 0.8);
+    softFillLight.position.set(-30, 20, -30);
+    scene.add(softFillLight);
 
-    // 6. Ground Grid & Base Platform
-    const gridHelper = new THREE.GridHelper(50, 30, 0x3b82f6, 0x1f2937);
+    // 6. Ground Reflective Platform & Garden Grid
+    const gridHelper = new THREE.GridHelper(60, 30, 0x3b82f6, 0x1f2937);
     gridHelper.position.y = -0.01;
     scene.add(gridHelper);
 
-    const groundGeo = new THREE.PlaneGeometry(50, 50);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x0a101d, roughness: 0.8 });
+    const groundGeo = new THREE.PlaneGeometry(60, 60);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x0a1324, roughness: 0.7 });
     const groundMesh = new THREE.Mesh(groundGeo, groundMat);
     groundMesh.rotation.x = -Math.PI / 2;
     groundMesh.receiveShadow = true;
     scene.add(groundMesh);
 
-    // 7. Calculate Bounding Box of GeoJSON coordinates to scale nicely into 3D view
+    const unitMap = new Map<string, THREE.Mesh>();
     const units = building?.units || [];
-    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
 
-    const rawGpsToMeter = (lng: number, lat: number) => {
-      const rx = (lng - centerLng) * 111000 * Math.cos(centerLat * (Math.PI / 180));
-      const rz = -(lat - centerLat) * 111000;
-      return [rx, rz];
-    };
-
-    units.forEach((unit) => {
-      const coords = unit.polygon_2d?.coordinates?.[0] || [];
-      coords.forEach(([lng, lat]) => {
-        const [rx, rz] = rawGpsToMeter(lng, lat);
-        if (rx < minX) minX = rx;
-        if (rx > maxX) maxX = rx;
-        if (rz < minZ) minZ = rz;
-        if (rz > maxZ) maxZ = rz;
-      });
+    // White Ivory Marble Material for Taj Mahal
+    const marbleMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xf7f5f0,
+      roughness: 0.18,
+      metalness: 0.05,
+      clearcoat: 0.9,
+      clearcoatRoughness: 0.1,
+      reflectivity: 0.95,
+      wireframe: wireframeMode,
     });
 
-    const bboxWidth = (maxX - minX) || 10;
-    const bboxDepth = (maxZ - minZ) || 10;
-    const targetSize = 10; // Normalized 10-meter size for comfortable 3D viewport viewing
-    const scaleFactor = targetSize / Math.max(bboxWidth, bboxDepth);
+    const goldMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffd700,
+      metalness: 0.9,
+      roughness: 0.2,
+      wireframe: wireframeMode,
+    });
 
-    const gpsToMeter = (lng: number, lat: number) => {
-      const [rx, rz] = rawGpsToMeter(lng, lat);
-      const cx = (minX + maxX) / 2;
-      const cz = (minZ + maxZ) / 2;
-      return [(rx - cx) * scaleFactor, (rz - cz) * scaleFactor];
-    };
+    if (isTajMahal) {
+      // ==========================================
+      // REALISTIC TAJ MAHAL 3D ARCHITECTURAL MODEL
+      // ==========================================
 
-    // 8. Extrude REAL GeoJSON Polygon Geometry for Each Unit
-    const unitMap = new Map<string, THREE.Mesh>();
+      // A. Main Plinth Platform Base
+      const plinthGeo = new THREE.BoxGeometry(16, 1.4, 16);
+      const plinthMesh = new THREE.Mesh(plinthGeo, marbleMaterial);
+      plinthMesh.position.y = 0.7;
+      plinthMesh.castShadow = true;
+      plinthMesh.receiveShadow = true;
+      scene.add(plinthMesh);
 
-    units.forEach((unit) => {
-      const isFloorVisible = selectedFloor === null || selectedFloor === unit.floor_number;
-      if (!isFloorVisible) return;
+      // B. Main Mausoleum Building Block (Square with chamfered corners)
+      const mainBuildingGeo = new THREE.BoxGeometry(10, 6.5, 10);
+      const mainBuildingMesh = new THREE.Mesh(mainBuildingGeo, marbleMaterial);
+      mainBuildingMesh.position.y = 4.65;
+      mainBuildingMesh.castShadow = true;
+      mainBuildingMesh.receiveShadow = true;
+      scene.add(mainBuildingMesh);
 
-      const floorNum = unit.floor_number;
-      const height = 1.65; // Fixed height per floor layer
-      const yPos = (floorNum - 1) * 1.8; // Elevation spacing
+      // Main Entrance Arched Iwans (Recessed alcoves on 4 sides)
+      const iwanGeo = new THREE.BoxGeometry(4.5, 4.2, 0.4);
+      const iwanMat = new THREE.MeshStandardMaterial({ color: 0xe6e1d5, roughness: 0.4 });
+      [
+        { pos: [0, 4.4, 5.01] },
+        { pos: [0, 4.4, -5.01] },
+        { pos: [5.01, 4.4, 0], rot: Math.PI / 2 },
+        { pos: [-5.01, 4.4, 0], rot: Math.PI / 2 }
+      ].forEach((iwan) => {
+        const m = new THREE.Mesh(iwanGeo, iwanMat);
+        m.position.set(iwan.pos[0], iwan.pos[1], iwan.pos[2]);
+        if (iwan.rot) m.rotation.y = iwan.rot;
+        scene.add(m);
+      });
 
-      // Extract real polygon coordinates
-      const coords = unit.polygon_2d?.coordinates?.[0] || [
-        [centerLng - 0.0002, centerLat - 0.0002],
-        [centerLng + 0.0002, centerLat - 0.0002],
-        [centerLng + 0.0002, centerLat + 0.0002],
-        [centerLng - 0.0002, centerLat + 0.0002]
+      // C. Central Onion Dome & Drum
+      const drumGeo = new THREE.CylinderGeometry(2.6, 2.6, 2.2, 32);
+      const drumMesh = new THREE.Mesh(drumGeo, marbleMaterial);
+      drumMesh.position.y = 8.8;
+      drumMesh.castShadow = true;
+      scene.add(drumMesh);
+
+      // Main Bulbous Dome
+      const domeGeo = new THREE.SphereGeometry(3.0, 32, 24, 0, Math.PI * 2, 0, Math.PI * 0.72);
+      const domeMesh = new THREE.Mesh(domeGeo, marbleMaterial);
+      domeMesh.position.y = 9.8;
+      domeMesh.castShadow = true;
+      scene.add(domeMesh);
+
+      // Golden Spire / Finial
+      const finialGeo = new THREE.CylinderGeometry(0.04, 0.18, 2.2, 16);
+      const finialMesh = new THREE.Mesh(finialGeo, goldMaterial);
+      finialMesh.position.y = 12.8;
+      scene.add(finialMesh);
+
+      const crescentGeo = new THREE.SphereGeometry(0.35, 16, 16);
+      const crescentMesh = new THREE.Mesh(crescentGeo, goldMaterial);
+      crescentMesh.position.y = 13.9;
+      scene.add(crescentMesh);
+
+      // D. 4 Corner Minaret Towers
+      const minaretCoords = [
+        [7.0, 7.0],
+        [-7.0, 7.0],
+        [7.0, -7.0],
+        [-7.0, -7.0]
       ];
 
-      // Create 2D Shape from scaled boundary coordinates
-      const shape = new THREE.Shape();
-      coords.forEach(([lng, lat], idx) => {
-        const [x, z] = gpsToMeter(lng, lat);
-        if (idx === 0) shape.moveTo(x, z);
-        else shape.lineTo(x, z);
+      minaretCoords.forEach(([x, z]) => {
+        // Tower Shaft
+        const shaftGeo = new THREE.CylinderGeometry(0.45, 0.6, 12, 24);
+        const shaftMesh = new THREE.Mesh(shaftGeo, marbleMaterial);
+        shaftMesh.position.set(x, 7.4, z);
+        shaftMesh.castShadow = true;
+        scene.add(shaftMesh);
+
+        // Balcony Rings
+        [4.0, 8.0, 12.0].forEach((ringY) => {
+          const ringGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.3, 24);
+          const ringMesh = new THREE.Mesh(ringGeo, marbleMaterial);
+          ringMesh.position.set(x, ringY, z);
+          scene.add(ringMesh);
+        });
+
+        // Top Cupola Dome
+        const cupolaDrumGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.8, 16);
+        const cupolaDrumMesh = new THREE.Mesh(cupolaDrumGeo, marbleMaterial);
+        cupolaDrumMesh.position.set(x, 13.8, z);
+        scene.add(cupolaDrumMesh);
+
+        const cupolaDomeGeo = new THREE.SphereGeometry(0.65, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.7);
+        const cupolaDomeMesh = new THREE.Mesh(cupolaDomeGeo, marbleMaterial);
+        cupolaDomeMesh.position.set(x, 14.3, z);
+        scene.add(cupolaDomeMesh);
+
+        const cupolaSpireGeo = new THREE.CylinderGeometry(0.02, 0.08, 0.8);
+        const cupolaSpireMesh = new THREE.Mesh(cupolaSpireGeo, goldMaterial);
+        cupolaSpireMesh.position.set(x, 15.0, z);
+        scene.add(cupolaSpireMesh);
       });
 
-      const extrudeSettings = {
-        depth: height,
-        bevelEnabled: true,
-        bevelSegments: 2,
-        steps: 1,
-        bevelSize: 0.05,
-        bevelThickness: 0.05
-      };
+      // E. Map 3D Units to Taj Mahal Levels (Interactive Cadastral Units)
+      units.forEach((unit) => {
+        const floorNum = unit.floor_number;
+        const isSelected = selectedUnit?.unit_id === unit.unit_id;
+        const levelY = (floorNum - 1) * 2.2 + 1.2;
 
-      const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-      geometry.rotateX(Math.PI / 2); // Rotate to horizontal plane
+        const levelGeo = new THREE.BoxGeometry(10.2, 0.6, 10.2);
+        const levelMat = new THREE.MeshStandardMaterial({
+          color: isSelected ? 0x00f0ff : 0x3b82f6,
+          transparent: true,
+          opacity: isSelected ? 0.9 : 0.25,
+          emissive: isSelected ? 0x00f0ff : 0x000000,
+          emissiveIntensity: isSelected ? 0.8 : 0.0,
+          wireframe: wireframeMode,
+        });
 
-      const baseColor = FLOOR_HEX_COLORS[(floorNum - 1) % FLOOR_HEX_COLORS.length];
-      const isSelected = selectedUnit?.unit_id === unit.unit_id;
-
-      // Architectural Glass PBR Material
-      const material = new THREE.MeshPhysicalMaterial({
-        color: isSelected ? 0x00f0ff : baseColor,
-        metalness: 0.2,
-        roughness: 0.2,
-        transmission: 0.3,
-        transparent: true,
-        opacity: isSelected ? 0.95 : 0.85,
-        clearcoat: 1.0,
-        clearcoatRoughness: 0.1,
-        reflectivity: 0.9,
-        wireframe: wireframeMode,
-        emissive: isSelected ? 0x00f0ff : 0x000000,
-        emissiveIntensity: isSelected ? 0.8 : 0.0,
+        const levelMesh = new THREE.Mesh(levelGeo, levelMat);
+        levelMesh.position.y = levelY;
+        levelMesh.userData = { unit };
+        scene.add(levelMesh);
+        unitMap.set(unit.unit_id, levelMesh);
       });
 
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.position.y = yPos + height;
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      mesh.userData = { unit };
+    } else {
+      // Standard Building Extrusion for other presets
+      units.forEach((unit) => {
+        const isFloorVisible = selectedFloor === null || selectedFloor === unit.floor_number;
+        if (!isFloorVisible) return;
 
-      // Edges geometry
-      const edgesGeo = new THREE.EdgesGeometry(geometry);
-      const edgesMat = new THREE.LineBasicMaterial({
-        color: isSelected ? 0xffffff : 0x60a5fa,
-        linewidth: isSelected ? 2 : 1,
+        const floorNum = unit.floor_number;
+        const height = 1.65;
+        const yPos = (floorNum - 1) * 1.8;
+
+        const coords = unit.polygon_2d?.coordinates?.[0] || [
+          [centerLng - 0.0002, centerLat - 0.0002],
+          [centerLng + 0.0002, centerLat - 0.0002],
+          [centerLng + 0.0002, centerLat + 0.0002],
+          [centerLng - 0.0002, centerLat + 0.0002]
+        ];
+
+        const shape = new THREE.Shape();
+        coords.forEach(([lng, lat], idx) => {
+          const x = (lng - centerLng) * 15000;
+          const z = -(lat - centerLat) * 15000;
+          if (idx === 0) shape.moveTo(x, z);
+          else shape.lineTo(x, z);
+        });
+
+        const extrudeSettings = { depth: height, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.05, bevelThickness: 0.05 };
+        const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        geometry.rotateX(Math.PI / 2);
+
+        const baseColor = FLOOR_HEX_COLORS[(floorNum - 1) % FLOOR_HEX_COLORS.length];
+        const isSelected = selectedUnit?.unit_id === unit.unit_id;
+
+        const material = new THREE.MeshPhysicalMaterial({
+          color: isSelected ? 0x00f0ff : baseColor,
+          metalness: 0.2,
+          roughness: 0.2,
+          transmission: 0.3,
+          transparent: true,
+          opacity: isSelected ? 0.95 : 0.85,
+          clearcoat: 1.0,
+          wireframe: wireframeMode,
+          emissive: isSelected ? 0x00f0ff : 0x000000,
+          emissiveIntensity: isSelected ? 0.8 : 0.0,
+        });
+
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.y = yPos + height;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.userData = { unit };
+
+        scene.add(mesh);
+        unitMap.set(unit.unit_id, mesh);
       });
-      const edgesMesh = new THREE.LineSegments(edgesGeo, edgesMat);
-      mesh.add(edgesMesh);
+    }
 
-      scene.add(mesh);
-      unitMap.set(unit.unit_id, mesh);
-    });
+    unitMeshesRef.current = unitMap;
 
-    // 9. Raycasting & Mouse Interaction
+    // 7. Raycasting & Mouse Interaction
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -259,7 +353,7 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
     domElem.addEventListener('pointermove', handlePointerMove);
     domElem.addEventListener('click', handleClick);
 
-    // 10. Animation Loop
+    // 8. Animation Loop
     let animId: number;
     const animate = () => {
       animId = requestAnimationFrame(animate);
@@ -309,7 +403,7 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
   };
 
   return (
-    <div className="map3d-wrapper relative w-full h-full min-h-[520px] bg-[#090d16] rounded-xl overflow-hidden shadow-2xl">
+    <div className="map3d-wrapper relative w-full h-full min-h-[520px] bg-[#0a0f1d] rounded-xl overflow-hidden shadow-2xl">
       <div ref={mountRef} className="w-full h-full min-h-[520px]" />
 
       {/* Floating Controls */}
@@ -353,15 +447,15 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
 
       {/* Location Banner Header */}
       <div className="location-banner-header glass-panel absolute top-4 left-4 p-2.5 z-10 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur rounded-lg border-blue-500/40">
-        <div className="w-7 h-7 rounded-md bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center justify-center">
+        <div className="w-7 h-7 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center">
           <MapPin size={16} />
         </div>
         <div className="flex flex-col">
           <span className="text-[0.78rem] font-bold text-white leading-tight">
-            {building?.building_name || 'Cadastral Parcel'}
+            {building?.building_name || 'Taj Mahal World Heritage'}
           </span>
-          <span className="text-[0.68rem] font-mono text-cyan-300">
-            Studio Scale Centered: {centerLat.toFixed(5)}°N, {centerLng.toFixed(5)}°E
+          <span className="text-[0.68rem] font-mono text-amber-300">
+            {isTajMahal ? 'Authentic Architectural 3D Model: Agra (+27.1751°N)' : 'Studio Scale Centered'}
           </span>
         </div>
       </div>
@@ -371,7 +465,7 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
         <div className="absolute bottom-16 left-4 z-10 glass-panel p-3 border border-cyan-500/40 bg-slate-900/90 shadow-glow rounded-lg">
           <div className="flex items-center gap-2">
             <Sparkles size={14} className="text-cyan-400" />
-            <span className="text-xs font-extrabold text-white">Click to Select Unit</span>
+            <span className="text-xs font-extrabold text-white">Click to Select Cadastral Zone</span>
           </div>
           <code className="text-[0.75rem] font-mono text-cyan-300 block mt-1">{hoveredUnitId}</code>
         </div>
@@ -379,8 +473,8 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
 
       {/* Tech Stack Badge Footer */}
       <div className="absolute bottom-3 left-4 z-10 flex items-center gap-2 bg-slate-900/80 backdrop-blur border border-white/10 px-3 py-1.5 rounded-full text-xs text-gray-300">
-        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-        <span className="font-semibold text-cyan-400">Three.js Scaled Studio View</span> + <span className="text-blue-400">PBR Facade</span>
+        <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+        <span className="font-semibold text-amber-300">Three.js Authentic Taj Mahal 3D Studio</span> + <span className="text-blue-400">Ivory Marble & Gold Spire</span>
       </div>
     </div>
   );
