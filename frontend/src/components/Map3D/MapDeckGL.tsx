@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer } from '@deck.gl/layers';
+import { GeoJsonLayer, TextLayer } from '@deck.gl/layers';
 import Map from 'react-map-gl/maplibre';
 import maplibregl from 'maplibre-gl';
 import { Building, Unit } from '../../types';
-import { RotateCw, Layers, Compass, Maximize2 } from 'lucide-react';
+import { RotateCw, Layers, MapPin, Compass, Maximize2, Map as MapIcon } from 'lucide-react';
 import './Map3D.css';
 
-// CartoDB Dark Matter MapLibre style (Free OpenStreetMap-based vector/raster tiles, 0 API Key required!)
-const CARTO_DARK_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+// Map Styles: Free CartoDB GL styles (0 API Key needed!)
+const MAP_STYLES = [
+  { id: 'dark', name: 'Dark Cadastral', url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json' },
+  { id: 'voyager', name: 'Street Map', url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json' },
+  { id: 'positron', name: 'Light Survey', url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json' }
+];
 
 interface MapDeckGLProps {
   building: Building;
@@ -18,34 +22,42 @@ interface MapDeckGLProps {
 }
 
 const FLOOR_RGB_COLORS: [number, number, number][] = [
-  [59, 130, 246],  // Blue
-  [16, 185, 129],  // Emerald
-  [245, 158, 11],  // Amber
-  [139, 92, 246],  // Purple
-  [6, 182, 212],   // Cyan
-  [236, 72, 153],  // Pink
+  [59, 130, 246],  // Floor 1: Vibrant Blue
+  [16, 185, 129],  // Floor 2: Emerald Green
+  [245, 158, 11],  // Floor 3: Amber Gold
+  [139, 92, 246],  // Floor 4: Violet Purple
+  [6, 182, 212],   // Floor 5: Neon Cyan
+  [236, 72, 153],  // Floor 6: Hot Pink
 ];
 
 export default function MapDeckGL({ building, selectedUnit, onUnitClick, selectedFloor }: MapDeckGLProps) {
   const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; object: any } | null>(null);
+  const [selectedStyleUrl, setSelectedStyleUrl] = useState(MAP_STYLES[0].url);
+
+  // Extract center coordinates from the actual building footprint or units
+  const firstUnit = building?.units?.[0];
+  const centerLng = firstUnit?.centroid?.[1] || 77.0495;
+  const centerLat = firstUnit?.centroid?.[0] || 28.5925;
 
   // Controlled ViewState for deck.gl
   const [viewState, setViewState] = useState({
-    longitude: 77.0495,
-    latitude: 28.5925,
-    zoom: 17.5,
-    pitch: 60,
-    bearing: -20,
+    longitude: centerLng,
+    latitude: centerLat,
+    zoom: 17.8,
+    pitch: 62,
+    bearing: -25,
     maxPitch: 85,
   });
 
-  // Update viewState when building coordinates change
+  // Re-center camera whenever building dataset changes
   useEffect(() => {
     if (building?.units?.[0]?.centroid) {
+      const u = building.units[0];
       setViewState((prev) => ({
         ...prev,
-        latitude: building.units[0].centroid![0],
-        longitude: building.units[0].centroid![1],
+        latitude: u.centroid![0],
+        longitude: u.centroid![1],
+        zoom: 17.8,
       }));
     }
   }, [building]);
@@ -55,21 +67,21 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
   };
 
   const handlePitchToggle = () => {
-    setViewState((prev) => ({ ...prev, pitch: prev.pitch === 60 ? 0 : 60 }));
+    setViewState((prev) => ({ ...prev, pitch: prev.pitch === 62 ? 0 : 62 }));
   };
 
   const handleResetCamera = () => {
     setViewState({
-      longitude: building?.units?.[0]?.centroid?.[1] || 77.0495,
-      latitude: building?.units?.[0]?.centroid?.[0] || 28.5925,
-      zoom: 17.5,
-      pitch: 60,
-      bearing: -20,
+      longitude: centerLng,
+      latitude: centerLat,
+      zoom: 17.8,
+      pitch: 62,
+      bearing: -25,
       maxPitch: 85,
     });
   };
 
-  // Convert Building Units to deck.gl GeoJSON Feature Collection
+  // Convert Building Units to deck.gl GeoJSON Feature Collection using REAL GeoJSON polygons
   const unitsGeoJSON = {
     type: "FeatureCollection",
     features: (building?.units || []).map((unit) => {
@@ -86,37 +98,53 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
         geometry: unit.polygon_2d || {
           type: "Polygon",
           coordinates: [[
-            [77.0490, 28.5920],
-            [77.0500, 28.5920],
-            [77.0500, 28.5930],
-            [77.0490, 28.5930],
-            [77.0490, 28.5920]
+            [centerLng - 0.0005, centerLat - 0.0005],
+            [centerLng + 0.0005, centerLat - 0.0005],
+            [centerLng + 0.0005, centerLat + 0.0005],
+            [centerLng - 0.0005, centerLat + 0.0005],
+            [centerLng - 0.0005, centerLat - 0.0005]
           ]]
         }
       };
     }).filter((f) => f.properties.isFloorVisible)
   };
 
-  // deck.gl GeoJsonLayer with 3D Extrusion
+  // Generate 3D Text Labels for Floor Elevation Levels
+  const floorLabelsData = Array.from({ length: building?.floor_count || 4 }, (_, i) => {
+    const floorNum = i + 1;
+    const floorUnits = (building?.units || []).filter(u => u.floor_number === floorNum);
+    const sampleUnit = floorUnits[0] || firstUnit;
+    const zMax = sampleUnit?.z_max || floorNum * 3.5;
+
+    return {
+      text: `Level ${floorNum} (+${zMax}m)`,
+      coordinates: [sampleUnit?.centroid?.[1] || centerLng, sampleUnit?.centroid?.[0] || centerLat],
+      floorNumber: floorNum,
+      zMax
+    };
+  }).filter(label => selectedFloor === null || selectedFloor === label.floorNumber);
+
+  // deck.gl Layers: 3D GeoJSON Extrusions + Floor Labels
   const layers = [
+    // Layer 1: Real 3D Extruded Cadastral Unit Polygons
     new GeoJsonLayer({
       id: '3d-ulpin-units-layer',
       data: unitsGeoJSON as any,
       extruded: true,
       wireframe: true,
-      getElevation: (f: any) => f.properties.z_max * 3, // Height scale for 3D visual extrusion
+      getElevation: (f: any) => f.properties.z_max * 3.5, // 3D Elevation Height in meters
       getFillColor: (f: any) => {
         const p = f.properties;
-        if (p.isSelected) return [0, 240, 255, 230]; // Glowing cyan selection
+        if (p.isSelected) return [0, 240, 255, 235]; // Glowing Cyan selection
         const rgb = FLOOR_RGB_COLORS[(p.floor_number - 1) % FLOOR_RGB_COLORS.length];
-        return [...rgb, 200];
+        return [...rgb, 195];
       },
-      getLineColor: (f: any) => f.properties.isSelected ? [255, 255, 255, 255] : [255, 255, 255, 120],
+      getLineColor: (f: any) => f.properties.isSelected ? [255, 255, 255, 255] : [255, 255, 255, 140],
       getLineWidth: 2,
       lineWidthUnits: 'pixels',
       pickable: true,
       autoHighlight: true,
-      highlightColor: [255, 255, 255, 80],
+      highlightColor: [255, 255, 255, 90],
       onClick: (info) => {
         if (info.object?.properties) {
           onUnitClick(info.object.properties as Unit);
@@ -128,6 +156,27 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       updateTriggers: {
         getFillColor: [selectedUnit, selectedFloor],
         getLineColor: [selectedUnit]
+      }
+    }),
+
+    // Layer 2: 3D Floor Elevation Text Markers
+    new TextLayer({
+      id: '3d-floor-labels-layer',
+      data: floorLabelsData,
+      getPosition: (d: any) => [d.coordinates[0], d.coordinates[1], d.zMax * 3.5 + 2],
+      getText: (d: any) => d.text,
+      getSize: 16,
+      getColor: (d: any) => selectedFloor === d.floorNumber ? [0, 240, 255, 255] : [255, 255, 255, 220],
+      getAngle: 0,
+      getTextAnchor: 'middle',
+      getAlignmentBaseline: 'center',
+      fontFamily: 'Inter, sans-serif',
+      fontWeight: 'bold',
+      background: true,
+      getBackgroundColor: [15, 23, 42, 210],
+      backgroundPadding: [6, 4],
+      updateTriggers: {
+        getColor: [selectedFloor]
       }
     })
   ];
@@ -143,7 +192,7 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       >
         <Map
           mapLib={maplibregl}
-          mapStyle={CARTO_DARK_STYLE}
+          mapStyle={selectedStyleUrl}
         />
       </DeckGL>
 
@@ -174,10 +223,40 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
         </button>
       </div>
 
+      {/* Map Basemap Style Switcher Dropdown */}
+      <div className="basemap-switcher absolute top-16 left-4 z-10 flex items-center gap-1.5 bg-slate-900/90 backdrop-blur border border-white/15 px-3 py-1.5 rounded-lg shadow-xl text-xs font-semibold text-gray-300">
+        <MapIcon size={14} className="text-blue-400" />
+        <span>Map Style:</span>
+        <select
+          className="bg-slate-800 text-white text-xs font-bold px-2 py-1 rounded border border-white/10 outline-none cursor-pointer hover:border-blue-400"
+          value={selectedStyleUrl}
+          onChange={(e) => setSelectedStyleUrl(e.target.value)}
+        >
+          {MAP_STYLES.map(style => (
+            <option key={style.id} value={style.url}>{style.name}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Geographic Coordinates & Location Banner Header */}
+      <div className="location-banner-header glass-panel absolute top-4 left-4 p-2.5 z-10 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur rounded-lg border-blue-500/40">
+        <div className="w-7 h-7 rounded-md bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center justify-center">
+          <MapPin size={16} />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[0.78rem] font-bold text-white leading-tight">
+            {building?.building_name || 'Cadastral Parcel'}
+          </span>
+          <span className="text-[0.68rem] font-mono text-cyan-300">
+            {centerLat.toFixed(5)}°N, {centerLng.toFixed(5)}°E • Elevation +{building?.height || 14}m
+          </span>
+        </div>
+      </div>
+
       {/* Hover Unit Tooltip Overlay */}
       {hoverInfo && hoverInfo.object && (
         <div
-          className="unit-hover-tooltip glass-panel fade-in absolute z-20 pointer-events-none p-3 border border-blue-500/40 shadow-glow rounded-lg bg-slate-900/90"
+          className="unit-hover-tooltip glass-panel fade-in absolute z-20 pointer-events-none p-3 border border-blue-500/40 shadow-glow rounded-lg bg-slate-900/95"
           style={{ left: hoverInfo.x + 15, top: hoverInfo.y - 40 }}
         >
           <div className="tooltip-header flex items-center gap-2">
@@ -191,22 +270,17 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
           <code className="tooltip-ulpin font-mono text-[0.75rem] text-sky-300 block mt-1">
             {hoverInfo.object.properties.ulpin}
           </code>
-          <div className="tooltip-height text-[0.7rem] text-gray-400 mt-1">
-            Elevation: +{hoverInfo.object.properties.z_min}m to +{hoverInfo.object.properties.z_max}m
+          <div className="tooltip-height text-[0.7rem] text-gray-400 mt-1 flex justify-between gap-4">
+            <span>Elevation: +{hoverInfo.object.properties.z_min}m to +{hoverInfo.object.properties.z_max}m</span>
+            <span className="font-semibold text-emerald-400">{hoverInfo.object.properties.area_sqm} m²</span>
           </div>
         </div>
       )}
 
-      {/* Volumetric Height Metric Overlay */}
-      <div className="height-ruler-overlay glass-panel absolute top-4 left-4 p-2.5 z-10 flex flex-col gap-0.5 bg-slate-900/80 backdrop-blur rounded-lg">
-        <span className="ruler-title text-[0.68rem] uppercase text-gray-400 font-bold">Max Elevation</span>
-        <span className="ruler-val font-mono text-base font-extrabold text-cyan-400">+{building?.height || 14.0}m</span>
-      </div>
-
       {/* Tech Stack Badge Footer */}
       <div className="absolute bottom-3 left-4 z-10 flex items-center gap-2 bg-slate-900/80 backdrop-blur border border-white/10 px-3 py-1.5 rounded-full text-xs text-gray-300">
         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span className="font-semibold text-sky-400">deck.gl 3D</span> + <span className="text-emerald-400">MapLibre GL</span> + <span className="text-indigo-400">OSM</span>
+        <span className="font-semibold text-sky-400">Real GeoJSON Polygon Extrusions</span> + <span className="text-emerald-400">MapLibre GL</span>
       </div>
     </div>
   );
