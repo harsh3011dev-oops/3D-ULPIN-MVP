@@ -1,19 +1,23 @@
 try:
-    from ai.footprint_detection import detect_building_footprint, detect_multi_building_footprints
+    from ai.footprint_detection import detect_multi_building_footprints
+    from ai.footprint_detection_v2 import detect_building_footprint_hybrid
+    from ai.geocoding_robust import geocode_address_robust
     from ai.extrusion import extrude_building
     from ai.floor_division import divide_into_floors, divide_floor_into_units
     from ai.ulpin_generation import generate_ulpin
     from ai.spatial_validation import validate_spatial_data
     from ai.utils.image_utils import download_satellite_image
-    from ai.utils.geo_utils import fetch_osm_building_metadata, geocode_address
+    from ai.utils.geo_utils import fetch_osm_building_metadata
 except ModuleNotFoundError:
-    from footprint_detection import detect_building_footprint, detect_multi_building_footprints
+    from footprint_detection import detect_multi_building_footprints
+    from footprint_detection_v2 import detect_building_footprint_hybrid
+    from geocoding_robust import geocode_address_robust
     from extrusion import extrude_building
     from floor_division import divide_into_floors, divide_floor_into_units
     from ulpin_generation import generate_ulpin
     from spatial_validation import validate_spatial_data
     from utils.image_utils import download_satellite_image
-    from utils.geo_utils import fetch_osm_building_metadata, geocode_address
+    from utils.geo_utils import fetch_osm_building_metadata
 
 import uuid
 from shapely.geometry import shape
@@ -21,11 +25,11 @@ from shapely.geometry import shape
 def process_building(input_data: dict) -> dict:
     """
     Orchestrate the SMART AI pipeline for a single building:
-    1. Resolve Address to GPS via OpenCage Geocoding (if address provided)
+    1. Resolve Address to GPS via Multi-API Cascading Geocoding (if address provided)
     2. Extract centroid from Parcel Boundary
     3. Query OpenStreetMap for building height & floors (or use overrides/defaults)
     4. Download satellite image from ESRI World Imagery / Stadia Maps
-    5. Detect footprint from downloaded satellite image
+    5. Detect footprint using v2 Hybrid Multi-scale Canny + CV/OSM Blending
     6. Extrude building footprint to 3D
     7. Slice building into floors & units
     8. Generate unique 3D ULPINs
@@ -37,11 +41,11 @@ def process_building(input_data: dict) -> dict:
         parcel_boundary = input_data.get("parcel_boundary")
         address = input_data.get("address")
 
-        # Smart Address Resolution via OpenCage API
+        # Smart Address Resolution via Multi-Provider Cascading Geocoder
         if address and not parcel_boundary:
-            geo_info = geocode_address(address)
-            if geo_info:
-                lat, lon = geo_info["lat"], geo_info["lon"]
+            geo_info = geocode_address_robust(address)
+            if geo_info and "latitude" in geo_info:
+                lat, lon = geo_info["latitude"], geo_info["longitude"]
                 delta = 0.0005
                 parcel_boundary = {
                     "type": "Polygon",
@@ -76,7 +80,8 @@ def process_building(input_data: dict) -> dict:
             height_meters = osm_data.get("height_meters") or float(floor_count * 3.5)
 
         image_path = download_satellite_image(parcel_boundary)
-        footprint_geojson = detect_building_footprint(image_path, parcel_boundary)
+        footprint_result = detect_building_footprint_hybrid(image_path, parcel_boundary)
+        footprint_geojson = footprint_result.get("footprint", footprint_result)
 
         extrusion = extrude_building(footprint_geojson, height_meters, floor_count)
         floors = divide_into_floors(footprint_geojson, height_meters, floor_count)

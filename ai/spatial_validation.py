@@ -49,7 +49,7 @@ def validate_spatial_data(
     # Check 2: Units within building boundary
     for unit in units:
         unit_shape = shape(unit["polygon_2d"])
-        if not building_shape.contains(unit_shape):
+        if not building_shape.buffer(1e-7).covers(unit_shape):
             out_of_bounds.append(unit["unit_id"])
             errors.append({
                 "unit_id": unit["unit_id"],
