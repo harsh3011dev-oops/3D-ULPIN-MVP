@@ -23,28 +23,28 @@
   width: 56px;
   height: 56px;
   border-radius: var(--radius-md);
-  background: #0f172a;
+  background: var(--grad-brand);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
+  box-shadow: 0 0 24px var(--accent-blue-glow);
   margin-bottom: 4px;
 }
 
 .processing-main-title {
   font-size: 2rem;
   font-weight: 800;
-  color: #0f172a;
+  color: #ffffff;
   letter-spacing: -0.3px;
 }
 
 .job-id-chip {
   padding: 4px 12px;
   border-radius: var(--radius-full);
-  background: #f1f5f9;
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border-glass);
-  color: #475569;
+  color: var(--text-muted);
   font-size: 0.72rem;
   letter-spacing: 1px;
   font-weight: 600;
@@ -74,21 +74,21 @@
   gap: 16px;
 }
 
-/* Live Terminal Card (White Theme) */
+/* Live Terminal Card (Deep Space) */
 .terminal-logs-card {
   border-radius: var(--radius-md);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   height: 280px;
-  background: #ffffff;
+  background: rgba(10, 14, 22, 0.95);
   border: 1px solid var(--border-glass);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
 }
 
 .terminal-header {
   padding: 10px 14px;
-  background: #f8fafc;
+  background: rgba(255, 255, 255, 0.03);
   border-bottom: 1px solid var(--border-glass);
   display: flex;
   align-items: center;
@@ -101,7 +101,7 @@
   gap: 6px;
   font-family: var(--font-mono);
   font-size: 0.72rem;
-  color: #0f172a;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.8px;
   font-weight: 600;
@@ -130,7 +130,7 @@
   gap: 6px;
   font-size: 0.72rem;
   line-height: 1.4;
-  background: #ffffff;
+  background: rgba(6, 10, 18, 0.98);
 }
 
 .log-line {
@@ -140,20 +140,20 @@
   word-break: break-all;
 }
 
-.log-time { color: #94a3b8; flex-shrink: 0; }
+.log-time { color: var(--text-muted); flex-shrink: 0; }
 .log-level { font-weight: 700; flex-shrink: 0; }
-.log-level.info { color: #0f172a; }
-.log-level.sys  { color: #475569; }
-.log-level.geo  { color: #0284c7; }
-.log-level.ok   { color: #10b981; }
+.log-level.info { color: var(--accent-blue-light); }
+.log-level.sys  { color: var(--accent-purple); }
+.log-level.geo  { color: var(--accent-cyan); }
+.log-level.ok   { color: var(--accent-green); }
 
-.log-msg { color: #0f172a; }
+.log-msg { color: var(--text-secondary); }
 
 /* Note Card */
 .background-note-card {
   padding: 14px 16px;
   border-radius: var(--radius-md);
-  background: #f8fafc;
+  background: rgba(255,255,255,0.02);
   border: 1px solid var(--border-glass);
   display: flex;
   align-items: flex-start;
@@ -164,7 +164,7 @@
   font-family: var(--font-mono);
   font-size: 0.75rem;
   font-weight: 700;
-  color: #0f172a;
+  color: #ffffff;
   margin-bottom: 2px;
 }
 
@@ -177,7 +177,7 @@
 .cancel-btn {
   width: 100%;
   padding: 10px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
@@ -188,7 +188,7 @@
 }
 
 .cancel-btn:hover {
-  background: rgba(239, 68, 68, 0.08);
+  background: rgba(239, 68, 68, 0.1);
   color: var(--accent-red);
   border-color: rgba(239, 68, 68, 0.3);
 }

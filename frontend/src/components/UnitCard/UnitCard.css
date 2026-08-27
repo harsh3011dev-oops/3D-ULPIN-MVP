@@ -2,7 +2,7 @@
   padding: 20px;
   width: 100%;
   border-radius: var(--radius-md);
-  background: #ffffff;
+  background: rgba(22, 27, 39, 0.85);
   border: 1px solid var(--border-glass);
   box-shadow: var(--shadow-sm);
 }
@@ -27,8 +27,8 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: #f1f5f9;
-  color: #0f172a;
+  background: rgba(255, 255, 255, 0.04);
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -38,7 +38,7 @@
 .empty-title {
   font-size: 1rem;
   font-weight: 700;
-  color: #0f172a;
+  color: #ffffff;
 }
 
 .empty-subtitle {
@@ -58,8 +58,8 @@
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  color: #0f172a;
-  background: #f1f5f9;
+  color: var(--accent-blue-light);
+  background: rgba(59, 130, 246, 0.12);
   padding: 2px 8px;
   border-radius: var(--radius-sm);
 }
@@ -67,7 +67,7 @@
 .unit-name {
   font-size: 1.1rem;
   font-weight: 800;
-  color: #0f172a;
+  color: #ffffff;
   margin-top: 4px;
 }
 
@@ -75,16 +75,16 @@
   font-family: var(--font-mono);
   font-size: 0.75rem;
   font-weight: 700;
-  color: #0f172a;
-  background: #f8fafc;
-  border: 1px solid var(--border-glass);
+  color: var(--accent-cyan);
+  background: rgba(6, 182, 212, 0.1);
+  border: 1px solid rgba(6, 182, 212, 0.2);
   padding: 4px 8px;
   border-radius: var(--radius-sm);
 }
 
-/* ULPIN Box (White Theme) */
+/* ULPIN Box (Deep Space Theme) */
 .ulpin-box {
-  background: #f8fafc;
+  background: rgba(6, 10, 18, 0.8);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-sm);
   padding: 12px;
@@ -113,7 +113,7 @@
   font-size: 0.65rem;
   font-weight: 800;
   color: var(--accent-green);
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(16, 185, 129, 0.12);
   padding: 1px 6px;
   border-radius: var(--radius-sm);
 }
@@ -129,7 +129,7 @@
   font-family: var(--font-mono);
   font-size: 0.85rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-code);
   word-break: break-all;
 }
 
@@ -140,15 +140,17 @@
   padding: 6px 12px;
   border-radius: var(--radius-sm);
   font-size: 0.78rem;
-  background: #0f172a;
-  color: #ffffff;
+  background: #ffffff;
+  color: #060a12;
   flex-shrink: 0;
   border: none;
   cursor: pointer;
+  font-weight: 700;
 }
 
 .copy-ulpin-button.copied {
   background: var(--accent-green);
+  color: #ffffff;
 }
 
 .specs-grid {
@@ -159,7 +161,7 @@
 }
 
 .spec-card {
-  background: #f8fafc;
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-sm);
   padding: 10px;
@@ -183,7 +185,7 @@
 .spec-value {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #0f172a;
+  color: #ffffff;
 }
 
 .details-list {
@@ -191,7 +193,7 @@
   flex-direction: column;
   gap: 10px;
   margin-bottom: 20px;
-  background: #f8fafc;
+  background: rgba(6, 10, 18, 0.5);
   padding: 12px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-glass);
@@ -213,7 +215,7 @@
 
 .detail-val {
   font-weight: 600;
-  color: #0f172a;
+  color: #ffffff;
 }
 
 .font-mono {
@@ -242,17 +244,17 @@
   font-family: var(--font-mono);
   font-size: 0.65rem;
   font-weight: 700;
-  background: #e2e8f0;
-  border: 1px solid var(--border-glass);
-  color: #0f172a;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  color: var(--accent-cyan);
   padding: 2px 6px;
   border-radius: 3px;
   cursor: help;
 }
 
 .ulpin-part:last-child {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.2);
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.25);
   color: var(--accent-green);
 }
 

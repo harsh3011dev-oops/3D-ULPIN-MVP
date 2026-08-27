@@ -29,30 +29,33 @@ html, body {
   flex-direction: column;
 }
 
-/* ── Glass Panel (White Theme) ── */
+/* ── Architectural Glass Panel (Deep Space Canvas) ── */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
 }
 
 /* ── Gradient Text ── */
 .gradient-text {
-  color: #0f172a;
+  background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-/* ── Primary Button (White Theme: Dark Solid #0f172a with White text, matching zip files) ── */
+/* ── Primary Button (Solid White with Black Text matching DESIGN.md) ── */
 .btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 12px 24px;
-  background: #0f172a;
-  color: #ffffff;
+  background: #ffffff;
+  color: #060a12;
   font-size: 0.85rem;
   font-weight: 700;
   font-family: var(--font-mono);
@@ -62,14 +65,14 @@ html, body {
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all var(--transition-normal);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.15);
   position: relative;
   overflow: hidden;
 }
 
 .btn-primary:hover {
-  background: #1e293b;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25);
+  background: #e2e8f0;
+  box-shadow: 0 0 28px rgba(255, 255, 255, 0.3);
   transform: translateY(-1px);
 }
 .btn-primary:active { transform: translateY(0); }
@@ -88,7 +91,7 @@ select,
 textarea {
   width: 100%;
   padding: 10px 14px;
-  background: #ffffff;
+  background: #060a12;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
@@ -99,9 +102,9 @@ textarea {
 }
 
 input:focus, select:focus, textarea:focus {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.1);
-  background: #ffffff;
+  border-color: #ffffff;
+  box-shadow: 0 0 0 1px #ffffff;
+  background: #090d16;
 }
 
 input::placeholder, textarea::placeholder { color: var(--text-muted); }
@@ -143,23 +146,23 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 .maplibregl-map { font-family: var(--font-sans); }
 .maplibregl-ctrl-attrib { display: none !important; }
 .maplibregl-ctrl-group {
-  background: #ffffff !important;
+  background: rgba(15, 19, 28, 0.9) !important;
   border: 1px solid var(--border-color) !important;
   border-radius: var(--radius-sm) !important;
-  box-shadow: var(--shadow-sm) !important;
+  backdrop-filter: blur(12px) !important;
 }
 
 /* ── Custom Scrollbars ── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.15);
+  background: rgba(255,255,255,0.15);
   border-radius: var(--radius-full);
 }
-::-webkit-scrollbar-thumb:hover { background: #0f172a; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-blue); }
 
 /* ── Utility Classes ── */
-.text-blue    { color: var(--accent-blue); }
+.text-blue    { color: var(--accent-blue-light); }
 .text-cyan    { color: var(--accent-cyan); }
 .text-green   { color: var(--accent-green); }
 .text-amber   { color: var(--accent-amber); }
@@ -175,13 +178,13 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 }
 .card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
 }
 
-/* ── Subtle Light Background Grid ── */
+/* ── Subtle Background Grid (Deep Space) ── */
 .bg-grid {
   background-image:
-    linear-gradient(rgba(15,23,42,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(15,23,42,0.03) 1px, transparent 1px);
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
   background-size: 32px 32px;
 }

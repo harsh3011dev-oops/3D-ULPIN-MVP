@@ -53,8 +53,8 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
 
     // 1. Scene Setup
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf8fafc);
-    scene.fog = new THREE.FogExp2(0xf8fafc, 0.008);
+    scene.background = new THREE.Color(0x060a12);
+    scene.fog = new THREE.FogExp2(0x060a12, 0.008);
     sceneRef.current = scene;
 
     // 2. Camera Setup
@@ -105,12 +105,12 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
     scene.add(cyanRimLight);
 
     // 6. Ground Grid Base
-    const gridHelper = new THREE.GridHelper(60, 30, 0x0f172a, 0xcbd5e1);
+    const gridHelper = new THREE.GridHelper(60, 30, 0x3b82f6, 0x1f2937);
     gridHelper.position.y = -0.01;
     scene.add(gridHelper);
 
     const groundGeo = new THREE.PlaneGeometry(60, 60);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.7 });
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x0a1324, roughness: 0.7 });
     const groundMesh = new THREE.Mesh(groundGeo, groundMat);
     groundMesh.rotation.x = -Math.PI / 2;
     groundMesh.receiveShadow = true;

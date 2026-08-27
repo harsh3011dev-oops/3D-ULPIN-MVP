@@ -1,53 +1,53 @@
 :root {
-  /* ── White / Light Technical Palette (Exact Zip Design Files) ── */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-tertiary: #f1f5f9;
-  --bg-card: #ffffff;
-  --bg-glass: rgba(255, 255, 255, 0.85);
-  --bg-glass-border: rgba(0, 0, 0, 0.08);
+  /* ── Orbital Precision Mono Palette (Stitch Design System - Deep Space Canvas) ── */
+  --bg-primary: #060a12;
+  --bg-secondary: #0f131c;
+  --bg-tertiary: #171c24;
+  --bg-card: rgba(28, 32, 38, 0.85);
+  --bg-glass: rgba(22, 27, 39, 0.85);
+  --bg-glass-border: rgba(255, 255, 255, 0.08);
 
-  --surface: #ffffff;
-  --surface-container-low: #f8fafc;
-  --surface-container: #f1f5f9;
-  --surface-container-high: #f1f5f9;
-  --surface-container-highest: #e2e8f0;
-  --surface-elevated: #ffffff;
-  --on-surface: #0f172a;
-  --on-surface-variant: #475569;
+  --surface: #0f131c;
+  --surface-container-low: #171c24;
+  --surface-container: #1C2026;
+  --surface-container-high: #262a33;
+  --surface-container-highest: #30353e;
+  --surface-elevated: #161B27;
+  --on-surface: #dfe2ee;
+  --on-surface-variant: #c4c7c8;
 
   /* ── Accents ── */
-  --primary: #0f172a;
-  --on-primary: #ffffff;
-  --accent-blue: #2563eb;
-  --accent-blue-light: #3b82f6;
-  --accent-blue-glow: rgba(37, 99, 235, 0.2);
-  --accent-cyan: #0891b2;
-  --accent-cyan-glow: rgba(8, 145, 178, 0.2);
+  --primary: #ffffff;
+  --on-primary: #060a12;
+  --accent-blue: #3b82f6;
+  --accent-blue-light: #60a5fa;
+  --accent-blue-glow: rgba(59, 130, 246, 0.35);
+  --accent-cyan: #06b6d4;
+  --accent-cyan-glow: rgba(6, 182, 212, 0.35);
   --accent-green: #10b981;
-  --accent-green-glow: rgba(16, 185, 129, 0.2);
+  --accent-green-glow: rgba(16, 185, 129, 0.35);
   --accent-amber: #f59e0b;
   --accent-red: #ef4444;
-  --accent-purple: #7c3aed;
+  --accent-purple: #8b5cf6;
 
   /* ── Gradients ── */
-  --grad-brand: linear-gradient(135deg, #0f172a 0%, #334155 100%);
-  --grad-mono: linear-gradient(135deg, #0f172a 0%, #475569 100%);
-  --grad-card: linear-gradient(145deg, rgba(248,250,252,0.9) 0%, rgba(241,245,249,0.9) 100%);
+  --grad-brand: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+  --grad-mono: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+  --grad-card: linear-gradient(145deg, rgba(28,32,38,0.9) 0%, rgba(22,27,39,0.9) 100%);
 
   /* ── Text ── */
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --text-code: #0284c7;
+  --text-primary: #ffffff;
+  --text-secondary: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-code: #38bdf8;
 
   /* ── Borders & Shadows ── */
-  --border-color: rgba(0, 0, 0, 0.08);
-  --border-glass: rgba(0, 0, 0, 0.08);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.08);
-  --shadow-glow: 0 0 20px rgba(15, 23, 42, 0.15);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.7);
+  --shadow-glow: 0 0 24px rgba(59, 130, 246, 0.3);
 
   /* ── Radii ── */
   --radius-xs: 2px;
