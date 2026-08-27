@@ -17,8 +17,17 @@ interface Preset {
 
 const PRESETS: Preset[] = [
   {
+    id: "preset-tajmahal",
+    name: "Taj Mahal Monument (Agra)",
+    parcel_id: "PARCEL_777_TAJMAHAL_AGRA",
+    aerial_image_url: "https://images.unsplash.com/photo-1564507592333-c60657eea523?q=80&w=800",
+    height_meters: 73.0,
+    floor_count: 6,
+    coords: "[[78.0416, 27.1746], [78.0426, 27.1746], [78.0426, 27.1756], [78.0416, 27.1756]]"
+  },
+  {
     id: "preset-delhi",
-    name: "Dwarka Sector 14 Complex (Delhi)",
+    name: "Dwarka Sector 14 (Delhi)",
     parcel_id: "PARCEL_001_DELHI",
     aerial_image_url: "https://images.unsplash.com/photo-1541888946425-d0fbb186a5b7?q=80&w=800",
     height_meters: 14.0,
@@ -82,7 +91,7 @@ export default function UploadForm() {
       try {
         parsedCoords = JSON.parse(formData.coords_json);
       } catch {
-        parsedCoords = [[77.049, 28.592], [77.050, 28.592], [77.050, 28.593], [77.049, 28.593]];
+        parsedCoords = [[78.0416, 27.1746], [78.0426, 27.1746], [78.0426, 27.1756], [78.0416, 27.1746]];
       }
 
       const payload: CreateBuildingPayload = {
@@ -150,7 +159,7 @@ export default function UploadForm() {
               id="parcel_id"
               name="parcel_id"
               type="text"
-              placeholder="e.g. PARCEL_001"
+              placeholder="e.g. PARCEL_777_TAJMAHAL_AGRA"
               value={formData.parcel_id}
               onChange={handleChange}
               required
@@ -183,7 +192,7 @@ export default function UploadForm() {
               step="0.5"
               min="3"
               max="500"
-              placeholder="e.g. 45.0"
+              placeholder="e.g. 73.0"
               value={formData.height_meters}
               onChange={handleChange}
               required
@@ -201,7 +210,7 @@ export default function UploadForm() {
               type="number"
               min="1"
               max="150"
-              placeholder="e.g. 15"
+              placeholder="e.g. 6"
               value={formData.floor_count}
               onChange={handleChange}
               required

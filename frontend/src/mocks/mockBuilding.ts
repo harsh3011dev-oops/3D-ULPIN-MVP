@@ -23,11 +23,11 @@ export function generateUnitsForBounds(
   const floorHeight = heightMeters / floorCount;
   const units: Unit[] = [];
 
-  const locationName = parcelId.includes('GURUGRAM')
-    ? 'Cyber City Tech Suite'
-    : parcelId.includes('MUMBAI')
-    ? 'BKC Financial Office'
-    : 'Dwarka Residential Unit';
+  let locationName = 'Cadastral Unit';
+  if (parcelId.includes('TAJMAHAL')) locationName = 'Taj Mahal Dome Level';
+  else if (parcelId.includes('GURUGRAM')) locationName = 'Cyber City Tech Suite';
+  else if (parcelId.includes('MUMBAI')) locationName = 'BKC Financial Office';
+  else if (parcelId.includes('DELHI')) locationName = 'Dwarka Residential Unit';
 
   for (let f = 1; f <= floorCount; f++) {
     const z_min = parseFloat(((f - 1) * floorHeight).toFixed(1));
@@ -67,10 +67,10 @@ export function generateUnitsForBounds(
     ];
 
     const quads = [
-      { coords: q1Coords, id: `F${f}_01`, name: `${locationName} ${f}01`, c: [minLat + (midLat - minLat) / 2, minLng + (midLng - minLng) / 2] },
-      { coords: q2Coords, id: `F${f}_02`, name: `${locationName} ${f}02`, c: [midLat + (maxLat - midLat) / 2, minLng + (midLng - minLng) / 2] },
-      { coords: q3Coords, id: `F${f}_03`, name: `${locationName} ${f}03`, c: [minLat + (midLat - minLat) / 2, midLng + (maxLng - midLng) / 2] },
-      { coords: q4Coords, id: `F${f}_04`, name: `${locationName} ${f}04`, c: [midLat + (maxLat - midLat) / 2, midLng + (maxLng - midLng) / 2] },
+      { coords: q1Coords, id: `F${f}_01`, name: `${locationName} ${f}01 (South-West)`, c: [minLat + (midLat - minLat) / 2, minLng + (midLng - minLng) / 2] },
+      { coords: q2Coords, id: `F${f}_02`, name: `${locationName} ${f}02 (North-West)`, c: [midLat + (maxLat - midLat) / 2, minLng + (midLng - minLng) / 2] },
+      { coords: q3Coords, id: `F${f}_03`, name: `${locationName} ${f}03 (South-East)`, c: [minLat + (midLat - minLat) / 2, midLng + (maxLng - midLng) / 2] },
+      { coords: q4Coords, id: `F${f}_04`, name: `${locationName} ${f}04 (North-East)`, c: [midLat + (maxLat - midLat) / 2, midLng + (maxLng - midLng) / 2] },
     ];
 
     quads.forEach((q, idx) => {
@@ -83,15 +83,15 @@ export function generateUnitsForBounds(
         z_min,
         z_max,
         floor_height_m: parseFloat(floorHeight.toFixed(1)),
-        area_sqm: parseFloat((120 + Math.random() * 50).toFixed(1)),
+        area_sqm: parseFloat((180 + Math.random() * 60).toFixed(1)),
         centroid: [q.c[0], q.c[1]],
         polygon_2d: {
           type: "Polygon",
           coordinates: [q.coords]
         },
         status: "Registered",
-        owner: f === 1 && idx === 3 ? "Building Association" : `Owner ${parcelId.substring(0, 8)} #${f}${idx + 1}`,
-        use_type: f === 1 ? "Commercial" : f === floorCount ? "Penthouse" : "Residential"
+        owner: parcelId.includes('TAJMAHAL') ? "Archaeological Survey of India (ASI)" : `Owner ${parcelId.substring(0, 8)} #${f}${idx + 1}`,
+        use_type: parcelId.includes('TAJMAHAL') ? "Heritage Monument Zone" : f === 1 ? "Commercial" : f === floorCount ? "Penthouse" : "Residential"
       });
     });
   }
@@ -99,7 +99,31 @@ export function generateUnitsForBounds(
   return units;
 }
 
-// Preset 1: Delhi Dwarka Sector 14
+// Preset 1: Taj Mahal, Agra
+const tajMahalCoords = [
+  [78.0416, 27.1746],
+  [78.0426, 27.1746],
+  [78.0426, 27.1756],
+  [78.0416, 27.1756],
+  [78.0416, 27.1746]
+];
+
+export const mockBuildingTajMahal: Building = {
+  status: "success",
+  building_id: "bldg-tajmahal-007",
+  parcel_id: "PARCEL_777_TAJMAHAL_AGRA",
+  aerial_image_url: "https://images.unsplash.com/photo-1564507592333-c60657eea523?q=80&w=1200",
+  building_name: "Taj Mahal World Heritage Monument",
+  address: "Dharmapuri, Forest Colony, Tajganj, Agra, Uttar Pradesh 282001",
+  footprint: { type: "Polygon", coordinates: [tajMahalCoords] },
+  height: 73.0,
+  floor_count: 6,
+  units: generateUnitsForBounds("PARCEL_777_TAJMAHAL_AGRA", tajMahalCoords, 73.0, 6),
+  validation: { valid: true, overlaps_detected: false, overlapping_units: [], out_of_bounds: [], errors: [] },
+  created_at: new Date().toISOString()
+};
+
+// Preset 2: Delhi Dwarka Sector 14
 const delhiCoords = [
   [77.0490, 28.5920],
   [77.0500, 28.5920],
@@ -123,7 +147,7 @@ export const mockBuildingDelhi: Building = {
   created_at: new Date().toISOString()
 };
 
-// Preset 2: Gurugram Cyber City
+// Preset 3: Gurugram Cyber City
 const gurugramCoords = [
   [77.0880, 28.4940],
   [77.0900, 28.4940],
@@ -147,7 +171,7 @@ export const mockBuildingGurugram: Building = {
   created_at: new Date().toISOString()
 };
 
-// Preset 3: Mumbai BKC
+// Preset 4: Mumbai BKC
 const mumbaiCoords = [
   [72.8680, 19.0650],
   [72.8700, 19.0650],
@@ -171,4 +195,4 @@ export const mockBuildingMumbai: Building = {
   created_at: new Date().toISOString()
 };
 
-export const mockBuilding = mockBuildingDelhi;
+export const mockBuilding = mockBuildingTajMahal;

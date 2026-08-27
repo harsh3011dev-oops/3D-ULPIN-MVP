@@ -11,6 +11,7 @@ import { Building2, MapPin, Loader2, Navigation } from 'lucide-react';
 import './MapPage.css';
 
 const LOCATIONS_LIST = [
+  { id: 'bldg-tajmahal-007', label: 'Taj Mahal Monument (Agra)' },
   { id: '550e8400-e29b-41d4-a716-446655440000', label: 'Dwarka Sector 14 (Delhi)' },
   { id: 'bldg-gurugram-108', label: 'Cyber City (Gurugram)' },
   { id: 'bldg-mumbai-502', label: 'BKC Center (Mumbai)' },
@@ -33,7 +34,7 @@ export default function MapPage() {
       setSelectedUnit(null);
       setSelectedFloor(null);
       try {
-        const id = buildingId || '550e8400-e29b-41d4-a716-446655440000';
+        const id = buildingId || 'bldg-tajmahal-007';
         const [bData, vData] = await Promise.all([
           getBuilding(id),
           getValidation(id)
@@ -91,7 +92,7 @@ export default function MapPage() {
             </div>
             <select
               className="bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded-md border border-white/10 outline-none cursor-pointer hover:border-blue-400 transition-all"
-              value={buildingId || '550e8400-e29b-41d4-a716-446655440000'}
+              value={buildingId || 'bldg-tajmahal-007'}
               onChange={handleLocationSwitch}
             >
               {LOCATIONS_LIST.map((loc) => (
@@ -109,10 +110,10 @@ export default function MapPage() {
                 <Building2 size={20} />
               </div>
               <div className="summary-text">
-                <h3 className="building-name">{building?.building_name || 'Cadastral Building'}</h3>
+                <h3 className="building-name">{building?.building_name || 'Cadastral Monument'}</h3>
                 <p className="building-address">
                   <MapPin size={12} />
-                  <span>{building?.address || 'Plot 42, Sector 14, Dwarka, Delhi'}</span>
+                  <span>{building?.address || 'Dharmapuri, Forest Colony, Tajganj, Agra, Uttar Pradesh'}</span>
                 </p>
               </div>
             </div>
@@ -120,15 +121,15 @@ export default function MapPage() {
             <div className="building-stats-strip">
               <div className="stat-badge">
                 <span className="stat-lbl">Parcel</span>
-                <span className="stat-val font-mono text-[0.72rem]">{building?.parcel_id || 'PARCEL_001'}</span>
+                <span className="stat-val font-mono text-[0.72rem]">{building?.parcel_id || 'PARCEL_777'}</span>
               </div>
               <div className="stat-badge">
-                <span className="stat-lbl">Floors</span>
-                <span className="stat-val">{building?.floor_count || 4} Floors</span>
+                <span className="stat-lbl">Height</span>
+                <span className="stat-val">{building?.height || 73}m</span>
               </div>
               <div className="stat-badge">
                 <span className="stat-lbl">3D Units</span>
-                <span className="stat-val">{building?.total_units || building?.units?.length || 14} Units</span>
+                <span className="stat-val">{building?.total_units || building?.units?.length || 24} Units</span>
               </div>
             </div>
           </div>
@@ -138,7 +139,7 @@ export default function MapPage() {
 
           {/* Floor Level Slice Filter */}
           <FloorSelector
-            totalFloors={building?.floor_count || 4}
+            totalFloors={building?.floor_count || 6}
             selectedFloor={selectedFloor}
             onSelectFloor={(floorNum) => setSelectedFloor(floorNum)}
           />

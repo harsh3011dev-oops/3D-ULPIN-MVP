@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { Building, CreateBuildingPayload, JobStatusResponse, SpatialValidation } from '../types';
-import { mockBuildingDelhi, mockBuildingGurugram, mockBuildingMumbai, generateUnitsForBounds } from '../mocks/mockBuilding';
+import { mockBuildingTajMahal, mockBuildingDelhi, mockBuildingGurugram, mockBuildingMumbai, generateUnitsForBounds } from '../mocks/mockBuilding';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -14,6 +14,10 @@ const apiClient = axios.create({
 const buildingStore = new Map<string, Building>();
 
 // Pre-load default preset buildings into store
+buildingStore.set(mockBuildingTajMahal.building_id, mockBuildingTajMahal);
+buildingStore.set("PARCEL_777_TAJMAHAL_AGRA", mockBuildingTajMahal);
+buildingStore.set("bldg-tajmahal-007", mockBuildingTajMahal);
+
 buildingStore.set(mockBuildingDelhi.building_id, mockBuildingDelhi);
 buildingStore.set("550e8400-e29b-41d4-a716-446655440000", mockBuildingDelhi);
 buildingStore.set("PARCEL_001_DELHI", mockBuildingDelhi);
@@ -52,7 +56,11 @@ export async function createBuilding(buildingData: CreateBuildingPayload): Promi
     let buildingName = `Cadastral Plot ${buildingData.parcel_id}`;
     let address = 'Plot Boundary Location';
 
-    if (buildingData.parcel_id.includes('GURUGRAM')) {
+    if (buildingData.parcel_id.includes('TAJMAHAL')) {
+      buildingId = mockBuildingTajMahal.building_id;
+      buildingName = mockBuildingTajMahal.building_name!;
+      address = mockBuildingTajMahal.address!;
+    } else if (buildingData.parcel_id.includes('GURUGRAM')) {
       buildingId = mockBuildingGurugram.building_id;
       buildingName = mockBuildingGurugram.building_name!;
       address = mockBuildingGurugram.address!;
@@ -68,11 +76,11 @@ export async function createBuilding(buildingData: CreateBuildingPayload): Promi
 
     // Generate dynamic 3D building object from submitted boundary coordinates
     const coords = buildingData.parcel_boundary?.coordinates?.[0] || [
-      [77.0490, 28.5920],
-      [77.0500, 28.5920],
-      [77.0500, 28.5930],
-      [77.0490, 28.5930],
-      [77.0490, 28.5920]
+      [78.0416, 27.1746],
+      [78.0426, 27.1746],
+      [78.0426, 27.1756],
+      [78.0416, 27.1756],
+      [78.0416, 27.1746]
     ];
 
     const generatedUnits = generateUnitsForBounds(
@@ -126,7 +134,7 @@ export async function getJobStatus(jobId: string): Promise<JobStatusResponse> {
     const response = await apiClient.get(`/jobs/${jobId}/status`);
     return response.data;
   } catch (error: any) {
-    const job = localJobStore.get(jobId) || { createdAt: Date.now(), buildingId: mockBuildingDelhi.building_id };
+    const job = localJobStore.get(jobId) || { createdAt: Date.now(), buildingId: mockBuildingTajMahal.building_id };
     const elapsedSeconds = (Date.now() - (job.createdAt || Date.now())) / 1000;
     
     const progress = Math.min(100, Math.floor(elapsedSeconds * 22) + 20);
@@ -142,7 +150,7 @@ export async function getJobStatus(jobId: string): Promise<JobStatusResponse> {
       status,
       progress_pct: progress,
       step: currentStep,
-      building_id: job.buildingId || mockBuildingDelhi.building_id
+      building_id: job.buildingId || mockBuildingTajMahal.building_id
     };
   }
 }
@@ -158,7 +166,9 @@ export async function getBuilding(buildingId: string): Promise<Building> {
     if (buildingStore.has(buildingId)) {
       return buildingStore.get(buildingId)!;
     }
-    // Check if ID matches gurugram or mumbai keywords
+    if (buildingId?.toLowerCase().includes('tajmahal') || buildingId === 'bldg-tajmahal-007') {
+      return mockBuildingTajMahal;
+    }
     if (buildingId?.toLowerCase().includes('gurugram') || buildingId === 'bldg-gurugram-108') {
       return mockBuildingGurugram;
     }
@@ -177,7 +187,7 @@ export async function getValidation(buildingId: string): Promise<SpatialValidati
     const response = await apiClient.get(`/validation/${buildingId}`);
     return response.data;
   } catch (error: any) {
-    const bld = buildingStore.get(buildingId) || mockBuildingDelhi;
+    const bld = buildingStore.get(buildingId) || mockBuildingTajMahal;
     return bld.validation || { valid: true, overlaps_detected: false };
   }
 }
