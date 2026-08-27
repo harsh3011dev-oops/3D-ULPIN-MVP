@@ -1,0 +1,119 @@
+.validation-alert {
+  padding: 14px 16px;
+  width: 100%;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+.validation-alert.valid {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.validation-alert.invalid {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.validation-alert-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.validation-badge-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.validation-badge-icon.green {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--accent-green);
+}
+
+.validation-badge-icon.red {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--accent-red);
+}
+
+.validation-text-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.validation-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.green-text { color: var(--accent-green); }
+.red-text { color: var(--accent-red); }
+.text-amber { color: var(--accent-amber); }
+.text-red { color: var(--accent-red); }
+
+.validation-desc {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.toggle-btn {
+  color: var(--text-secondary);
+}
+
+.validation-details-body {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.error-category {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.category-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.error-item-pill {
+  font-size: 0.75rem;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+
+  code {
+    font-family: var(--font-mono);
+    color: var(--accent-cyan);
+  }
+}
+
+.error-log-line {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
