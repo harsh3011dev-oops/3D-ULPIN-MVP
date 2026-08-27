@@ -3,6 +3,7 @@ import MapDeckGL from './MapDeckGL';
 import MapThreeJS from './MapThreeJS';
 import { Building, Unit } from '../../types';
 import { Compass, Box } from 'lucide-react';
+import './Map3D.css';
 
 interface Map3DProps {
   building: Building | null;
@@ -16,22 +17,19 @@ export default function Map3D({ building, selectedUnit, onUnitClick, selectedFlo
 
   if (!building) {
     return (
-      <div className="relative w-full h-full flex flex-col items-center justify-center bg-slate-950 text-slate-400 font-mono text-sm">
-        Loading 3D Spatial Building telemetry...
+      <div className="map3d-wrapper flex items-center justify-center font-mono text-sm text-slate-400">
+        Loading 3D Spatial Building Telemetry...
       </div>
     );
   }
 
   return (
-    <div className="relative w-full h-full flex flex-col">
-      {/* 3D Mode Toggle Switch Banner */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-slate-900/90 backdrop-blur border border-white/15 p-1 rounded-full shadow-2xl">
+    <div className="map3d-wrapper">
+      {/* 3D Engine Mode Toggle Banner */}
+      <div className="mode-switch-banner">
         <button
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-            viewMode === 'deck'
-              ? 'bg-blue-600 text-white shadow-glow'
-              : 'text-gray-400 hover:text-white hover:bg-white/5'
-          }`}
+          type="button"
+          className={`mode-switch-btn ${viewMode === 'deck' ? 'active' : ''}`}
           onClick={() => setViewMode('deck')}
         >
           <Compass size={14} />
@@ -39,11 +37,8 @@ export default function Map3D({ building, selectedUnit, onUnitClick, selectedFlo
         </button>
 
         <button
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-            viewMode === 'three'
-              ? 'bg-cyan-600 text-white shadow-glow'
-              : 'text-gray-400 hover:text-white hover:bg-white/5'
-          }`}
+          type="button"
+          className={`mode-switch-btn ${viewMode === 'three' ? 'active' : ''}`}
           onClick={() => setViewMode('three')}
         >
           <Box size={14} />
@@ -51,7 +46,7 @@ export default function Map3D({ building, selectedUnit, onUnitClick, selectedFlo
         </button>
       </div>
 
-      {/* Render Active View Engine */}
+      {/* Render Active 3D Engine View */}
       {viewMode === 'deck' ? (
         <MapDeckGL
           building={building}

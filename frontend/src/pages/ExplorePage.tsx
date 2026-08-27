@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, Variants } from 'framer-motion';
 import Header from '../components/Header/Header';
-import { Search, MapPin, Building2, Layers, Compass, ArrowRight } from 'lucide-react';
+import { Search, MapPin, Building2, Layers, Compass, ArrowRight, CheckCircle } from 'lucide-react';
 import './ExplorePage.css';
 
 const containerVariants: Variants = {
@@ -15,11 +15,46 @@ const itemVariants: Variants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
 };
 
+const DEMO_LOCATIONS = [
+  {
+    id: 'bldg-tajmahal-007',
+    name: 'Taj Mahal Monument',
+    city: 'Agra, Uttar Pradesh',
+    details: '6 Floors • 73.0m Height',
+    badge: 'Heritage Zone',
+    icon: '🕌',
+  },
+  {
+    id: 'bldg-gurugram-108',
+    name: 'Cyber City IT Hub Tower 4',
+    city: 'Gurugram, Haryana',
+    details: '12 Floors • 45.0m Height',
+    badge: 'Commercial IT',
+    icon: '🏢',
+  },
+  {
+    id: 'bldg-mumbai-502',
+    name: 'BKC IFSC Financial Tower',
+    city: 'Mumbai, Maharashtra',
+    details: '24 Floors • 96.0m Height',
+    badge: 'IFSC Financial',
+    icon: '🏙️',
+  },
+  {
+    id: '550e8400-e29b-41d4-a716-446655440000',
+    name: 'Dwarka Sector 14 Complex',
+    city: 'New Delhi, Delhi',
+    details: '4 Floors • 14.0m Height',
+    badge: 'Residential Cadastre',
+    icon: '🏛️',
+  },
+];
+
 export default function ExplorePage() {
   const navigate = useNavigate();
   const [searchMode, setSearchMode] = useState<'address' | 'coords' | 'bldg_floor'>('address');
 
-  // Fields
+  // Input states
   const [address, setAddress] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
@@ -34,10 +69,9 @@ export default function ExplorePage() {
 
     if (searchMode === 'address') {
       if (!address.trim()) {
-        setError('Please enter a target address.');
+        setError('Please enter a target address or click a demo location below.');
         return;
       }
-      // Redirect to a matching building or default
       const addrLower = address.toLowerCase();
       if (addrLower.includes('taj') || addrLower.includes('agra')) {
         navigate('/map/bldg-tajmahal-007');
@@ -48,7 +82,6 @@ export default function ExplorePage() {
       } else if (addrLower.includes('bkc') || addrLower.includes('mumbai')) {
         navigate('/map/bldg-mumbai-502');
       } else {
-        // Fallback to Gurugram preset
         navigate('/map/bldg-gurugram-108');
       }
     } else if (searchMode === 'coords') {
@@ -58,7 +91,6 @@ export default function ExplorePage() {
         setError('Please enter valid numeric latitude and longitude.');
         return;
       }
-      // Route based on coordinate proximity
       if (Math.abs(latNum - 27.175) < 0.1) {
         navigate('/map/bldg-tajmahal-007');
       } else if (Math.abs(latNum - 28.59) < 0.1) {
@@ -70,7 +102,7 @@ export default function ExplorePage() {
       }
     } else {
       if (!bldgName.trim()) {
-        setError('Please enter a building name.');
+        setError('Please enter a building designation.');
         return;
       }
       const bldgLower = bldgName.toLowerCase();
@@ -87,13 +119,7 @@ export default function ExplorePage() {
   };
 
   return (
-    <div className="explore-page bg-grid">
-      {/* Background orbs */}
-      <div className="home-bg-canvas" aria-hidden="true">
-        <div className="bg-orb orb-lavender" />
-        <div className="bg-orb orb-rose" />
-      </div>
-
+    <div className="explore-page">
       <Header />
 
       <main className="explore-container">
@@ -110,8 +136,30 @@ export default function ExplorePage() {
             </div>
             <h1 className="explore-title font-display">Cadastral Search Studio</h1>
             <p className="explore-subtitle">
-              Query the 3D ULPIN registry by location address, geographic coordinates, or property designation.
+              Access featured demo locations or query by address, coordinates, and building designation.
             </p>
+          </motion.div>
+
+          {/* Quick Demo Locations Selector */}
+          <motion.div className="demo-locations-section" variants={itemVariants}>
+            <div className="demo-section-label font-mono">FEATURED DEMO LOCATIONS</div>
+            <div className="demo-grid">
+              {DEMO_LOCATIONS.map((loc) => (
+                <div
+                  key={loc.id}
+                  className="demo-card"
+                  onClick={() => navigate(`/map/${loc.id}`)}
+                >
+                  <div className="demo-card-top">
+                    <span className="demo-icon">{loc.icon}</span>
+                    <span className="demo-badge">{loc.badge}</span>
+                  </div>
+                  <div className="demo-name font-display">{loc.name}</div>
+                  <div className="demo-city">{loc.city}</div>
+                  <div className="demo-details font-mono">{loc.details}</div>
+                </div>
+              ))}
+            </div>
           </motion.div>
 
           {/* Mode Switcher */}

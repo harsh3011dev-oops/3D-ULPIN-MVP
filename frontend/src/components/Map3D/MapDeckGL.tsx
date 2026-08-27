@@ -3,16 +3,11 @@ import DeckGL from '@deck.gl/react';
 import { GeoJsonLayer, TextLayer } from '@deck.gl/layers';
 import Map from 'react-map-gl/maplibre';
 import maplibregl from 'maplibre-gl';
-import { Building, Unit } from '../../types';
-import { RotateCw, Layers, MapPin, Compass, Maximize2, Map as MapIcon } from 'lucide-react';
-import './Map3D.css';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
-// Map Styles: Free CartoDB GL styles (0 API Key needed!)
-const MAP_STYLES = [
-  { id: 'dark', name: 'Dark Cadastral', url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json' },
-  { id: 'voyager', name: 'Street Map', url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json' },
-  { id: 'positron', name: 'Light Survey', url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json' }
-];
+import { Building, Unit } from '../../types';
+import { RotateCw, Layers, MapPin, Map as MapIcon, Maximize2 } from 'lucide-react';
+import './Map3D.css';
 
 interface MapDeckGLProps {
   building: Building;
@@ -21,20 +16,39 @@ interface MapDeckGLProps {
   selectedFloor: number | null;
 }
 
-const FLOOR_RGB_COLORS: [number, number, number][] = [
-  [59, 130, 246],  // Floor 1: Vibrant Blue
-  [16, 185, 129],  // Floor 2: Emerald Green
-  [245, 158, 11],  // Floor 3: Amber Gold
-  [139, 92, 246],  // Floor 4: Violet Purple
-  [6, 182, 212],   // Floor 5: Neon Cyan
-  [236, 72, 153],  // Floor 6: Hot Pink
+const MAP_STYLES = [
+  { id: 'dark', name: 'Dark Cadastral', url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json' },
+  { id: 'positron', name: 'Light Architectural', url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json' },
+  { id: 'voyager', name: 'Voyager Topography', url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json' },
+];
+
+// Dark mode architectural palette — muted slate glass
+const ARCHITECTURAL_FLOOR_COLORS_DARK: [number, number, number][] = [
+  [94, 109, 130],   // Floor 1: Slate Blue
+  [80, 95, 116],    // Floor 2: Cool Steel
+  [68, 83, 104],    // Floor 3: Deep Slate
+  [56, 71, 92],     // Floor 4: Midnight Glass
+  [45, 60, 80],     // Floor 5: Dark Steel
+  [35, 48, 68],     // Floor 6: Dark Charcoal
+];
+
+// Light mode architectural palette — crisp porcelain, cobalt & slate glass for Light Architectural basemap
+const ARCHITECTURAL_FLOOR_COLORS_LIGHT: [number, number, number][] = [
+  [71, 85, 105],    // Floor 1: Deep Slate
+  [51, 65, 85],     // Floor 2: Dark Navy Glass
+  [30, 41, 59],     // Floor 3: Charcoal Steel
+  [15, 23, 42],     // Floor 4: Obsidian Glass
+  [51, 65, 85],     // Floor 5: Slate Glass
+  [71, 85, 105],    // Floor 6: Porcelain Slate
 ];
 
 export default function MapDeckGL({ building, selectedUnit, onUnitClick, selectedFloor }: MapDeckGLProps) {
-  const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; object: any } | null>(null);
   const [selectedStyleUrl, setSelectedStyleUrl] = useState(MAP_STYLES[0].url);
+  const [hoveredUnitId, setHoveredUnitId] = useState<string | null>(null);
 
-  // Extract center coordinates from the actual building footprint or units with strict numeric fallback
+  const isLightStyle = selectedStyleUrl.includes('positron');
+
+  // Extract center coordinates from building footprint or first unit
   const firstUnit = building?.units?.[0];
   const rawLng = Number(firstUnit?.centroid?.[1]);
   const rawLat = Number(firstUnit?.centroid?.[0]);
@@ -45,7 +59,7 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
   const [viewState, setViewState] = useState({
     longitude: centerLng,
     latitude: centerLat,
-    zoom: 17.8,
+    zoom: 17.5,
     pitch: 62,
     bearing: -25,
     maxPitch: 85,
@@ -55,18 +69,20 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
   useEffect(() => {
     const u = building?.units?.[0];
     if (u && Array.isArray(u.centroid) && u.centroid.length >= 2) {
-      const lng = Number(u.centroid[1]);
       const lat = Number(u.centroid[0]);
+      const lng = Number(u.centroid[1]);
       if (!isNaN(lat) && !isNaN(lng)) {
-        setViewState((prev) => ({
-          ...prev,
-          latitude: lat,
+        setViewState({
           longitude: lng,
-          zoom: 17.8,
-        }));
+          latitude: lat,
+          zoom: 17.5,
+          pitch: 62,
+          bearing: -25,
+          maxPitch: 85,
+        });
       }
     }
-  }, [building]);
+  }, [building?.building_id]);
 
   const handleRotate = () => {
     setViewState((prev) => ({ ...prev, bearing: prev.bearing + 45 }));
@@ -80,113 +96,207 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
     setViewState({
       longitude: centerLng,
       latitude: centerLat,
-      zoom: 17.8,
+      zoom: 17.5,
       pitch: 62,
       bearing: -25,
       maxPitch: 85,
     });
   };
 
-  // Convert Building Units to deck.gl GeoJSON Feature Collection using REAL GeoJSON polygons
+  // 1. Ground Footprint Base Feature Collection (z=0)
+  const footprintBaseGeoJSON = building?.footprint ? {
+    type: "FeatureCollection",
+    features: [{
+      type: "Feature",
+      properties: { name: building.building_name },
+      geometry: building.footprint
+    }]
+  } : null;
+
+  // Scale factor for 3D map elevation rendering
+  const SCALE_ELEVATION = 2.5;
+
+  // 2. 3D Unit Feature Collection with TRUE 3D Altitude Coordinates
+  // Keeps ALL building floors visible so the whole 3D skyscraper context is preserved!
   const unitsGeoJSON = {
     type: "FeatureCollection",
     features: (building?.units || []).map((unit) => {
       const isSelected = selectedUnit?.unit_id === unit.unit_id;
-      const isFloorVisible = selectedFloor === null || selectedFloor === unit.floor_number;
+      const isHovered = hoveredUnitId === unit.unit_id;
+      const isFloorIsolated = selectedFloor === unit.floor_number;
+
+      // Base altitude for this floor level
+      const zBase = unit.z_min * SCALE_ELEVATION;
+      const floorSliceHeight = (unit.floor_height_m || 3.5) * SCALE_ELEVATION;
+
+      // Original 2D ring coordinates
+      const origRing = unit.polygon_2d?.coordinates?.[0] || [
+        [centerLng - 0.0005, centerLat - 0.0005],
+        [centerLng + 0.0005, centerLat - 0.0005],
+        [centerLng + 0.0005, centerLat + 0.0005],
+        [centerLng - 0.0005, centerLat + 0.0005],
+        [centerLng - 0.0005, centerLat - 0.0005]
+      ];
+
+      // Convert 2D coordinates to 3D coordinates [lng, lat, zBase]
+      const ring3D = origRing.map((coord: number[]) => [coord[0], coord[1], zBase]);
 
       return {
         type: "Feature",
         properties: {
           ...unit,
           isSelected,
-          isFloorVisible
+          isHovered,
+          isFloorIsolated,
+          floorSliceHeight
         },
-        geometry: unit.polygon_2d || {
+        geometry: {
           type: "Polygon",
-          coordinates: [[
-            [centerLng - 0.0005, centerLat - 0.0005],
-            [centerLng + 0.0005, centerLat - 0.0005],
-            [centerLng + 0.0005, centerLat + 0.0005],
-            [centerLng - 0.0005, centerLat + 0.0005],
-            [centerLng - 0.0005, centerLat - 0.0005]
-          ]]
+          coordinates: [ring3D]
         }
       };
-    }).filter((f) => f.properties.isFloorVisible)
+    })
   };
 
-  // Generate 3D Text Labels for Floor Elevation Levels
+  // 3. Floor Level Markers Data
   const floorLabelsData = Array.from({ length: building?.floor_count || 4 }, (_, i) => {
     const floorNum = i + 1;
     const floorUnits = (building?.units || []).filter(u => u.floor_number === floorNum);
     const sampleUnit = floorUnits[0] || firstUnit;
     const zMax = sampleUnit?.z_max || floorNum * 3.5;
+    const zMin = sampleUnit?.z_min || (floorNum - 1) * 3.5;
+    const zMid = (zMin + zMax) / 2;
 
     return {
-      text: `Level ${floorNum} (+${zMax}m)`,
+      text: selectedFloor === floorNum
+        ? `⭐ LEVEL ${floorNum} (ISOLATED)`
+        : `Level ${floorNum} (+${zMax}m)`,
       coordinates: [sampleUnit?.centroid?.[1] || centerLng, sampleUnit?.centroid?.[0] || centerLat],
       floorNumber: floorNum,
-      zMax
+      zAltitude: zMid * SCALE_ELEVATION
     };
-  }).filter(label => selectedFloor === null || selectedFloor === label.floorNumber);
+  });
 
-  // deck.gl Layers: 3D GeoJSON Extrusions + Floor Labels
+  // deck.gl Multi-Layer Stack for Architectural 3D Visualization
   const layers = [
-    // Layer 1: Real 3D Extruded Cadastral Unit Polygons
+    // Ground Footprint Foundation Base Layer
+    ...(footprintBaseGeoJSON ? [
+      new GeoJsonLayer({
+        id: '3d-footprint-base-layer',
+        data: footprintBaseGeoJSON as any,
+        extruded: false,
+        getFillColor: isLightStyle ? [99, 102, 241, 40] : [124, 111, 224, 30],
+        getLineColor: isLightStyle ? [79, 70, 229, 240] : [124, 111, 224, 200],
+        getLineWidth: 2.5,
+        lineWidthUnits: 'pixels',
+        pickable: false,
+      })
+    ] : []),
+
+    // 3D Architectural Volumetric Unit Layer
     new GeoJsonLayer({
       id: '3d-ulpin-units-layer',
       data: unitsGeoJSON as any,
       extruded: true,
       wireframe: true,
-      getElevation: (f: any) => f.properties.z_max * 3.5, // 3D Elevation Height in meters
+      getElevation: (f: any) => f.properties.floorSliceHeight,
       getFillColor: (f: any) => {
         const p = f.properties;
-        if (p.isSelected) return [0, 240, 255, 235]; // Glowing Cyan selection
-        const rgb = FLOOR_RGB_COLORS[(p.floor_number - 1) % FLOOR_RGB_COLORS.length];
-        return [...rgb, 195];
+        
+        // 1. If Floor Isolator is active and this floor is NOT selected, dim to subtle ghost glass!
+        if (selectedFloor !== null && !p.isFloorIsolated) {
+          return isLightStyle ? [203, 213, 225, 45] : [30, 41, 59, 35];
+        }
+
+        // 2. Selected unit highlight: vibrant cyan glass
+        if (p.isSelected) return [56, 189, 248, 240];
+
+        // 3. Isolated floor highlight: glowing lavender glass
+        if (p.isFloorIsolated) return [124, 111, 224, 235];
+
+        // 4. Hovered unit highlight: bright cyan accent
+        if (p.isHovered) return [56, 189, 248, 220];
+
+        // 5. Default architectural theme colors
+        const palette = isLightStyle ? ARCHITECTURAL_FLOOR_COLORS_LIGHT : ARCHITECTURAL_FLOOR_COLORS_DARK;
+        const rgb = palette[(p.floor_number - 1) % palette.length];
+        return [...rgb, isLightStyle ? 180 : 150];
       },
-      getLineColor: (f: any) => f.properties.isSelected ? [255, 255, 255, 255] : [255, 255, 255, 140],
-      getLineWidth: 2,
+      getLineColor: (f: any) => {
+        const p = f.properties;
+        if (p.isSelected || p.isFloorIsolated) return [255, 255, 255, 255];
+        if (p.isHovered) return [255, 255, 255, 240];
+        if (selectedFloor !== null && !p.isFloorIsolated) {
+          return isLightStyle ? [148, 163, 184, 60] : [71, 85, 105, 50];
+        }
+        return isLightStyle ? [15, 23, 42, 220] : [148, 163, 184, 160];
+      },
+      getLineWidth: (f: any) => {
+        const p = f.properties;
+        if (p.isSelected || p.isFloorIsolated) return 3.5;
+        if (p.isHovered) return 2.5;
+        return isLightStyle ? 1.8 : 1.2;
+      },
       lineWidthUnits: 'pixels',
+      material: {
+        ambient: isLightStyle ? 0.7 : 0.55,
+        diffuse: isLightStyle ? 0.75 : 0.65,
+        shininess: isLightStyle ? 45 : 28,
+      },
       pickable: true,
       autoHighlight: true,
-      highlightColor: [255, 255, 255, 90],
+      highlightColor: isLightStyle ? [59, 130, 246, 70] : [255, 255, 255, 60],
       onClick: (info) => {
         if (info.object?.properties) {
           onUnitClick(info.object.properties as Unit);
         }
       },
-      onHover: () => {},
+      onHover: (info) => {
+        if (info.object?.properties?.unit_id) {
+          setHoveredUnitId(info.object.properties.unit_id);
+        } else {
+          setHoveredUnitId(null);
+        }
+      },
       updateTriggers: {
-        getFillColor: [selectedUnit, selectedFloor],
-        getLineColor: [selectedUnit]
+        getFillColor: [selectedUnit, hoveredUnitId, selectedFloor, selectedStyleUrl],
+        getLineColor: [selectedUnit, hoveredUnitId, selectedFloor, selectedStyleUrl],
+        getLineWidth: [selectedUnit, hoveredUnitId, selectedFloor, selectedStyleUrl]
       }
     }),
 
-    // Layer 2: 3D Floor Elevation Text Markers
+    // 3D Floor Elevation Text Markers
     new TextLayer({
       id: '3d-floor-labels-layer',
       data: floorLabelsData,
-      getPosition: (d: any) => [d.coordinates[0], d.coordinates[1], d.zMax * 3.5 + 2],
+      getPosition: (d: any) => [d.coordinates[0], d.coordinates[1], d.zAltitude],
       getText: (d: any) => d.text,
-      getSize: 16,
-      getColor: (d: any) => selectedFloor === d.floorNumber ? [0, 240, 255, 255] : [255, 255, 255, 220],
+      getSize: (d: any) => selectedFloor === d.floorNumber ? 15 : 12,
+      getColor: (d: any) => {
+        if (selectedFloor === d.floorNumber) return [255, 255, 255, 255];
+        return isLightStyle ? [15, 23, 42, 230] : [203, 213, 225, 220];
+      },
       getAngle: 0,
       getTextAnchor: 'middle',
       getAlignmentBaseline: 'center',
       fontFamily: 'Inter, sans-serif',
       fontWeight: 'bold',
       background: true,
-      getBackgroundColor: [15, 23, 42, 210],
-      backgroundPadding: [6, 4],
+      getBackgroundColor: (d: any) => {
+        if (selectedFloor === d.floorNumber) return [124, 111, 224, 240];
+        return isLightStyle ? [255, 255, 255, 240] : [15, 23, 42, 210];
+      },
+      backgroundPadding: [7, 4],
       updateTriggers: {
-        getColor: [selectedFloor]
+        getColor: [selectedFloor, selectedStyleUrl],
+        getBackgroundColor: [selectedFloor, selectedStyleUrl],
+        getPosition: [selectedFloor]
       }
     })
   ];
 
   return (
-    <div className="map3d-wrapper relative w-full h-full min-h-[520px] bg-[#060a12] rounded-xl overflow-hidden shadow-2xl border border-white/10" id="cesium-globe">
+    <div className="deckgl-map-container">
       <DeckGL
         viewState={viewState}
         onViewStateChange={({ viewState }) => setViewState(viewState as any)}
@@ -201,38 +311,41 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       </DeckGL>
 
       {/* Floating Toolbar Controls */}
-      <div className="map-toolbar absolute top-4 right-4 flex flex-col gap-2 p-2 z-10 bg-slate-900/90 backdrop-blur border border-white/10 rounded-lg shadow-xl">
+      <div className="floating-toolbar">
         <button
-          className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center text-gray-300 bg-slate-800/80 border border-white/10 hover:text-white hover:bg-blue-600 transition-all shadow-md"
+          type="button"
+          className="map-control-btn"
           onClick={handleRotate}
           title="Rotate Camera Bearing (+45°)"
         >
-          <RotateCw size={18} />
+          <RotateCw size={17} />
         </button>
 
         <button
-          className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center text-gray-300 bg-slate-800/80 border border-white/10 hover:text-white hover:bg-blue-600 transition-all shadow-md"
+          type="button"
+          className="map-control-btn"
           onClick={handlePitchToggle}
           title="Toggle 2D / 3D Pitch Angle"
         >
-          <Layers size={18} />
+          <Layers size={17} />
         </button>
 
         <button
-          className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center text-gray-300 bg-slate-800/80 border border-white/10 hover:text-white hover:bg-blue-600 transition-all shadow-md"
+          type="button"
+          className="map-control-btn"
           onClick={handleResetCamera}
           title="Reset Camera View"
         >
-          <Maximize2 size={16} />
+          <Maximize2 size={15} />
         </button>
       </div>
 
-      {/* Map Basemap Style Switcher Dropdown */}
-      <div className="basemap-switcher absolute top-16 left-4 z-10 flex items-center gap-1.5 bg-slate-900/90 backdrop-blur border border-white/15 px-3 py-1.5 rounded-lg shadow-xl text-xs font-semibold text-gray-300">
-        <MapIcon size={14} className="text-blue-400" />
-        <span>Map Style:</span>
+      {/* Map Style Selector Dropdown */}
+      <div className="basemap-selector-box">
+        <MapIcon size={14} style={{ color: 'var(--accent-lavender)' }} />
+        <span>Style:</span>
         <select
-          className="bg-slate-800 text-white text-xs font-bold px-2 py-1 rounded border border-white/10 outline-none cursor-pointer hover:border-blue-400"
+          className="basemap-select-input"
           value={selectedStyleUrl}
           onChange={(e) => setSelectedStyleUrl(e.target.value)}
         >
@@ -242,26 +355,25 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
         </select>
       </div>
 
-      {/* Geographic Coordinates & Location Banner Header */}
-      <div className="location-banner-header absolute top-4 left-4 p-2.5 z-10 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur rounded-lg border border-blue-500/40 shadow-xl">
-        <div className="w-7 h-7 rounded-md bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center justify-center">
+      {/* Location Banner Header */}
+      <div className="location-overlay-banner">
+        <div className="location-icon-pin">
           <MapPin size={16} />
         </div>
-        <div className="flex flex-col">
-          <span className="text-[0.78rem] font-bold text-white leading-tight">
+        <div className="location-text-info">
+          <span className="location-bldg-title">
             {building?.building_name || 'Cadastral Parcel'}
           </span>
-          <span className="text-[0.68rem] font-mono text-cyan-300">
-            {centerLat.toFixed(5)}°N, {centerLng.toFixed(5)}°E • Elevation +{building?.height || 14}m
+          <span className="location-coords-sub">
+            {selectedFloor !== null ? `Isolated Floor ${selectedFloor} Active` : `All ${building?.floor_count || 4} Floors Active`}
           </span>
         </div>
       </div>
 
-
       {/* Tech Stack Badge Footer */}
-      <div className="absolute bottom-3 left-4 z-10 flex items-center gap-2 bg-slate-900/80 backdrop-blur border border-white/10 px-3 py-1.5 rounded-full text-xs text-gray-300">
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span className="font-semibold text-sky-400">Real GeoJSON Polygon Extrusions</span> + <span className="text-emerald-400">MapLibre GL</span>
+      <div className="tech-badge-footer">
+        <span className="pulse-dot" />
+        <span style={{ color: 'var(--accent-lavender)', fontWeight: 600 }}>3D GeoJSON Extrusions</span> + <span>MapLibre GL</span>
       </div>
     </div>
   );

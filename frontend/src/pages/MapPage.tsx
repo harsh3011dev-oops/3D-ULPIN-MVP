@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Header from '../components/Header/Header';
 import Map3D from '../components/Map3D/Map3D';
@@ -31,6 +31,8 @@ export default function MapPage() {
   const [activePresetKey, setActivePresetKey] = useState<string>('cyber-city');
   const [activeTab, setActiveTab]         = useState('layer');
 
+  const navigate = useNavigate();
+
   useEffect(() => {
     async function loadData() {
       const idToFetch = buildingId || 'bldg-gurugram-108';
@@ -38,6 +40,11 @@ export default function MapPage() {
       if (data) {
         setBuilding(data);
         if (data.units?.length > 0) setSelectedUnit(data.units[0]);
+
+        if (idToFetch.includes('tajmahal')) setActivePresetKey('taj-mahal');
+        else if (idToFetch.includes('mumbai')) setActivePresetKey('bkc-mumbai');
+        else if (idToFetch.includes('550e8400') || idToFetch.includes('delhi')) setActivePresetKey('delhi-dwarka');
+        else setActivePresetKey('cyber-city');
       }
     }
     loadData();
@@ -49,11 +56,7 @@ export default function MapPage() {
     setSelectedFloor(null);
     const presetObj = PRESETS[key];
     if (presetObj) {
-      const data = await getBuilding(presetObj.building.building_id);
-      if (data) {
-        setBuilding(data);
-        if (data.units?.length > 0) setSelectedUnit(data.units[0]);
-      }
+      navigate(`/map/${presetObj.building.building_id}`);
     }
   };
 
@@ -106,7 +109,10 @@ export default function MapPage() {
             building={building}
             selectedFloor={selectedFloor}
             selectedUnit={selectedUnit}
-            onUnitClick={(unit) => setSelectedUnit(unit)}
+            onUnitClick={(unit) => {
+              setSelectedUnit(unit);
+              setSelectedFloor(unit.floor_number);
+            }}
           />
         </div>
 
