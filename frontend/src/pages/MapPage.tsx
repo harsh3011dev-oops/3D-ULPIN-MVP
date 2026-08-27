@@ -1,152 +1,227 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import Header from '../components/Header/Header';
 import Map3D from '../components/Map3D/Map3D';
+import FloorSelector from '../components/FloorSelector/FloorSelector';
 import UnitCard from '../components/UnitCard/UnitCard';
 import ValidationAlert from '../components/ValidationAlert/ValidationAlert';
-import FloorSelector from '../components/FloorSelector/FloorSelector';
-import { getBuilding, getValidation } from '../api/api';
-import { Building, SpatialValidation, Unit } from '../types';
-import { Building2, MapPin, Loader2, Navigation } from 'lucide-react';
+import { getBuilding } from '../api/api';
+import { PRESETS } from '../mocks/mockBuilding';
+import { Building, Unit } from '../types';
+import {
+  Building2,
+  MapPin,
+  Layers,
+  BarChart3,
+  Search,
+  FileCheck,
+  ShieldCheck,
+  Activity
+} from 'lucide-react';
 import './MapPage.css';
-
-const LOCATIONS_LIST = [
-  { id: 'bldg-tajmahal-007', label: 'Taj Mahal Monument (Agra)' },
-  { id: '550e8400-e29b-41d4-a716-446655440000', label: 'Dwarka Sector 14 (Delhi)' },
-  { id: 'bldg-gurugram-108', label: 'Cyber City (Gurugram)' },
-  { id: 'bldg-mumbai-502', label: 'BKC Center (Mumbai)' },
-];
 
 export default function MapPage() {
   const { buildingId } = useParams<{ buildingId: string }>();
-  const navigate = useNavigate();
 
   const [building, setBuilding] = useState<Building | null>(null);
-  const [validation, setValidation] = useState<SpatialValidation | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
+  const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
+  const [activePresetKey, setActivePresetKey] = useState<string>('cyber-city');
+  const [activeTab, setActiveTab] = useState<'layer' | 'analytics' | 'registry' | 'audit'>('layer');
 
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      setSelectedUnit(null);
-      setSelectedFloor(null);
-      try {
-        const id = buildingId || 'bldg-tajmahal-007';
-        const [bData, vData] = await Promise.all([
-          getBuilding(id),
-          getValidation(id)
-        ]);
-        setBuilding(bData);
-        setValidation(vData);
-      } catch (err) {
-        console.error("Failed loading 3D building dataset:", err);
-      } finally {
-        setLoading(false);
+    async function loadData() {
+      const idToFetch = buildingId || 'bldg-gurugram-108';
+      const data = await getBuilding(idToFetch);
+      if (data) {
+        setBuilding(data);
+        if (data.units && data.units.length > 0) {
+          setSelectedUnit(data.units[0]);
+        }
       }
     }
-    fetchData();
+    loadData();
   }, [buildingId]);
 
-  const handleLocationSwitch = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const targetId = e.target.value;
-    navigate(`/map/${targetId}`);
+  const handleLocationSwitch = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const key = e.target.value;
+    setActivePresetKey(key);
+    const presetObj = PRESETS[key];
+    if (presetObj) {
+      const data = await getBuilding(presetObj.building.building_id);
+      if (data) {
+        setBuilding(data);
+        if (data.units && data.units.length > 0) {
+          setSelectedUnit(data.units[0]);
+        }
+      }
+    }
   };
 
-  if (loading || !building) {
-    return (
-      <div className="page-layout">
-        <Header />
-        <div className="loading-stage">
-          <Loader2 size={40} className="icon-spin text-blue-500" />
-          <p className="loading-text">Loading deck.gl + MapLibre GL 3D Cadastral Models...</p>
-        </div>
-      </div>
-    );
-  }
+  const firstCoord = building?.footprint?.coordinates?.[0]?.[0];
+  const currentLat = firstCoord ? firstCoord[1].toFixed(4) : '28.4942';
+  const currentLng = firstCoord ? firstCoord[0].toFixed(4) : '77.0886';
+  const currentAlt = building?.height ? `${building.height}M AMSL` : '45.0M AMSL';
 
   return (
     <div className="page-layout">
       <Header />
 
-      <div className="map-page-body">
-        {/* Main 3D Viewport Stage */}
-        <section className="viewport-stage">
+      <div className="map-page-wrapper">
+
+        {/* ── Left Toolkit Sidebar (From Zip 1 Design) ── */}
+        <aside className="geospatial-toolkit-sidebar">
+          <div className="sidebar-section-label font-mono">GEOSPATIAL TOOLKIT</div>
+          
+          <nav className="toolkit-nav">
+            <button
+              className={`toolkit-nav-btn ${activeTab === 'layer' ? 'active' : ''}`}
+              onClick={() => setActiveTab('layer')}
+            >
+              <Layers size={16} />
+              <span>Layer Stack</span>
+            </button>
+
+            <button
+              className={`toolkit-nav-btn ${activeTab === 'analytics' ? 'active' : ''}`}
+              onClick={() => setActiveTab('analytics')}
+            >
+              <BarChart3 size={16} />
+              <span>Analytics</span>
+            </button>
+
+            <button
+              className={`toolkit-nav-btn ${activeTab === 'registry' ? 'active' : ''}`}
+              onClick={() => setActiveTab('registry')}
+            >
+              <Search size={16} />
+              <span>Parcel Registry</span>
+            </button>
+
+            <button
+              className={`toolkit-nav-btn ${activeTab === 'audit' ? 'active' : ''}`}
+              onClick={() => setActiveTab('audit')}
+            >
+              <FileCheck size={16} />
+              <span>Permit Audit</span>
+            </button>
+          </nav>
+
+          {/* Coordinate Badge */}
+          <div className="sidebar-coords-box font-mono">
+            <div>LAT: {currentLat} N</div>
+            <div>LON: {currentLng} E</div>
+            <div>ALT: {currentAlt}</div>
+          </div>
+        </aside>
+
+        {/* ── Center 3D Viewport Stage ── */}
+        <div className="map-stage-container">
           <Map3D
             building={building}
+            selectedFloor={selectedFloor}
             selectedUnit={selectedUnit}
             onUnitClick={(unit) => setSelectedUnit(unit)}
-            selectedFloor={selectedFloor}
           />
-        </section>
+        </div>
 
-        {/* Right Sidebar Control Panel */}
+        {/* ── Right Data & Analysis Sidebar ── */}
         <aside className="map-sidebar">
-          {/* Location Switcher Dropdown */}
-          <div className="location-switcher-card glass-panel p-3 flex items-center justify-between gap-2 border-blue-500/30">
-            <div className="flex items-center gap-2 text-xs font-bold text-blue-400 uppercase tracking-wide">
-              <Navigation size={15} />
-              <span>Location:</span>
-            </div>
+
+          {/* Location Switcher */}
+          <div className="location-switcher-card glass-panel">
+            <label className="switcher-lbl font-mono">LOCATION TARGET</label>
             <select
-              className="bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded-md border border-white/10 outline-none cursor-pointer hover:border-blue-400 transition-all"
-              value={buildingId || 'bldg-tajmahal-007'}
+              className="location-switcher-select"
+              value={activePresetKey}
               onChange={handleLocationSwitch}
             >
-              {LOCATIONS_LIST.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.label}
-                </option>
-              ))}
+              <option value="cyber-city">🏢 Gurugram Cyber City (12F / 45m)</option>
+              <option value="bkc-mumbai">🏙️ BKC Mumbai IFSC Tower (24F / 96m)</option>
+              <option value="delhi-dwarka">🏛️ Delhi Dwarka Complex (4F / 14m)</option>
+              <option value="taj-mahal">🕌 Taj Mahal Agra (6F / 73m)</option>
             </select>
           </div>
 
-          {/* Building Metadata Banner */}
-          <div className="building-summary-panel glass-panel">
-            <div className="summary-header">
-              <div className="summary-icon">
-                <Building2 size={20} />
+          {/* Building Overview Summary */}
+          {building && (
+            <div className="building-summary-panel glass-panel">
+              <div className="summary-header">
+                <div className="summary-icon">
+                  <Building2 size={20} />
+                </div>
+                <div>
+                  <h3 className="building-name">{building.building_name || 'Cadastral Building'}</h3>
+                  <p className="building-address">
+                    <MapPin size={12} />
+                    {building.address || 'Parcel Coordinates Loaded'}
+                  </p>
+                </div>
               </div>
-              <div className="summary-text">
-                <h3 className="building-name">{building?.building_name || 'Cadastral Monument'}</h3>
-                <p className="building-address">
-                  <MapPin size={12} />
-                  <span>{building?.address || 'Dharmapuri, Forest Colony, Tajganj, Agra, Uttar Pradesh'}</span>
-                </p>
-              </div>
-            </div>
 
-            <div className="building-stats-strip">
-              <div className="stat-badge">
-                <span className="stat-lbl">Parcel</span>
-                <span className="stat-val font-mono text-[0.72rem]">{building?.parcel_id || 'PARCEL_777'}</span>
-              </div>
-              <div className="stat-badge">
-                <span className="stat-lbl">Height</span>
-                <span className="stat-val">{building?.height || 73}m</span>
-              </div>
-              <div className="stat-badge">
-                <span className="stat-lbl">3D Units</span>
-                <span className="stat-val">{building?.total_units || building?.units?.length || 24} Units</span>
+              <div className="building-stats-strip">
+                <div className="stat-badge">
+                  <span className="stat-lbl">Height</span>
+                  <span className="stat-val">{building.height}m</span>
+                </div>
+                <div className="stat-badge">
+                  <span className="stat-lbl">Floors</span>
+                  <span className="stat-val">{building.floor_count}F</span>
+                </div>
+                <div className="stat-badge">
+                  <span className="stat-lbl">Units</span>
+                  <span className="stat-val">{building.units?.length || 0}</span>
+                </div>
               </div>
             </div>
+          )}
+
+          {/* Spatial Validation Alert */}
+          {building?.validation && (
+            <ValidationAlert validation={building.validation} />
+          )}
+
+          {/* Floor Isolator */}
+          {building && (
+            <FloorSelector
+              totalFloors={building.floor_count}
+              selectedFloor={selectedFloor}
+              onSelectFloor={(floor) => setSelectedFloor(floor)}
+            />
+          )}
+
+          {/* Selected Unit Specs & Copy ULPIN Panel */}
+          {selectedUnit && (
+            <UnitCard unit={selectedUnit} />
+          )}
+
+          {/* Structural Integrity Score Panel (Zip 1 Design) */}
+          <div className="structural-score-card glass-panel">
+            <div className="score-text-group">
+              <span className="score-lbl font-mono">STRUCTURAL INTEGRITY SCORE</span>
+              <span className="score-val">
+                98.4<span className="score-pct">%</span>
+              </span>
+            </div>
+            {/* SVG Donut Chart */}
+            <svg className="score-donut" width="44" height="44" viewBox="0 0 40 40">
+              <circle className="donut-bg" cx="20" cy="20" r="16" strokeWidth="4" fill="none" />
+              <circle
+                className="donut-fill"
+                cx="20"
+                cy="20"
+                r="16"
+                strokeWidth="4"
+                fill="none"
+                strokeDasharray="100.53"
+                strokeDashoffset="1.6"
+                strokeLinecap="round"
+              />
+            </svg>
           </div>
 
-          {/* Validation Alert Status */}
-          <ValidationAlert validation={validation || building?.validation} />
-
-          {/* Floor Level Slice Filter */}
-          <FloorSelector
-            totalFloors={building?.floor_count || 6}
-            selectedFloor={selectedFloor}
-            onSelectFloor={(floorNum) => setSelectedFloor(floorNum)}
-          />
-
-          {/* Selected Unit Details & ULPIN Card */}
-          <UnitCard unit={selectedUnit} />
         </aside>
+
       </div>
     </div>
   );

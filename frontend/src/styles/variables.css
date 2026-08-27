@@ -1,13 +1,22 @@
 :root {
-  /* ── Dark Premium Color Palette ── */
-  --bg-primary: #060a12;
-  --bg-secondary: #0d1117;
-  --bg-tertiary: #161b27;
-  --bg-card: rgba(13, 17, 23, 0.80);
-  --bg-glass: rgba(13, 17, 23, 0.70);
-  --bg-glass-border: rgba(255, 255, 255, 0.07);
+  /* ── Orbital Precision Mono Palette (Stitch Design System) ── */
+  --bg-primary: #0a0e16;
+  --bg-secondary: #0f131c;
+  --bg-tertiary: #171c24;
+  --bg-card: rgba(28, 32, 38, 0.85);
+  --bg-glass: rgba(22, 27, 39, 0.75);
+  --bg-glass-border: rgba(255, 255, 255, 0.08);
 
-  /* ── Accent Palette ── */
+  --surface: #0f131c;
+  --surface-container-low: #171c24;
+  --surface-container: #1C2026;
+  --surface-container-high: #262a33;
+  --surface-container-highest: #30353e;
+  --surface-elevated: #161B27;
+  --on-surface: #dfe2ee;
+  --on-surface-variant: #c4c7c8;
+
+  /* ── Accents ── */
   --accent-blue: #3B82F6;
   --accent-blue-light: #60a5fa;
   --accent-blue-glow: rgba(59, 130, 246, 0.4);
@@ -16,17 +25,15 @@
   --accent-green: #10B981;
   --accent-green-glow: rgba(16, 185, 129, 0.35);
   --accent-amber: #F59E0B;
-  --accent-amber-glow: rgba(245, 158, 11, 0.3);
   --accent-red: #EF4444;
   --accent-purple: #8B5CF6;
-  --accent-purple-glow: rgba(139, 92, 246, 0.35);
 
-  /* ── Gradient Presets ── */
+  /* ── Gradients ── */
   --grad-brand: linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%);
-  --grad-hero: linear-gradient(135deg, #1d4ed8 0%, #0891b2 50%, #0d9488 100%);
+  --grad-mono: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
   --grad-card: linear-gradient(145deg, rgba(59,130,246,0.06) 0%, rgba(6,182,212,0.04) 100%);
 
-  /* ── Text Colors ── */
+  /* ── Text ── */
   --text-primary: #F1F5F9;
   --text-secondary: #94A3B8;
   --text-muted: #64748B;
@@ -34,27 +41,26 @@
 
   /* ── Borders & Shadows ── */
   --border-color: rgba(255, 255, 255, 0.08);
-  --border-active: rgba(59, 130, 246, 0.5);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25);
-  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.3);
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55);
   --shadow-glow: 0 0 24px rgba(59, 130, 246, 0.3);
-  --shadow-glow-cyan: 0 0 24px rgba(6, 182, 212, 0.25);
 
-  /* ── Border Radii ── */
-  --radius-xs: 4px;
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
+  /* ── Radii ── */
+  --radius-xs: 2px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
   --radius-full: 9999px;
 
-  /* ── Typography ── */
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  /* ── Typography (Outfit + JetBrains Mono) ── */
+  --font-sans: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 
   /* ── Transitions ── */
-  --transition-fast: 0.14s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 0.24s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 0.42s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+  --transition-slow: 0.4s ease;
 }

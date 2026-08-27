@@ -195,4 +195,11 @@ export const mockBuildingMumbai: Building = {
   created_at: new Date().toISOString()
 };
 
+export const PRESETS: Record<string, { building: Building }> = {
+  'cyber-city': { building: mockBuildingGurugram },
+  'bkc-mumbai': { building: mockBuildingMumbai },
+  'delhi-dwarka': { building: mockBuildingDelhi },
+  'taj-mahal': { building: mockBuildingTajMahal },
+};
+
 export const mockBuilding = mockBuildingTajMahal;
