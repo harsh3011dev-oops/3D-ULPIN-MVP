@@ -1,6 +1,10 @@
 .floor-selector-panel {
   padding: 16px;
   width: 100%;
+  background: #ffffff;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .floor-selector-header {
@@ -15,24 +19,28 @@
   align-items: center;
   gap: 8px;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  color: #0f172a;
 }
 
 .icon-blue {
-  color: var(--accent-blue);
+  color: #0f172a;
 }
 
 .reset-floor-btn {
-  font-size: 0.75rem;
-  color: var(--accent-cyan);
-  background: rgba(6, 182, 212, 0.1);
-  border: 1px solid rgba(6, 182, 212, 0.25);
-  padding: 3px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #0f172a;
+  background: #f1f5f9;
+  border: 1px solid var(--border-glass);
+  padding: 3px 10px;
   border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
 .reset-floor-btn:hover {
-  background: rgba(6, 182, 212, 0.2);
+  background: #e2e8f0;
 }
 
 .slider-wrapper {
@@ -50,16 +58,16 @@
 }
 
 .current-level-tag {
-  color: var(--accent-blue);
+  color: #0f172a;
   font-weight: 700;
 }
 
 .floor-range-slider {
   width: 100%;
-  accent-color: var(--accent-blue);
+  accent-color: #0f172a;
   height: 6px;
   border-radius: 3px;
-  background: var(--bg-tertiary);
+  background: #e2e8f0;
   cursor: pointer;
 }
 
@@ -76,21 +84,22 @@
   font-size: 0.75rem;
   font-weight: 600;
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border-color);
+  background: #f8fafc;
+  border: 1px solid var(--border-glass);
   color: var(--text-secondary);
   text-align: center;
   transition: all var(--transition-fast);
+  cursor: pointer;
 }
 
 .floor-pill:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-primary);
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .floor-pill.active {
-  background: var(--accent-blue);
-  border-color: var(--accent-blue);
+  background: #0f172a;
+  border-color: #0f172a;
   color: #ffffff;
-  box-shadow: 0 0 10px var(--accent-blue-glow);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
 }

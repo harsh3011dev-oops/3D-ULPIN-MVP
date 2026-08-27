@@ -32,7 +32,7 @@ const FLOOR_RGB_COLORS: [number, number, number][] = [
 
 export default function MapDeckGL({ building, selectedUnit, onUnitClick, selectedFloor }: MapDeckGLProps) {
   const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; object: any } | null>(null);
-  const [selectedStyleUrl, setSelectedStyleUrl] = useState(MAP_STYLES[0].url);
+  const [selectedStyleUrl, setSelectedStyleUrl] = useState(MAP_STYLES[2].url);
 
   // Extract center coordinates from the actual building footprint or units
   const firstUnit = building?.units?.[0];
@@ -182,7 +182,7 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
   ];
 
   return (
-    <div className="map3d-wrapper relative w-full h-full min-h-[520px] bg-[#0a0f1d] rounded-xl overflow-hidden shadow-2xl" id="cesium-globe">
+    <div className="map3d-wrapper relative w-full h-full min-h-[520px] bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200" id="cesium-globe">
       <DeckGL
         viewState={viewState}
         onViewStateChange={({ viewState }) => setViewState(viewState as any)}
@@ -197,9 +197,9 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       </DeckGL>
 
       {/* Floating Toolbar Controls */}
-      <div className="map-toolbar glass-panel absolute top-4 right-4 flex flex-col gap-2 p-2 z-10">
+      <div className="map-toolbar glass-panel absolute top-4 right-4 flex flex-col gap-2 p-2 z-10 bg-white/90 border-slate-200 shadow-sm">
         <button
-          className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center text-gray-300 bg-slate-800/80 border border-white/10 hover:text-white hover:bg-blue-600 transition-all shadow-md"
+          className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center text-slate-700 bg-slate-100 border border-slate-200 hover:text-white hover:bg-slate-900 transition-all shadow-sm"
           onClick={handleRotate}
           title="Rotate Camera Bearing (+45°)"
         >
@@ -207,7 +207,7 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
         </button>
 
         <button
-          className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center text-gray-300 bg-slate-800/80 border border-white/10 hover:text-white hover:bg-blue-600 transition-all shadow-md"
+          className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center text-slate-700 bg-slate-100 border border-slate-200 hover:text-white hover:bg-slate-900 transition-all shadow-sm"
           onClick={handlePitchToggle}
           title="Toggle 2D / 3D Pitch Angle"
         >
@@ -215,7 +215,7 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
         </button>
 
         <button
-          className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center text-gray-300 bg-slate-800/80 border border-white/10 hover:text-white hover:bg-blue-600 transition-all shadow-md"
+          className="toolbar-btn w-9 h-9 rounded-md flex items-center justify-center text-slate-700 bg-slate-100 border border-slate-200 hover:text-white hover:bg-slate-900 transition-all shadow-sm"
           onClick={handleResetCamera}
           title="Reset Camera View"
         >
@@ -224,11 +224,11 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       </div>
 
       {/* Map Basemap Style Switcher Dropdown */}
-      <div className="basemap-switcher absolute top-16 left-4 z-10 flex items-center gap-1.5 bg-slate-900/90 backdrop-blur border border-white/15 px-3 py-1.5 rounded-lg shadow-xl text-xs font-semibold text-gray-300">
-        <MapIcon size={14} className="text-blue-400" />
+      <div className="basemap-switcher absolute top-16 left-4 z-10 flex items-center gap-1.5 bg-white/90 backdrop-blur border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm text-xs font-semibold text-slate-700">
+        <MapIcon size={14} className="text-slate-900" />
         <span>Map Style:</span>
         <select
-          className="bg-slate-800 text-white text-xs font-bold px-2 py-1 rounded border border-white/10 outline-none cursor-pointer hover:border-blue-400"
+          className="bg-slate-100 text-slate-900 text-xs font-bold px-2 py-1 rounded border border-slate-300 outline-none cursor-pointer hover:border-slate-900"
           value={selectedStyleUrl}
           onChange={(e) => setSelectedStyleUrl(e.target.value)}
         >
@@ -239,15 +239,15 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       </div>
 
       {/* Geographic Coordinates & Location Banner Header */}
-      <div className="location-banner-header glass-panel absolute top-4 left-4 p-2.5 z-10 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur rounded-lg border-blue-500/40">
-        <div className="w-7 h-7 rounded-md bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center justify-center">
+      <div className="location-banner-header glass-panel absolute top-4 left-4 p-2.5 z-10 flex items-center gap-2.5 bg-white/95 backdrop-blur rounded-lg border-slate-200 shadow-sm">
+        <div className="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center">
           <MapPin size={16} />
         </div>
         <div className="flex flex-col">
-          <span className="text-[0.78rem] font-bold text-white leading-tight">
+          <span className="text-[0.78rem] font-bold text-slate-900 leading-tight">
             {building?.building_name || 'Cadastral Parcel'}
           </span>
-          <span className="text-[0.68rem] font-mono text-cyan-300">
+          <span className="text-[0.68rem] font-mono text-slate-600">
             {centerLat.toFixed(5)}°N, {centerLng.toFixed(5)}°E • Elevation +{building?.height || 14}m
           </span>
         </div>

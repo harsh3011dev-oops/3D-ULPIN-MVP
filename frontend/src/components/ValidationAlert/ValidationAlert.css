@@ -78,7 +78,7 @@
 .validation-details-body {
   margin-top: 14px;
   padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -93,7 +93,7 @@
 .category-title {
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #0f172a;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -102,13 +102,13 @@
 .error-item-pill {
   font-size: 0.75rem;
   padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: #ffffff;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
 
   code {
     font-family: var(--font-mono);
-    color: var(--accent-cyan);
+    color: #0f172a;
   }
 }
 
