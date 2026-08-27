@@ -1,0 +1,60 @@
+/* ── Validation Alert ── */
+.validation-alert {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.81rem;
+  line-height: 1.5;
+  animation: fadeIn 0.3s ease;
+}
+
+/* States */
+.validation-alert.success {
+  background: var(--accent-sage-soft);
+  border-color: rgba(111,173,155,0.3);
+  color: #2d6b5a;
+}
+
+.validation-alert.warning {
+  background: var(--accent-amber-soft);
+  border-color: rgba(217,150,10,0.3);
+  color: #7a5500;
+}
+
+.validation-alert.error {
+  background: var(--accent-rose-soft);
+  border-color: rgba(224,111,143,0.3);
+  color: #8b2040;
+}
+
+.validation-alert.info {
+  background: var(--accent-blue-soft);
+  border-color: rgba(91,141,238,0.3);
+  color: #1a3c8f;
+}
+
+/* Icon */
+.validation-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Content */
+.validation-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.validation-title {
+  font-weight: 700;
+  font-size: 0.84rem;
+}
+
+.validation-desc {
+  font-size: 0.77rem;
+  opacity: 0.8;
+}
