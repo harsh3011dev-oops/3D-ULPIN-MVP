@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header/Header';
 import Map3D from '../components/Map3D/Map3D';
 import UnitCard from '../components/UnitCard/UnitCard';
@@ -7,11 +7,19 @@ import ValidationAlert from '../components/ValidationAlert/ValidationAlert';
 import FloorSelector from '../components/FloorSelector/FloorSelector';
 import { getBuilding, getValidation } from '../api/api';
 import { Building, SpatialValidation, Unit } from '../types';
-import { Building2, MapPin, Loader2 } from 'lucide-react';
+import { Building2, MapPin, Loader2, Navigation } from 'lucide-react';
 import './MapPage.css';
+
+const LOCATIONS_LIST = [
+  { id: '550e8400-e29b-41d4-a716-446655440000', label: 'Dwarka Sector 14 (Delhi)' },
+  { id: 'bldg-gurugram-108', label: 'Cyber City (Gurugram)' },
+  { id: 'bldg-mumbai-502', label: 'BKC Center (Mumbai)' },
+];
 
 export default function MapPage() {
   const { buildingId } = useParams<{ buildingId: string }>();
+  const navigate = useNavigate();
+
   const [building, setBuilding] = useState<Building | null>(null);
   const [validation, setValidation] = useState<SpatialValidation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -22,6 +30,8 @@ export default function MapPage() {
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
+      setSelectedUnit(null);
+      setSelectedFloor(null);
       try {
         const id = buildingId || '550e8400-e29b-41d4-a716-446655440000';
         const [bData, vData] = await Promise.all([
@@ -38,6 +48,11 @@ export default function MapPage() {
     }
     fetchData();
   }, [buildingId]);
+
+  const handleLocationSwitch = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const targetId = e.target.value;
+    navigate(`/map/${targetId}`);
+  };
 
   if (loading || !building) {
     return (
@@ -68,6 +83,25 @@ export default function MapPage() {
 
         {/* Right Sidebar Control Panel */}
         <aside className="map-sidebar">
+          {/* Location Switcher Dropdown */}
+          <div className="location-switcher-card glass-panel p-3 flex items-center justify-between gap-2 border-blue-500/30">
+            <div className="flex items-center gap-2 text-xs font-bold text-blue-400 uppercase tracking-wide">
+              <Navigation size={15} />
+              <span>Location:</span>
+            </div>
+            <select
+              className="bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded-md border border-white/10 outline-none cursor-pointer hover:border-blue-400 transition-all"
+              value={buildingId || '550e8400-e29b-41d4-a716-446655440000'}
+              onChange={handleLocationSwitch}
+            >
+              {LOCATIONS_LIST.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Building Metadata Banner */}
           <div className="building-summary-panel glass-panel">
             <div className="summary-header">
@@ -86,7 +120,7 @@ export default function MapPage() {
             <div className="building-stats-strip">
               <div className="stat-badge">
                 <span className="stat-lbl">Parcel</span>
-                <span className="stat-val font-mono">{building?.parcel_id || 'PARCEL_001'}</span>
+                <span className="stat-val font-mono text-[0.72rem]">{building?.parcel_id || 'PARCEL_001'}</span>
               </div>
               <div className="stat-badge">
                 <span className="stat-lbl">Floors</span>
