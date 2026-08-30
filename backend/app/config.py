@@ -2,10 +2,12 @@ import os
 import sys
 from pydantic_settings import BaseSettings
 
-# Ensure AI module path is importable
+# Ensure root and AI module paths are importable
+ROOT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 AI_MODULE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../ai'))
-if AI_MODULE_PATH not in sys.path:
-    sys.path.append(AI_MODULE_PATH)
+for p in [ROOT_PATH, AI_MODULE_PATH]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "3D ULPIN MVP Backend API"
@@ -23,5 +25,6 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
 settings = Settings()
