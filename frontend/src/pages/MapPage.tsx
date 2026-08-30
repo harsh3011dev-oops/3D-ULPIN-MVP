@@ -111,7 +111,9 @@ export default function MapPage() {
             selectedUnit={selectedUnit}
             onUnitClick={(unit) => {
               setSelectedUnit(unit);
-              setSelectedFloor(unit.floor_number);
+              if (unit.floor_number != null) {
+                setSelectedFloor(unit.floor_number);
+              }
             }}
           />
         </div>
