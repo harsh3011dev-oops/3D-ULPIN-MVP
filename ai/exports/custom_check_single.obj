@@ -1,0 +1,36 @@
+# 3D ULPIN Building Export (Local Metric Units)
+# Building ID: BLDG_CUSTOM_01
+# Height: 10.5m, Floors: 3
+mtllib custom_check_single.mtl
+
+o BLDG_CUSTOM_01
+
+v -10.843 0.000 97.220
+v -15.847 0.000 10.070
+v -91.688 0.000 -21.666
+v -91.688 0.000 -95.440
+v 105.033 0.000 -90.090
+v 105.033 0.000 99.906
+v -10.843 10.500 97.220
+v -15.847 10.500 10.070
+v -91.688 10.500 -21.666
+v -91.688 10.500 -95.440
+v 105.033 10.500 -90.090
+v 105.033 10.500 99.906
+
+usemtl BuildingWall
+# Walls (side faces)
+f 1 2 8 7
+f 2 3 9 8
+f 3 4 10 9
+f 4 5 11 10
+f 5 6 12 11
+f 6 1 7 12
+
+usemtl BuildingFloor
+# Floor (ground face)
+f 1 2 3 4 5 6
+
+usemtl BuildingRoof
+# Roof (top face)
+f 7 8 9 10 11 12
