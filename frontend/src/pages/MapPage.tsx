@@ -28,23 +28,23 @@ export default function MapPage() {
   const [building, setBuilding]           = useState<Building | null>(null);
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
   const [selectedUnit, setSelectedUnit]   = useState<Unit | null>(null);
-  const [activePresetKey, setActivePresetKey] = useState<string>('cyber-city');
+  const [activePresetKey, setActivePresetKey] = useState<string>('piet-academic');
   const [activeTab, setActiveTab]         = useState('layer');
 
   const navigate = useNavigate();
 
   useEffect(() => {
     async function loadData() {
-      const idToFetch = buildingId || 'bldg-gurugram-108';
+      const idToFetch = buildingId || 'bldg-piet-academic';
       const data = await getBuilding(idToFetch);
       if (data) {
         setBuilding(data);
         if (data.units?.length > 0) setSelectedUnit(data.units[0]);
 
-        if (idToFetch.includes('tajmahal')) setActivePresetKey('taj-mahal');
-        else if (idToFetch.includes('mumbai')) setActivePresetKey('bkc-mumbai');
-        else if (idToFetch.includes('550e8400') || idToFetch.includes('delhi')) setActivePresetKey('delhi-dwarka');
-        else setActivePresetKey('cyber-city');
+        if (idToFetch.includes('engineering') || idToFetch.includes('engg')) setActivePresetKey('piet-engineering');
+        else if (idToFetch.includes('auditorium') || idToFetch.includes('audi')) setActivePresetKey('piet-auditorium');
+        else if (idToFetch.includes('hostel')) setActivePresetKey('piet-hostel');
+        else setActivePresetKey('piet-academic');
       }
     }
     loadData();
@@ -60,9 +60,23 @@ export default function MapPage() {
     }
   };
 
-  const firstCoord = building?.footprint?.coordinates?.[0]?.[0];
-  const currentLat = firstCoord ? Number(firstCoord[1]).toFixed(4) : '28.4942';
-  const currentLng = firstCoord ? Number(firstCoord[0]).toFixed(4) : '77.0886';
+  // Dynamic coordinate calculation from building footprint or unit centroids
+  const getCoordinates = () => {
+    if (!building) return { lat: '29.2382', lng: '76.9938' };
+    const fp = building.footprint?.coordinates?.[0];
+    if (fp && fp.length > 0) {
+      const avgLng = fp.reduce((sum: number, p: number[]) => sum + (p[0] || 0), 0) / fp.length;
+      const avgLat = fp.reduce((sum: number, p: number[]) => sum + (p[1] || 0), 0) / fp.length;
+      return { lat: avgLat.toFixed(4), lng: avgLng.toFixed(4) };
+    }
+    const u = building.units?.[0];
+    if (u?.centroid) {
+      return { lat: Number(u.centroid[0]).toFixed(4), lng: Number(u.centroid[1]).toFixed(4) };
+    }
+    return { lat: '29.2382', lng: '76.9938' };
+  };
+
+  const { lat: currentLat, lng: currentLng } = getCoordinates();
 
   return (
     <div className="map-page">
@@ -90,11 +104,11 @@ export default function MapPage() {
             </button>
           ))}
 
-          {/* Coord badge */}
+          {/* Dynamic Coord badge */}
           <div style={{
             marginTop: 'auto', padding: '12px 10px',
             borderTop: '1px solid var(--border-subtle)',
-            fontFamily: 'var(--font-mono)', fontSize: '0.62rem',
+            fontFamily: 'var(--font-mono)', fontSize: '0.65rem',
             color: 'var(--text-muted)', lineHeight: 1.8
           }}>
             <div style={{ color: 'var(--accent-lavender)', fontWeight: 700, marginBottom: 4 }}>COORDINATES</div>
@@ -133,10 +147,10 @@ export default function MapPage() {
               value={activePresetKey}
               onChange={handleLocationSwitch}
             >
-              <option value="cyber-city">🏢 Gurugram Cyber City (12F / 45m)</option>
-              <option value="bkc-mumbai">🏙️ BKC Mumbai IFSC Tower (24F / 96m)</option>
-              <option value="delhi-dwarka">🏛️ Delhi Dwarka Complex (4F / 14m)</option>
-              <option value="taj-mahal">🕌 Taj Mahal Agra (6F / 73m)</option>
+              <option value="piet-academic">🏛️ PIET Main Academic Block (5F / 18m)</option>
+              <option value="piet-engineering">🏢 PIET Engineering & AI Hub (6F / 22m)</option>
+              <option value="piet-auditorium">⚡ PIET Innovation & Auditorium (3F / 15m)</option>
+              <option value="piet-hostel">🏠 PIET Campus Student Residency (8F / 28m)</option>
             </select>
           </div>
 
