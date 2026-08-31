@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, Variants } from 'framer-motion';
 import Header from '../components/Header/Header';
+import { createBuilding } from '../api/api';
 import { Search, MapPin, Building2, Layers, Compass, ArrowRight, CheckCircle } from 'lucide-react';
 import './ExplorePage.css';
 
@@ -62,8 +63,9 @@ export default function ExplorePage() {
   const [floorNum, setFloorNum] = useState('');
 
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -82,7 +84,21 @@ export default function ExplorePage() {
       } else if (addrLower.includes('bkc') || addrLower.includes('mumbai')) {
         navigate('/map/bldg-mumbai-502');
       } else {
-        navigate('/map/bldg-gurugram-108');
+        try {
+          setLoading(true);
+          const cleanId = 'PARCEL_' + address.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 20);
+          const res = await createBuilding({
+            parcel_id: cleanId,
+            address: address,
+            height_meters: 18.0,
+            floor_count: 5
+          });
+          navigate(`/processing/${res.job_id || 'job-001'}`);
+        } catch {
+          navigate('/map/bldg-gurugram-108');
+        } finally {
+          setLoading(false);
+        }
       }
     } else if (searchMode === 'coords') {
       const latNum = parseFloat(lat);
@@ -91,14 +107,29 @@ export default function ExplorePage() {
         setError('Please enter valid numeric latitude and longitude.');
         return;
       }
-      if (Math.abs(latNum - 27.175) < 0.1) {
+      if (Math.abs(latNum - 27.175) < 0.05) {
         navigate('/map/bldg-tajmahal-007');
-      } else if (Math.abs(latNum - 28.59) < 0.1) {
+      } else if (Math.abs(latNum - 28.59) < 0.05) {
         navigate('/map/550e8400-e29b-41d4-a716-446655440000');
-      } else if (Math.abs(latNum - 19.06) < 0.1) {
+      } else if (Math.abs(latNum - 19.06) < 0.05) {
         navigate('/map/bldg-mumbai-502');
       } else {
-        navigate('/map/bldg-gurugram-108');
+        try {
+          setLoading(true);
+          const cleanId = `PARCEL_GPS_${Math.round(latNum * 100)}_${Math.round(lngNum * 100)}`;
+          const res = await createBuilding({
+            parcel_id: cleanId,
+            latitude: latNum,
+            longitude: lngNum,
+            height_meters: 18.0,
+            floor_count: 5
+          });
+          navigate(`/processing/${res.job_id || 'job-001'}`);
+        } catch {
+          navigate('/map/bldg-gurugram-108');
+        } finally {
+          setLoading(false);
+        }
       }
     } else {
       if (!bldgName.trim()) {
@@ -113,7 +144,21 @@ export default function ExplorePage() {
       } else if (bldgLower.includes('bkc') || bldgLower.includes('mumbai')) {
         navigate('/map/bldg-mumbai-502');
       } else {
-        navigate('/map/bldg-gurugram-108');
+        try {
+          setLoading(true);
+          const cleanId = 'PARCEL_' + bldgName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 20);
+          const res = await createBuilding({
+            parcel_id: cleanId,
+            address: bldgName,
+            height_meters: 18.0,
+            floor_count: 5
+          });
+          navigate(`/processing/${res.job_id || 'job-001'}`);
+        } catch {
+          navigate('/map/bldg-gurugram-108');
+        } finally {
+          setLoading(false);
+        }
       }
     }
   };
