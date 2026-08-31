@@ -1,5 +1,24 @@
 from shapely.geometry import shape
 
+
+def _normalize_geojson(geojson: dict) -> dict:
+    """
+    Recursively convert all coordinates in a GeoJSON dict to plain Python floats.
+    Fixes: ufunc 'create_collection' not supported for numpy.float64 types in
+    certain NumPy/Shapely version combinations.
+    """
+    if not isinstance(geojson, dict):
+        return geojson
+    result = dict(geojson)
+    if "coordinates" in result:
+        def _to_floats(obj):
+            if isinstance(obj, (list, tuple)):
+                return [_to_floats(x) for x in obj]
+            return float(obj)
+        result["coordinates"] = _to_floats(result["coordinates"])
+    return result
+
+
 def validate_spatial_data(
     units: list,
     building_footprint: dict
@@ -18,7 +37,7 @@ def validate_spatial_data(
     Returns:
         dict: Validation report containing validation state and errors.
     """
-    building_shape = shape(building_footprint)
+    building_shape = shape(_normalize_geojson(building_footprint))
     errors = []
     overlapping_pairs = []
     out_of_bounds = []
@@ -32,8 +51,8 @@ def validate_spatial_data(
     for floor_num, floor_units in floors_map.items():
         for i in range(len(floor_units)):
             for j in range(i + 1, len(floor_units)):
-                shape_i = shape(floor_units[i]["polygon_2d"])
-                shape_j = shape(floor_units[j]["polygon_2d"])
+                shape_i = shape(_normalize_geojson(floor_units[i]["polygon_2d"]))
+                shape_j = shape(_normalize_geojson(floor_units[j]["polygon_2d"]))
 
                 if shape_i.intersects(shape_j):
                     overlap = shape_i.intersection(shape_j)
@@ -48,7 +67,7 @@ def validate_spatial_data(
 
     # Check 2: Units within building boundary
     for unit in units:
-        unit_shape = shape(unit["polygon_2d"])
+        unit_shape = shape(_normalize_geojson(unit["polygon_2d"]))
         if not building_shape.buffer(1e-7).covers(unit_shape):
             out_of_bounds.append(unit["unit_id"])
             errors.append({
