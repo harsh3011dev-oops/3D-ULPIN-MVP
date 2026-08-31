@@ -20,7 +20,7 @@ from backend.services.supabase_service import (
 )
 from backend.services.ai_runner import execute_ai_pipeline_job
 
-router = APIRouter(prefix="/v1", tags=["3D ULPIN MVP"])
+router = APIRouter(tags=["3D ULPIN MVP"])
 
 @router.post("/buildings/create", response_model=GenericResponse, status_code=202)
 async def create_building_request(

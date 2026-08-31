@@ -67,7 +67,10 @@ from backend.routes import health  # noqa: E402
 from backend.api.endpoints import router as api_router
 
 app.include_router(health.router)
+app.include_router(api_router, prefix="/api/v1")
 app.include_router(api_router, prefix="/api")
+app.include_router(api_router, prefix="/v1")
+app.include_router(api_router)
 
 
 # ── Root ──────────────────────────────────────────────────────────────────────

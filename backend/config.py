@@ -16,13 +16,13 @@ _ENV_FILE = _BACKEND_DIR / ".env"
 
 class Settings(BaseSettings):
     # ── Supabase ──────────────────────────────
-    supabase_url: str
-    supabase_anon_key: str
-    supabase_service_role_key: str
+    supabase_url: str = "https://mock.supabase.co"
+    supabase_anon_key: str = "mock_anon_key"
+    supabase_service_role_key: str = "mock_service_role_key"
     supabase_storage_bucket: str = "aerial-images"
 
     # ── Database ──────────────────────────────
-    database_url: str  # postgresql+asyncpg://...
+    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/postgres"
 
     # ── App ───────────────────────────────────
     secret_key: str = "change-me"
