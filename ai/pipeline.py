@@ -22,41 +22,83 @@ except ModuleNotFoundError:
 import uuid
 from shapely.geometry import shape
 
-def process_building(input_data: dict) -> dict:
+def process_building(*args, **kwargs) -> dict:
     """
-    Orchestrate the SMART AI pipeline for a single building:
-    1. Resolve Address to GPS via Multi-API Cascading Geocoding (if address provided)
-    2. Extract centroid from Parcel Boundary
-    3. Query OpenStreetMap for building height & floors (or use overrides/defaults)
-    4. Download satellite image from ESRI World Imagery / Stadia Maps
-    5. Detect footprint using v2 Hybrid Multi-scale Canny + CV/OSM Blending
-    6. Extrude building footprint to 3D
-    7. Slice building into floors & units
-    8. Generate unique 3D ULPINs
-    9. Validate spatial data
+    Process building with EITHER address OR lat/lon
+    
+    Priority:
+    1. If address provided → geocode it
+    2. If address fails AND lat/lon provided → use coordinates
+    3. If only lat/lon provided → use coordinates directly
+    4. If neither → ERROR
     """
+    # Accommodate both dict input (existing tests) and kwargs input (new tests)
+    if len(args) == 1 and isinstance(args[0], dict):
+        input_data = args[0].copy()
+        input_data.update(kwargs)
+    else:
+        input_data = kwargs.copy()
+        if len(args) > 0:
+            input_data["parcel_id"] = args[0]
+        if len(args) > 1:
+            input_data["address"] = args[1]
+        if len(args) > 2:
+            input_data["latitude"] = args[2]
+        if len(args) > 3:
+            input_data["longitude"] = args[3]
+        if len(args) > 4:
+            input_data["height_meters"] = args[4]
+        if len(args) > 5:
+            input_data["floor_count"] = args[5]
+
     try:
         parcel_id = input_data.get("parcel_id", "UNKNOWN_PARCEL")
         building_id = input_data.get("building_id", str(uuid.uuid4()))
         parcel_boundary = input_data.get("parcel_boundary")
         address = input_data.get("address")
+        latitude = input_data.get("latitude")
+        longitude = input_data.get("longitude")
 
-        # Smart Address Resolution via Multi-Provider Cascading Geocoder
+        print(f"Processing building: {parcel_id}")
+
+        # Step 1: GET GPS COORDINATES
+        lat, lon = None, None
         if address and not parcel_boundary:
-            geo_info = geocode_address_robust(address)
-            if geo_info and "latitude" in geo_info:
-                lat, lon = geo_info["latitude"], geo_info["longitude"]
-                delta = 0.0005
-                parcel_boundary = {
-                    "type": "Polygon",
-                    "coordinates": [[
-                        [lon - delta, lat - delta],
-                        [lon + delta, lat - delta],
-                        [lon + delta, lat + delta],
-                        [lon - delta, lat + delta],
-                        [lon - delta, lat - delta]
-                    ]]
-                }
+            print(f"[STEP 1] Geocoding address: {address}")
+            try:
+                geo_info = geocode_address_robust(address)
+                if geo_info and "latitude" in geo_info:
+                    lat, lon = geo_info["latitude"], geo_info["longitude"]
+                    print(f"✅ Geocoded successfully: {lat}, {lon}")
+                else:
+                    raise ValueError("Geocoding returned empty result")
+            except Exception as e:
+                print(f"⚠️ Geocoding failed: {e}")
+                if latitude is not None and longitude is not None:
+                    print(f"Using provided coordinates as fallback: {latitude}, {longitude}")
+                    lat, lon = latitude, longitude
+                else:
+                    raise ValueError(f"Geocoding failed and no backup coordinates: {e}")
+        elif latitude is not None and longitude is not None and not parcel_boundary:
+            print(f"[STEP 1] Using provided coordinates: {latitude}, {longitude}")
+            lat, lon = latitude, longitude
+        elif parcel_boundary:
+            pass # Use centroid later
+        else:
+            raise ValueError("Either address OR (latitude, longitude) must be provided")
+
+        if not parcel_boundary and (lat is not None and lon is not None):
+            delta = 0.0005
+            parcel_boundary = {
+                "type": "Polygon",
+                "coordinates": [[
+                    [lon - delta, lat - delta],
+                    [lon + delta, lat - delta],
+                    [lon + delta, lat + delta],
+                    [lon - delta, lat + delta],
+                    [lon - delta, lat - delta]
+                ]]
+            }
 
         if not parcel_boundary or "coordinates" not in parcel_boundary:
             raise ValueError("Invalid parcel boundary or address provided.")
@@ -65,6 +107,7 @@ def process_building(input_data: dict) -> dict:
         centroid = boundary_shape.centroid
         lon, lat = centroid.x, centroid.y
 
+        print(f"[STEP 2] Downloading satellite for {lat}, {lon}")
         osm_data = fetch_osm_building_metadata(lat, lon)
         
         floor_count = input_data.get("floor_count")
