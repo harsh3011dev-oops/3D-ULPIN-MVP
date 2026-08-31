@@ -5,7 +5,7 @@ try:
     from ai.extrusion import extrude_building
     from ai.floor_division import divide_into_floors, divide_floor_into_units
     from ai.ulpin_generation import generate_ulpin
-    from ai.spatial_validation import validate_spatial_data
+    from ai.spatial_validation import validate_spatial_data, _normalize_geojson
     from ai.utils.image_utils import download_satellite_image
     from ai.utils.geo_utils import fetch_osm_building_metadata
 except ModuleNotFoundError:
@@ -15,7 +15,7 @@ except ModuleNotFoundError:
     from extrusion import extrude_building
     from floor_division import divide_into_floors, divide_floor_into_units
     from ulpin_generation import generate_ulpin
-    from spatial_validation import validate_spatial_data
+    from spatial_validation import validate_spatial_data, _normalize_geojson
     from utils.image_utils import download_satellite_image
     from utils.geo_utils import fetch_osm_building_metadata
 
@@ -69,11 +69,11 @@ def process_building(*args, **kwargs) -> dict:
                 geo_info = geocode_address_robust(address)
                 if geo_info and "latitude" in geo_info:
                     lat, lon = geo_info["latitude"], geo_info["longitude"]
-                    print(f"✅ Geocoded successfully: {lat}, {lon}")
+                    print(f"[OK] Geocoded successfully: {lat}, {lon}")
                 else:
                     raise ValueError("Geocoding returned empty result")
             except Exception as e:
-                print(f"⚠️ Geocoding failed: {e}")
+                print(f"[WARN] Geocoding failed: {e}")
                 if latitude is not None and longitude is not None:
                     print(f"Using provided coordinates as fallback: {latitude}, {longitude}")
                     lat, lon = latitude, longitude
@@ -103,7 +103,7 @@ def process_building(*args, **kwargs) -> dict:
         if not parcel_boundary or "coordinates" not in parcel_boundary:
             raise ValueError("Invalid parcel boundary or address provided.")
 
-        boundary_shape = shape(parcel_boundary)
+        boundary_shape = shape(_normalize_geojson(parcel_boundary))
         centroid = boundary_shape.centroid
         lon, lat = centroid.x, centroid.y
 
@@ -164,6 +164,8 @@ def process_building(*args, **kwargs) -> dict:
         }
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return {
             "status": "error",
             "message": str(e)
