@@ -47,6 +47,11 @@
 
 .hero-cta-wrapper {
   margin-bottom: 60px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .start-explorer-btn {
@@ -64,6 +69,28 @@
 .start-explorer-btn:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-glow-lavender);
+}
+
+.start-explorer-btn-outline {
+  padding: 15px 28px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1.5px solid rgba(124, 111, 224, 0.3);
+  color: var(--accent-lavender);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  font-family: inherit;
+}
+
+.start-explorer-btn-outline:hover {
+  background: var(--accent-lavender-soft);
+  border-color: var(--accent-lavender);
+  transform: translateY(-2px);
 }
 
 /* Features Grid */

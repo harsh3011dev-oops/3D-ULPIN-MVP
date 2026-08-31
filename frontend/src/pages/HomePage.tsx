@@ -51,15 +51,23 @@ export default function HomePage() {
             minting persistent geohash-based Spatial Identifiers compliant with international LADM specifications.
           </motion.p>
 
-          {/* Start CTA Button */}
+          {/* Start CTA Buttons */}
           <motion.div className="hero-cta-wrapper" variants={itemVariants}>
             <button
               type="button"
               className="btn-primary start-explorer-btn"
               onClick={() => navigate('/explore')}
             >
-              <span>Start Cadastral Explorer</span>
+              <Compass size={18} />
+              <span>Generate 3D ULPIN Model</span>
               <ArrowRight size={18} />
+            </button>
+            <button
+              type="button"
+              className="btn-secondary start-explorer-btn-outline"
+              onClick={() => navigate('/map/bldg-piet-academic')}
+            >
+              <span>View Demo 3D Map</span>
             </button>
           </motion.div>
 
