@@ -1,0 +1,109 @@
+{
+  "hash": "21ab2054",
+  "configHash": "0170ba00",
+  "lockfileHash": "1bddf8fa",
+  "browserHash": "183384a6",
+  "optimized": {
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "e48c8996",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "3bceb066",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "2c8120a6",
+      "needsInterop": true
+    },
+    "react-router-dom": {
+      "src": "../../node_modules/react-router-dom/dist/index.js",
+      "file": "react-router-dom.js",
+      "fileHash": "577e165f",
+      "needsInterop": false
+    },
+    "framer-motion": {
+      "src": "../../node_modules/framer-motion/dist/es/index.mjs",
+      "file": "framer-motion.js",
+      "fileHash": "38bbc34a",
+      "needsInterop": false
+    },
+    "lucide-react": {
+      "src": "../../node_modules/lucide-react/dist/esm/lucide-react.js",
+      "file": "lucide-react.js",
+      "fileHash": "901c0955",
+      "needsInterop": false
+    },
+    "axios": {
+      "src": "../../node_modules/axios/index.js",
+      "file": "axios.js",
+      "fileHash": "f9525c23",
+      "needsInterop": false
+    },
+    "@deck.gl/react": {
+      "src": "../../node_modules/@deck.gl/react/dist/index.js",
+      "file": "@deck__gl_react.js",
+      "fileHash": "1148c73a",
+      "needsInterop": false
+    },
+    "@deck.gl/layers": {
+      "src": "../../node_modules/@deck.gl/layers/dist/index.js",
+      "file": "@deck__gl_layers.js",
+      "fileHash": "eb5e5d6b",
+      "needsInterop": false
+    },
+    "react-map-gl/maplibre": {
+      "src": "../../node_modules/react-map-gl/dist/maplibre.js",
+      "file": "react-map-gl_maplibre.js",
+      "fileHash": "85204eb8",
+      "needsInterop": false
+    },
+    "maplibre-gl": {
+      "src": "../../node_modules/maplibre-gl/dist/maplibre-gl.js",
+      "file": "maplibre-gl.js",
+      "fileHash": "8146a410",
+      "needsInterop": true
+    },
+    "three": {
+      "src": "../../node_modules/three/build/three.module.js",
+      "file": "three.js",
+      "fileHash": "c2cc78b2",
+      "needsInterop": false
+    },
+    "three/examples/jsm/controls/OrbitControls.js": {
+      "src": "../../node_modules/three/examples/jsm/controls/OrbitControls.js",
+      "file": "three_examples_jsm_controls_OrbitControls__js.js",
+      "fileHash": "1e2cecf0",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-MMMFPNAL": {
+      "file": "chunk-MMMFPNAL.js"
+    },
+    "webgl-device-5JWOZNTY": {
+      "file": "webgl-device-5JWOZNTY.js"
+    },
+    "chunk-JMVEG3FK": {
+      "file": "chunk-JMVEG3FK.js"
+    },
+    "chunk-DDTKDAT7": {
+      "file": "chunk-DDTKDAT7.js"
+    },
+    "chunk-XJ335VRC": {
+      "file": "chunk-XJ335VRC.js"
+    },
+    "chunk-TWJRYSII": {
+      "file": "chunk-TWJRYSII.js"
+    },
+    "chunk-DC5AMYBS": {
+      "file": "chunk-DC5AMYBS.js"
+    }
+  }
+}

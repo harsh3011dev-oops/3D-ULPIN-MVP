@@ -214,12 +214,21 @@ def _pixels_to_geo(pixel_coords: list, image_path: str) -> list:
         pass
 
     # Use geo bounds from satellite tile download (correct GPS coordinates)
-    try:
-        from utils.image_utils import _last_image_bounds
-        min_lon = _last_image_bounds.get("min_lon")
-        max_lon = _last_image_bounds.get("max_lon")
-        min_lat = _last_image_bounds.get("min_lat")
-        max_lat = _last_image_bounds.get("max_lat")
+    # Scan sys.modules for whichever image_utils variant was actually imported
+    # (could be 'ai.utils.image_utils', 'utils.image_utils', etc.)
+    import sys
+    _bounds = None
+    for _mod_name, _mod in list(sys.modules.items()):
+        if "image_utils" in _mod_name and hasattr(_mod, "_last_image_bounds"):
+            _bounds = _mod._last_image_bounds
+            if _bounds.get("min_lon") is not None:  # prefer a populated bounds dict
+                break
+
+    if _bounds is not None:
+        min_lon = _bounds.get("min_lon")
+        max_lon = _bounds.get("max_lon")
+        min_lat = _bounds.get("min_lat")
+        max_lat = _bounds.get("max_lat")
 
         if min_lon is not None and max_lon is not None:
             img = cv2.imread(image_path)
@@ -231,8 +240,6 @@ def _pixels_to_geo(pixel_coords: list, image_path: str) -> list:
                     lat = max_lat - (py / img_h) * (max_lat - min_lat)
                     geo_coords.append([round(lon, 7), round(lat, 7)])
                 return geo_coords
-    except Exception:
-        pass
 
     # Last resort: normalize pixel coords
     return [[float(px) / 1000.0, float(py) / 1000.0] for px, py in pixel_coords]
