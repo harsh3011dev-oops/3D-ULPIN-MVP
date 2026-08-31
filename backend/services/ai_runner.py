@@ -14,7 +14,7 @@ from backend.models import Building, Unit, ValidationLog
 
 logger = logging.getLogger(__name__)
 
-async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, height_meters: float, floor_count: int, aerial_image_path: str = None):
+async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, height_meters: float, floor_count: int, latitude: float = None, longitude: float = None, units_per_floor: int = 4, aerial_image_url: str = None, parcel_boundary: dict = None):
     """Background task to run the AI pipeline and store results in Supabase."""
     logger.info(f"Starting AI pipeline for job {job_id}")
     
@@ -35,8 +35,11 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
                 result = process_building(
                     parcel_id=parcel_id,
                     address=address,
+                    latitude=latitude,
+                    longitude=longitude,
                     height_meters=height_meters,
-                    floor_count=floor_count
+                    floor_count=floor_count,
+                    parcel_boundary=parcel_boundary
                 )
             except ImportError:
                 # Fallback mock for testing if AI module isn't fully ready

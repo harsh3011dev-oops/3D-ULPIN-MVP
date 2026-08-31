@@ -206,7 +206,9 @@ export async function getValidation(buildingId: string): Promise<SpatialValidati
 export const buildingAPI = {
   create: async (data: {
     parcel_id: string;
-    address: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
     height_meters: number;
     floor_count: number;
     aerial_image_url?: string;

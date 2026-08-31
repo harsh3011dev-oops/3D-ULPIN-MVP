@@ -47,9 +47,12 @@ async def create_building_request(
         job_id=job.job_id,
         parcel_id=request.parcel_id,
         address=request.address,
+        latitude=request.latitude,
+        longitude=request.longitude,
         height_meters=request.height_meters,
         floor_count=request.floor_count,
-        aerial_image_path=request.aerial_image_path
+        aerial_image_url=request.aerial_image_path,
+        parcel_boundary=request.parcel_boundary
     )
 
     # 5. Return immediately

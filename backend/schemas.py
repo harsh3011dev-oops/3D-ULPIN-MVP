@@ -6,7 +6,9 @@ from datetime import datetime
 
 class BuildingCreateRequest(BaseModel):
     parcel_id: str = Field(..., description="Unique identifier for the parcel")
-    address: str = Field(..., description="Full address of the parcel")
+    address: Optional[str] = Field(None, description="Full address of the parcel")
+    latitude: Optional[float] = Field(None, description="Latitude coordinate")
+    longitude: Optional[float] = Field(None, description="Longitude coordinate")
     parcel_boundary: Optional[Dict[str, Any]] = Field(None, description="GeoJSON polygon of the parcel boundary")
     height_meters: float = Field(..., gt=0, description="Total height of the building in meters")
     floor_count: int = Field(..., gt=0, description="Total number of floors")
