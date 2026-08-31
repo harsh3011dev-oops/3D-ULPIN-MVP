@@ -139,19 +139,30 @@ export default function MapPage() {
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.4, ease: 'easeOut', delay: 0.05 }}
         >
-          {/* Location Switcher */}
-          <div className="location-target-header">
-            <div className="location-target-label">Location Target</div>
-            <select
-              className="location-preset-select"
-              value={activePresetKey}
-              onChange={handleLocationSwitch}
+          {/* Header Action */}
+          <div className="location-target-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 6px' }}>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+              3D Cadastral Record
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/explore')}
+              style={{
+                background: 'var(--accent-lavender-soft)',
+                border: '1px solid rgba(124,111,224,0.25)',
+                borderRadius: 'var(--radius-full)',
+                color: '#7c6fe0',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                padding: '4px 10px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}
             >
-              <option value="piet-academic">🏛️ PIET Main Academic Block (5F / 18m)</option>
-              <option value="piet-engineering">🏢 PIET Engineering & AI Hub (6F / 22m)</option>
-              <option value="piet-auditorium">⚡ PIET Innovation & Auditorium (3F / 15m)</option>
-              <option value="piet-hostel">🏠 PIET Campus Student Residency (8F / 28m)</option>
-            </select>
+              + New Model
+            </button>
           </div>
 
           {/* Building Meta */}

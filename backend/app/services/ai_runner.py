@@ -16,9 +16,17 @@ from app.services.supabase_service import supabase_service
 jobs_db: Dict[str, Dict[str, Any]] = {}
 buildings_db: Dict[str, Dict[str, Any]] = {}
 
-def execute_ai_pipeline_job(job_id: str, payload: Dict[str, Any]):
+def execute_ai_pipeline_job(job_id: str, payload: Dict[str, Any] = None, **kwargs):
     """Background task runner for executing 3D ULPIN AI Pipeline"""
     try:
+        if payload is None:
+            payload = kwargs
+        else:
+            payload = {**payload, **kwargs}
+
+        if job_id not in jobs_db:
+            jobs_db[job_id] = {}
+
         jobs_db[job_id]["status"] = "processing"
         jobs_db[job_id]["progress_pct"] = 25
         jobs_db[job_id]["step"] = "Executing Geocoding & OSM Elevation Retrieval..."

@@ -59,47 +59,29 @@ export async function createBuilding(buildingData: CreateBuildingPayload): Promi
     console.warn('FastAPI Backend offline, utilizing dynamic mock job pipeline engine:', error.message);
     const jobId = 'job-' + Math.random().toString(36).substring(2, 9);
     
-    // Check if submitting one of the known PIET preset parcel IDs
-    let buildingId = 'bldg-' + Math.random().toString(36).substring(2, 9);
-    let buildingName = `PIET Campus Building — ${buildingData.parcel_id}`;
-    let address = buildingData.address || 'PIET Campus, Samalkha, Panipat';
+    const buildingId = 'bldg-' + Math.random().toString(36).substring(2, 9);
+    const buildingName = buildingData.address?.split(',')[0] || `Building ${buildingData.parcel_id}`;
+    const address = buildingData.address || 'Cadastral Boundary Location';
 
-    if (buildingData.parcel_id.includes('PIET_ACADEMIC') || buildingData.parcel_id.includes('ACADEMIC')) {
-      buildingId = mockBuildingTajMahal.building_id;
-      buildingName = mockBuildingTajMahal.building_name!;
-      address = mockBuildingTajMahal.address!;
-    } else if (buildingData.parcel_id.includes('PIET_ENGG') || buildingData.parcel_id.includes('ENGG')) {
-      buildingId = mockBuildingDelhi.building_id;
-      buildingName = mockBuildingDelhi.building_name!;
-      address = mockBuildingDelhi.address!;
-    } else if (buildingData.parcel_id.includes('PIET_AUDI') || buildingData.parcel_id.includes('AUDI')) {
-      buildingId = mockBuildingGurugram.building_id;
-      buildingName = mockBuildingGurugram.building_name!;
-      address = mockBuildingGurugram.address!;
-    } else if (buildingData.parcel_id.includes('PIET_HOSTEL') || buildingData.parcel_id.includes('HOSTEL')) {
-      buildingId = mockBuildingMumbai.building_id;
-      buildingName = mockBuildingMumbai.building_name!;
-      address = mockBuildingMumbai.address!;
-    } else if (buildingData.parcel_id.includes('PIET') || buildingData.parcel_id.includes('COLLEGE') || buildingData.parcel_id.includes('PANIPAT')) {
-      buildingId = MOCK_BUILDING.building_id;
-      buildingName = 'PIET Main Academic Block';
-      address = 'Panipat Institute of Engineering & Technology, Samalkha, Haryana';
-    }
+    // Compute dynamic polygon coordinates based on user submitted GPS coordinates
+    const lat = buildingData.latitude ? Number(buildingData.latitude) : 29.211619;
+    const lon = buildingData.longitude ? Number(buildingData.longitude) : 77.016214;
+    const d = 0.00035;
 
-    // Generate dynamic 3D building object from submitted boundary coordinates
     const coords = buildingData.parcel_boundary?.coordinates?.[0] || [
-      [76.9938, 29.2382],
-      [76.9948, 29.2382],
-      [76.9948, 29.2390],
-      [76.9938, 29.2390],
-      [76.9938, 29.2382]
+      [lon - d, lat - d],
+      [lon + d, lat - d],
+      [lon + d, lat + d],
+      [lon - d, lat + d],
+      [lon - d, lat - d]
     ];
 
     const generatedUnits = generateUnitsForBounds(
       buildingData.parcel_id,
       coords,
-      buildingData.height_meters,
-      buildingData.floor_count
+      buildingData.height_meters || 18,
+      buildingData.floor_count || 5,
+      buildingId
     );
 
     const newBuilding: Building = {
@@ -109,10 +91,10 @@ export async function createBuilding(buildingData: CreateBuildingPayload): Promi
       aerial_image_url: buildingData.aerial_image_url,
       building_name: buildingName,
       address,
-      footprint: buildingData.parcel_boundary,
-      height: buildingData.height_meters,
-      height_meters: buildingData.height_meters,
-      floor_count: buildingData.floor_count,
+      footprint: { type: 'Polygon', coordinates: [coords] },
+      height: buildingData.height_meters || 18,
+      height_meters: buildingData.height_meters || 18,
+      floor_count: buildingData.floor_count || 5,
       total_units: generatedUnits.length,
       units: generatedUnits,
       validation: { valid: true, overlaps_detected: false, overlapping_units: [], out_of_bounds: [], errors: [] },
