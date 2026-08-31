@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { label: 'Home',       icon: Upload,  to: '/' },
   { label: 'Submit AI',  icon: Box,     to: '/upload' },
   { label: 'Explore',    icon: Search,  to: '/explore' },
-  { label: '3D Explorer',icon: Compass, to: '/map/bldg-tajmahal-007' },
+  { label: '3D Explorer',icon: Compass, to: '/map/bldg-piet-academic' },
 ];
 
 export default function Header() {

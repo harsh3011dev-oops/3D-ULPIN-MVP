@@ -18,36 +18,36 @@ const itemVariants: Variants = {
 
 const DEMO_LOCATIONS = [
   {
-    id: 'bldg-tajmahal-007',
-    name: 'Taj Mahal Monument',
-    city: 'Agra, Uttar Pradesh',
-    details: '6 Floors • 73.0m Height',
-    badge: 'Heritage Zone',
-    icon: '🕌',
+    id: 'bldg-piet-academic',
+    name: 'PIET Main Academic Block',
+    city: 'GT Road, Samalkha, Panipat',
+    details: '5 Floors • 18.0m Height',
+    badge: 'Academic Cadastre',
+    icon: '🏛️',
   },
   {
-    id: 'bldg-gurugram-108',
-    name: 'Cyber City IT Hub Tower 4',
-    city: 'Gurugram, Haryana',
-    details: '12 Floors • 45.0m Height',
-    badge: 'Commercial IT',
+    id: 'bldg-piet-engineering',
+    name: 'PIET Engineering & AI Hub',
+    city: 'CSE & Robotics Zone, PIET',
+    details: '6 Floors • 22.0m Height',
+    badge: 'Engineering Labs',
     icon: '🏢',
   },
   {
-    id: 'bldg-mumbai-502',
-    name: 'BKC IFSC Financial Tower',
-    city: 'Mumbai, Maharashtra',
-    details: '24 Floors • 96.0m Height',
-    badge: 'IFSC Financial',
-    icon: '🏙️',
+    id: 'bldg-piet-auditorium',
+    name: 'PIET Innovation & Auditorium',
+    city: 'Incubation Centre, PIET',
+    details: '3 Floors • 15.0m Height',
+    badge: 'Convention & AI Hub',
+    icon: '⚡',
   },
   {
-    id: '550e8400-e29b-41d4-a716-446655440000',
-    name: 'Dwarka Sector 14 Complex',
-    city: 'New Delhi, Delhi',
-    details: '4 Floors • 14.0m Height',
+    id: 'bldg-piet-hostel',
+    name: 'PIET Student Residency Block',
+    city: 'Hostel Enclave, PIET Campus',
+    details: '8 Floors • 28.0m Height',
     badge: 'Residential Cadastre',
-    icon: '🏛️',
+    icon: '🏠',
   },
 ];
 
@@ -75,18 +75,18 @@ export default function ExplorePage() {
         return;
       }
       const addrLower = address.toLowerCase();
-      if (addrLower.includes('taj') || addrLower.includes('agra')) {
-        navigate('/map/bldg-tajmahal-007');
-      } else if (addrLower.includes('dwarka') || addrLower.includes('delhi')) {
-        navigate('/map/550e8400-e29b-41d4-a716-446655440000');
-      } else if (addrLower.includes('cyber') || addrLower.includes('gurugram')) {
-        navigate('/map/bldg-gurugram-108');
-      } else if (addrLower.includes('bkc') || addrLower.includes('mumbai')) {
-        navigate('/map/bldg-mumbai-502');
+      if (addrLower.includes('academic') || addrLower.includes('main block') || addrLower.includes('piet') || addrLower.includes('panipat')) {
+        navigate('/map/bldg-piet-academic');
+      } else if (addrLower.includes('engineer') || addrLower.includes('cse') || addrLower.includes('robotics') || addrLower.includes('ai hub')) {
+        navigate('/map/bldg-piet-engineering');
+      } else if (addrLower.includes('audi') || addrLower.includes('innovation') || addrLower.includes('incubat') || addrLower.includes('convention')) {
+        navigate('/map/bldg-piet-auditorium');
+      } else if (addrLower.includes('hostel') || addrLower.includes('residenc') || addrLower.includes('student')) {
+        navigate('/map/bldg-piet-hostel');
       } else {
         try {
           setLoading(true);
-          const cleanId = 'PARCEL_' + address.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 20);
+          const cleanId = 'PARCEL_PIET_' + address.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 15);
           const res = await createBuilding({
             parcel_id: cleanId,
             address: address,
@@ -95,7 +95,7 @@ export default function ExplorePage() {
           });
           navigate(`/processing/${res.job_id || 'job-001'}`);
         } catch {
-          navigate('/map/bldg-gurugram-108');
+          navigate('/map/bldg-piet-academic');
         } finally {
           setLoading(false);
         }
@@ -107,16 +107,15 @@ export default function ExplorePage() {
         setError('Please enter valid numeric latitude and longitude.');
         return;
       }
-      if (Math.abs(latNum - 27.175) < 0.05) {
-        navigate('/map/bldg-tajmahal-007');
-      } else if (Math.abs(latNum - 28.59) < 0.05) {
-        navigate('/map/550e8400-e29b-41d4-a716-446655440000');
-      } else if (Math.abs(latNum - 19.06) < 0.05) {
-        navigate('/map/bldg-mumbai-502');
+      // PIET campus coords ~29.238, 76.994
+      if (Math.abs(latNum - 29.238) < 0.005 && Math.abs(lngNum - 76.994) < 0.005) {
+        navigate('/map/bldg-piet-academic');
+      } else if (Math.abs(latNum - 29.239) < 0.005) {
+        navigate('/map/bldg-piet-engineering');
       } else {
         try {
           setLoading(true);
-          const cleanId = `PARCEL_GPS_${Math.round(latNum * 100)}_${Math.round(lngNum * 100)}`;
+          const cleanId = `PARCEL_PIET_GPS_${Math.round(latNum * 1000)}_${Math.round(lngNum * 1000)}`;
           const res = await createBuilding({
             parcel_id: cleanId,
             latitude: latNum,
@@ -126,7 +125,7 @@ export default function ExplorePage() {
           });
           navigate(`/processing/${res.job_id || 'job-001'}`);
         } catch {
-          navigate('/map/bldg-gurugram-108');
+          navigate('/map/bldg-piet-academic');
         } finally {
           setLoading(false);
         }
@@ -137,16 +136,18 @@ export default function ExplorePage() {
         return;
       }
       const bldgLower = bldgName.toLowerCase();
-      if (bldgLower.includes('taj') || bldgLower.includes('agra')) {
-        navigate('/map/bldg-tajmahal-007');
-      } else if (bldgLower.includes('dwarka') || bldgLower.includes('delhi')) {
-        navigate('/map/550e8400-e29b-41d4-a716-446655440000');
-      } else if (bldgLower.includes('bkc') || bldgLower.includes('mumbai')) {
-        navigate('/map/bldg-mumbai-502');
+      if (bldgLower.includes('academic') || bldgLower.includes('piet') || bldgLower.includes('main')) {
+        navigate('/map/bldg-piet-academic');
+      } else if (bldgLower.includes('engineer') || bldgLower.includes('cse') || bldgLower.includes('robotics')) {
+        navigate('/map/bldg-piet-engineering');
+      } else if (bldgLower.includes('audi') || bldgLower.includes('innovation') || bldgLower.includes('convention')) {
+        navigate('/map/bldg-piet-auditorium');
+      } else if (bldgLower.includes('hostel') || bldgLower.includes('residenc')) {
+        navigate('/map/bldg-piet-hostel');
       } else {
         try {
           setLoading(true);
-          const cleanId = 'PARCEL_' + bldgName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 20);
+          const cleanId = 'PARCEL_PIET_' + bldgName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 15);
           const res = await createBuilding({
             parcel_id: cleanId,
             address: bldgName,
@@ -155,7 +156,7 @@ export default function ExplorePage() {
           });
           navigate(`/processing/${res.job_id || 'job-001'}`);
         } catch {
-          navigate('/map/bldg-gurugram-108');
+          navigate('/map/bldg-piet-academic');
         } finally {
           setLoading(false);
         }
