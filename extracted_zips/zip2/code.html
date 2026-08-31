@@ -1,0 +1,311 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><title>Home / Submit (Mono) — 3D ULPIN</title><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "background": "#ffffff",
+                "surface": "#ffffff",
+                "surface-elevated": "#ffffff",
+                "surface-dim": "#f8fafc",
+                "surface-container-lowest": "#ffffff",
+                "surface-container-low": "#f8fafc",
+                "surface-container": "#f1f5f9",
+                "surface-container-high": "#f1f5f9",
+                "surface-container-highest": "#e2e8f0",
+                "surface-bright": "#ffffff",
+                "on-surface": "#0f172a",
+                "on-surface-variant": "#475569",
+                "text-dim": "#64748b",
+                "outline": "#94a3b8",
+                "outline-variant": "#cbd5e1",
+                "border-glass": "rgba(0, 0, 0, 0.08)",
+                "primary": "#0f172a",
+                "on-primary": "#ffffff",
+                "primary-fixed": "#e2e8f0",
+                "primary-fixed-dim": "#cbd5e1",
+                "primary-container": "#e2e8f0",
+                "on-primary-container": "#0f172a",
+                "secondary": "#475569",
+                "on-secondary": "#ffffff",
+                "secondary-fixed": "#f1f5f9",
+                "secondary-fixed-dim": "#e2e8f0",
+                "secondary-container": "#e2e8f0",
+                "on-secondary-container": "#0f172a",
+                "tertiary": "#64748b",
+                "on-tertiary": "#ffffff",
+                "success": "#10B981",
+                "warning": "#F59E0B",
+                "error": "#EF4444"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+        },
+        "spacing": {
+                "gutter-md": "12px",
+                "sidebar-width": "320px",
+                "gutter-sm": "8px",
+                "unit": "4px",
+                "panel-padding": "16px"
+        },
+        "fontFamily": {
+                "mono-data": [
+                        "JetBrains Mono"
+                ],
+                "body-sm": [
+                        "Outfit"
+                ],
+                "mono-label": [
+                        "JetBrains Mono"
+                ],
+                "headline-md": [
+                        "Outfit"
+                ],
+                "display-lg": [
+                        "Outfit"
+                ],
+                "body-md": [
+                        "Outfit"
+                ]
+        },
+        "fontSize": {
+                "mono-data": [
+                        "11px",
+                        {
+                                "lineHeight": "1.2",
+                                "letterSpacing": "0",
+                                "fontWeight": "400"
+                        }
+                ],
+                "body-sm": [
+                        "12px",
+                        {
+                                "lineHeight": "1.5",
+                                "letterSpacing": "0",
+                                "fontWeight": "400"
+                        }
+                ],
+                "mono-label": [
+                        "11px",
+                        {
+                                "lineHeight": "1",
+                                "letterSpacing": "0.04em",
+                                "fontWeight": "500"
+                        }
+                ],
+                "headline-md": [
+                        "20px",
+                        {
+                                "lineHeight": "1.4",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "display-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "1.2",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-md": [
+                        "14px",
+                        {
+                                "lineHeight": "1.5",
+                                "letterSpacing": "0",
+                                "fontWeight": "400"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100..900&amp;display=swap" rel="stylesheet"></head><body class="bg-background font-body-md text-on-surface antialiased"><header class="fixed top-0 left-0 right-0 h-16 bg-surface/80 backdrop-blur-xl border-b border-border-glass z-[60] px-6 flex items-center justify-between"><div class="flex items-center gap-4"><img alt="3D ULPIN Logo" class="h-8 w-auto object-contain grayscale" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3Q8jm1ukSJNWJq0rRHiHZb0zT-7QFi0UN2Vd2Caxb69n0hD8nHW4jr1eTkM2LXil3XUGi7T15N6NPOI2jB2Q4c65hdcJHN0aZFtCP3nilgIhtBpfqjHTo9XhwAH6oFy4P1hkLll4WNGzC5QBJ3wZb2ybog_ulPaU0BkGUKpm-4Sxy2tvuIuOkVz-C9PGoGx9cSvwxbFHl6NI1WrmUcZaqW7f692KhINHCkL0zcXM99w-SeaDfT_wH"><span class="font-headline-md text-headline-md tracking-tight text-on-surface">.3D ULPIN</span><div class="ml-8 flex items-center gap-2 px-3 py-1 bg-surface-container-lowest border border-border-glass rounded-full"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-success"></span></span><span class="font-mono-label text-mono-label text-on-surface-variant uppercase">AI Engine Active</span></div></div><nav class="flex items-center gap-2" data-active-classes="bg-primary text-on-primary shadow-sm"><a aria-current="page" class="px-6 py-2 rounded-full font-body-md transition-all bg-primary text-on-primary shadow-sm" data-path="submit-building" href="#">Submit Building</a><a class="px-6 py-2 rounded-full font-body-md text-body-md text-on-surface-variant hover:bg-surface-container transition-all" data-path="3d-explorer" href="#">3D Explorer</a></nav><div class="flex items-center gap-4"><button class="text-on-surface-variant hover:text-on-surface transition-colors"><span class="material-symbols-outlined">settings</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-sidebar-width bg-surface-elevated/60 backdrop-blur-md border-r border-border-glass z-50 flex flex-col p-panel-padding"><div class="font-mono-label text-mono-label text-outline uppercase tracking-widest mb-4">Geospatial Toolkit</div><nav class="space-y-gutter-sm" data-active-classes="bg-secondary-container text-on-secondary-container"><a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="3d-explorer" href="#"><span class="material-symbols-outlined">layers</span><span class="font-body-md text-body-md">Layer Stack</span></a><a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="analytics" href="#"><span class="material-symbols-outlined">query_stats</span><span class="font-body-md text-body-md">Analytics</span></a><a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="parcel-search" href="#"><span class="material-symbols-outlined">travel_explore</span><span class="font-body-md text-body-md">Parcel Registry</span></a><a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="building-permits" href="#"><span class="material-symbols-outlined">home_work</span><span class="font-body-md text-body-md">Permit Audit</span></a></nav><div class="mt-auto p-panel-padding bg-surface-container rounded-xl border border-border-glass"><div class="text-mono-data font-mono-data text-text-dim mb-1">LAT: 40.7128 N</div><div class="text-mono-data font-mono-data text-text-dim mb-1">LON: 74.0060 W</div><div class="text-mono-data font-mono-data text-text-dim">ALT: 42.1M AMSL</div></div></aside><div class="pl-sidebar-width"><main class="relative pt-16 min-h-screen bg-background"><div class="flex flex-col w-full px-6 py-6 gap-8">
+<section class="relative bg-surface-container rounded-xl p-8 overflow-hidden">
+<div class="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-3xl rounded-full pointer-events-none transform translate-x-1/2 -translate-y-1/2"></div>
+<div class="absolute bottom-0 left-0 w-48 h-48 bg-secondary/5 blur-2xl rounded-full pointer-events-none transform -translate-x-1/3 translate-y-1/3"></div>
+<div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+<div class="max-w-2xl">
+<div class="flex items-center gap-2 mb-4">
+<span class="px-2 py-1 bg-surface-container-highest rounded text-mono-label font-mono-label text-primary">v2.4.0-rc1</span>
+<span class="px-2 py-1 bg-success/10 rounded text-mono-label font-mono-label text-success">LADM COMPLIANT</span>
+</div>
+<h1 class="text-display-lg font-display-lg text-on-surface mb-4 tracking-tight">Intelligence for the Vertical Frontier</h1>
+<p class="text-body-md font-body-md text-on-surface-variant max-w-xl leading-relaxed">
+                    Initialize automated 3D Cadastral pipelines. Ingest 2D boundaries, extrude topological volumes, and assign persistent Universal Land Parcel Identification Numbers per spatial unit.
+                </p>
+</div>
+<div class="grid grid-cols-2 gap-4 flex-shrink-0">
+<div class="bg-surface/80 backdrop-blur-md p-4 rounded-lg flex flex-col gap-1 border border-border-glass">
+<span class="text-mono-data font-mono-data text-outline uppercase">Engine State</span>
+<span class="text-headline-md font-headline-md text-primary">3D Extrusion Ready</span>
+</div>
+<div class="bg-surface/80 backdrop-blur-md p-4 rounded-lg flex flex-col gap-1 border border-border-glass">
+<span class="text-mono-data font-mono-data text-outline uppercase">Pipeline Depth</span>
+<span class="text-headline-md font-headline-md text-secondary">6 AI Steps</span>
+</div>
+<div class="bg-surface/80 backdrop-blur-md p-4 rounded-lg flex flex-col gap-1 border border-border-glass">
+<span class="text-mono-data font-mono-data text-outline uppercase">Standard</span>
+<span class="text-headline-md font-headline-md text-on-surface">ISO 19152 LADM</span>
+</div>
+<div class="bg-surface/80 backdrop-blur-md p-4 rounded-lg flex flex-col gap-1 border border-border-glass">
+<span class="text-mono-data font-mono-data text-outline uppercase">Integrity</span>
+<span class="text-headline-md font-headline-md text-success">0 Conflict Records</span>
+</div>
+</div>
+</div>
+</section>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<section class="lg:col-span-8 flex flex-col gap-6">
+<div class="bg-surface-elevated/80 backdrop-blur-xl rounded-xl p-6 border border-border-glass shadow-sm relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary"></div>
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-headline-md font-headline-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">upload_file</span>
+                        Topology Ingestion Console
+                    </h2>
+<span class="text-mono-label font-mono-label text-outline">SYS.REQ: GEOJSON/WKT</span>
+</div>
+<div class="mb-6 flex flex-wrap gap-2">
+<span class="text-mono-data font-mono-data text-outline self-center mr-2">PRESETS:</span>
+<button class="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high rounded text-mono-label font-mono-label text-on-surface-variant transition-colors border border-border-glass">Delhi Dwarka</button>
+<button class="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high rounded text-mono-label font-mono-label text-on-surface-variant transition-colors border border-border-glass">Gurugram Cyber City</button>
+<button class="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high rounded text-mono-label font-mono-label text-on-surface-variant transition-colors border border-border-glass">BKC Mumbai IFSC</button>
+<button class="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high rounded text-mono-label font-mono-label text-on-surface-variant transition-colors border border-border-glass">Taj Mahal Agra</button>
+</div>
+<form class="flex flex-col gap-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="flex flex-col gap-2">
+<label class="text-mono-label font-mono-label text-outline uppercase">Base Parcel ID (2D ULPIN)</label>
+<input class="bg-background border border-border-glass rounded px-3 py-2 text-mono-data font-mono-data text-on-surface focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_rgba(0,0,0,0.2)] transition-all" placeholder="e.g., IN-DL-110075-XXXX" type="text">
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-mono-label font-mono-label text-outline uppercase">Context Imagery URL (Optional)</label>
+<input class="bg-background border border-border-glass rounded px-3 py-2 text-mono-data font-mono-data text-on-surface focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_rgba(0,0,0,0.2)] transition-all" placeholder="https://api.sat-provider.com/tile..." type="text">
+</div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<div class="flex flex-col gap-2 col-span-2">
+<label class="text-mono-label font-mono-label text-outline uppercase">Extrusion Height (m)</label>
+<div class="relative">
+<input class="w-full bg-background border border-border-glass rounded px-3 py-2 text-mono-data font-mono-data text-on-surface focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_rgba(0,0,0,0.2)] transition-all pr-8" placeholder="0.0" step="0.1" type="number">
+<span class="absolute right-3 top-1/2 -translate-y-1/2 text-mono-data font-mono-data text-outline">m</span>
+</div>
+</div>
+<div class="flex flex-col gap-2 col-span-2">
+<label class="text-mono-label font-mono-label text-outline uppercase">Logical Floors</label>
+<input class="w-full bg-background border border-border-glass rounded px-3 py-2 text-mono-data font-mono-data text-on-surface focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_rgba(0,0,0,0.2)] transition-all" placeholder="1" type="number">
+</div>
+</div>
+<div class="flex flex-col gap-2 h-64">
+<div class="flex justify-between items-center">
+<label class="text-mono-label font-mono-label text-outline uppercase">Spatial Boundary Geometry (GeoJSON)</label>
+<span class="text-mono-data font-mono-data text-success">Valid JSON format</span>
+</div>
+<textarea class="flex-1 bg-background border border-border-glass rounded p-4 text-mono-data font-mono-data text-text-dim focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_rgba(0,0,0,0.2)] transition-all resize-none leading-relaxed" placeholder="{
+  &quot;type&quot;: &quot;FeatureCollection&quot;,
+  &quot;features&quot;: [
+    {
+      &quot;type&quot;: &quot;Feature&quot;,
+      &quot;properties&quot;: {},
+      &quot;geometry&quot;: {
+        &quot;type&quot;: &quot;Polygon&quot;,
+        &quot;coordinates&quot;: []
+      }
+    }
+  ]
+}" spellcheck="false"></textarea>
+</div>
+<div class="flex justify-end pt-4 border-t border-border-glass">
+<button class="bg-primary hover:bg-primary/90 text-on-primary font-mono-label text-mono-label px-6 py-3 rounded uppercase tracking-wider shadow-md transition-all flex items-center gap-2 group" type="button">
+<span class="material-symbols-outlined text-[18px] group-hover:rotate-12 transition-transform">rocket_launch</span>
+                            Execute Pipeline
+                        </button>
+</div>
+</form>
+</div>
+</section>
+<aside class="lg:col-span-4 flex flex-col gap-4">
+<div class="bg-surface-container rounded-xl p-4 flex flex-col gap-2 h-64 relative overflow-hidden group border border-border-glass">
+<div class="absolute inset-0 bg-cover bg-center opacity-40 mix-blend-multiply grayscale invert group-hover:opacity-60 transition-opacity duration-700" data-alt="Dark, technical 3D wireframe render of a city grid with glowing cyan and orange building extrusions against a deep black background, HUD style grid lines." style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuC2I6QBqVH740msuWpF_gaT7Pw-MOLHzTcVoge6tYQdpsHGdH6KwmuBt5ek9Er--72-uPizSy3raabEQxk-blCqxv-1YSHH8S52p4FztVa3huOIHXs-T_SAGcaCvk4hVki3I1KhdMCFxD39NQjHCZ2txWp1q8dOgqrhmcNbMwaJ610CHrI5e7NAPr3lGMkcXyMNUFJHLnEyMQZgxzRAeVIKWQw1ChSEp5EfEg6VdvncJhKdNBfyafEk&quot;);"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container via-surface-container/80 to-transparent"></div>
+<div class="relative z-10 flex flex-col h-full justify-between">
+<span class="text-mono-label font-mono-label text-secondary flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">visibility</span> PREVIEW ENGINE</span>
+<div class="flex flex-col">
+<span class="text-headline-md font-headline-md text-on-surface">Spatial Context</span>
+<span class="text-body-sm font-body-sm text-on-surface-variant">Waiting for telemetry...</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-elevated/80 backdrop-blur-xl rounded-xl border border-border-glass flex-1 flex flex-col p-4 shadow-sm">
+<h3 class="text-mono-label font-mono-label text-outline uppercase mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">memory</span> Pipeline Architecture
+                 </h3>
+<div class="flex flex-col gap-3">
+<div class="flex items-start gap-3 p-3 bg-surface/80 rounded-lg border border-border-glass group hover:border-primary/50 transition-colors">
+<div class="w-8 h-8 rounded bg-surface-container flex items-center justify-center text-primary group-hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-[18px]">satellite_alt</span>
+</div>
+<div class="flex flex-col">
+<span class="text-mono-label font-mono-label text-on-surface">1. Footprint Detection</span>
+<span class="text-mono-data font-mono-data text-outline">Extract vector outline from raster.</span>
+</div>
+</div>
+<div class="flex items-start gap-3 p-3 bg-surface/80 rounded-lg border border-border-glass group hover:border-secondary/50 transition-colors">
+<div class="w-8 h-8 rounded bg-surface-container flex items-center justify-center text-secondary group-hover:bg-secondary/10 transition-colors">
+<span class="material-symbols-outlined text-[18px]">view_in_ar</span>
+</div>
+<div class="flex flex-col">
+<span class="text-mono-label font-mono-label text-on-surface">2. 3D Extrusion</span>
+<span class="text-mono-data font-mono-data text-outline">Generate LoD1 volume model.</span>
+</div>
+</div>
+<div class="flex items-start gap-3 p-3 bg-surface/80 rounded-lg border border-border-glass group hover:border-text-dim/50 transition-colors">
+<div class="w-8 h-8 rounded bg-surface-container flex items-center justify-center text-text-dim group-hover:bg-text-dim/10 transition-colors">
+<span class="material-symbols-outlined text-[18px]">layers</span>
+</div>
+<div class="flex flex-col">
+<span class="text-mono-label font-mono-label text-on-surface">3. Floor Division</span>
+<span class="text-mono-data font-mono-data text-outline">Slice volume into logical strata.</span>
+</div>
+</div>
+<div class="flex items-start gap-3 p-3 bg-surface/80 rounded-lg border border-border-glass group hover:border-success/50 transition-colors">
+<div class="w-8 h-8 rounded bg-surface-container flex items-center justify-center text-success group-hover:bg-success/10 transition-colors">
+<span class="material-symbols-outlined text-[18px]">grid_on</span>
+</div>
+<div class="flex flex-col">
+<span class="text-mono-label font-mono-label text-on-surface">4. Unit Subdivision</span>
+<span class="text-mono-data font-mono-data text-outline">Define individual property bounds.</span>
+</div>
+</div>
+<div class="flex items-start gap-3 p-3 bg-surface/80 rounded-lg border border-border-glass group hover:border-primary/50 transition-colors">
+<div class="w-8 h-8 rounded bg-surface-container flex items-center justify-center text-primary group-hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-[18px]">tag</span>
+</div>
+<div class="flex flex-col">
+<span class="text-mono-label font-mono-label text-on-surface">5. ULPIN Generation</span>
+<span class="text-mono-data font-mono-data text-outline">Mint persistent 14-digit IDs.</span>
+</div>
+</div>
+<div class="flex items-start gap-3 p-3 bg-surface/80 rounded-lg border border-border-glass group hover:border-warning/50 transition-colors">
+<div class="w-8 h-8 rounded bg-surface-container flex items-center justify-center text-warning group-hover:bg-warning/10 transition-colors">
+<span class="material-symbols-outlined text-[18px]">rule</span>
+</div>
+<div class="flex flex-col">
+<span class="text-mono-label font-mono-label text-on-surface">6. Spatial Validation</span>
+<span class="text-mono-data font-mono-data text-outline">Check overlaps &amp; topology rules.</span>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</div></main></div>
+
+</body></html>

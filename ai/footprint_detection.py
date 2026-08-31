@@ -1,7 +1,13 @@
 import cv2
 import numpy as np
-import rasterio
-from rasterio.transform import xy
+try:
+    import rasterio
+    from rasterio.transform import xy
+    HAS_RASTERIO = True
+except ImportError:
+    HAS_RASTERIO = False
+    rasterio = None
+    xy = None
 import os
 
 def detect_building_footprint(
