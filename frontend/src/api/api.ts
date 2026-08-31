@@ -1,12 +1,13 @@
 import axios from 'axios';
-import { Building, CreateBuildingPayload, JobStatusResponse, SpatialValidation } from '../types';
+import { Building, CreateBuildingPayload, JobStatus, JobStatusResponse, SpatialValidation, ValidationResult } from '../types';
 import { mockBuildingTajMahal, mockBuildingDelhi, mockBuildingGurugram, mockBuildingMumbai, generateUnitsForBounds } from '../mocks/mockBuilding';
+import { MOCK_BUILDING } from '../mocks/mockBuildings';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000,
+  timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -14,6 +15,8 @@ const apiClient = axios.create({
 const buildingStore = new Map<string, Building>();
 
 // Pre-load default preset buildings into store
+buildingStore.set(MOCK_BUILDING.building_id, MOCK_BUILDING);
+buildingStore.set(MOCK_BUILDING.parcel_id, MOCK_BUILDING);
 buildingStore.set(mockBuildingTajMahal.building_id, mockBuildingTajMahal);
 buildingStore.set("PARCEL_777_TAJMAHAL_AGRA", mockBuildingTajMahal);
 buildingStore.set("bldg-tajmahal-007", mockBuildingTajMahal);
@@ -31,7 +34,7 @@ buildingStore.set("PARCEL_502_MUMBAI", mockBuildingMumbai);
 buildingStore.set("bldg-mumbai-502", mockBuildingMumbai);
 
 interface LocalJobStore {
-  status: 'processing' | 'done' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'done' | 'failed';
   progress: number;
   buildingId: string;
   formData: CreateBuildingPayload;
@@ -54,7 +57,7 @@ export async function createBuilding(buildingData: CreateBuildingPayload): Promi
     // Check if submitting one of the known preset parcel IDs
     let buildingId = 'bldg-' + Math.random().toString(36).substring(2, 9);
     let buildingName = `Cadastral Plot ${buildingData.parcel_id}`;
-    let address = 'Plot Boundary Location';
+    let address = buildingData.address || 'Plot Boundary Location';
 
     if (buildingData.parcel_id.includes('TAJMAHAL')) {
       buildingId = mockBuildingTajMahal.building_id;
@@ -68,10 +71,10 @@ export async function createBuilding(buildingData: CreateBuildingPayload): Promi
       buildingId = mockBuildingMumbai.building_id;
       buildingName = mockBuildingMumbai.building_name!;
       address = mockBuildingMumbai.address!;
-    } else if (buildingData.parcel_id.includes('DELHI')) {
-      buildingId = mockBuildingDelhi.building_id;
-      buildingName = mockBuildingDelhi.building_name!;
-      address = mockBuildingDelhi.address!;
+    } else if (buildingData.parcel_id.includes('DELHI') || buildingData.parcel_id.includes('COLLEGE')) {
+      buildingId = MOCK_BUILDING.building_id;
+      buildingName = 'College Academic Block';
+      address = 'College Campus, Delhi';
     }
 
     // Generate dynamic 3D building object from submitted boundary coordinates
@@ -99,6 +102,7 @@ export async function createBuilding(buildingData: CreateBuildingPayload): Promi
       address,
       footprint: buildingData.parcel_boundary,
       height: buildingData.height_meters,
+      height_meters: buildingData.height_meters,
       floor_count: buildingData.floor_count,
       total_units: generatedUnits.length,
       units: generatedUnits,
@@ -150,6 +154,7 @@ export async function getJobStatus(jobId: string): Promise<JobStatusResponse> {
       status,
       progress_pct: progress,
       step: currentStep,
+      progress_step: currentStep,
       building_id: job.buildingId || mockBuildingTajMahal.building_id
     };
   }
@@ -165,6 +170,9 @@ export async function getBuilding(buildingId: string): Promise<Building> {
   } catch (error: any) {
     if (buildingStore.has(buildingId)) {
       return buildingStore.get(buildingId)!;
+    }
+    if (buildingId?.startsWith('demo-') || buildingId?.includes('COLLEGE') || buildingId === 'bldg-001') {
+      return MOCK_BUILDING;
     }
     if (buildingId?.toLowerCase().includes('tajmahal') || buildingId === 'bldg-tajmahal-007') {
       return mockBuildingTajMahal;
@@ -191,3 +199,31 @@ export async function getValidation(buildingId: string): Promise<SpatialValidati
     return bld.validation || { valid: true, overlaps_detected: false };
   }
 }
+
+/**
+ * buildingAPI wrapper object as specified in frontend build guide
+ */
+export const buildingAPI = {
+  create: async (data: {
+    parcel_id: string;
+    address: string;
+    height_meters: number;
+    floor_count: number;
+    aerial_image_url?: string;
+    parcel_boundary?: any;
+  }) => {
+    return apiClient.post<{ job_id: string; status: string; building_id?: string }>('/buildings/create', data);
+  },
+
+  jobStatus: async (jobId: string) => {
+    return apiClient.get<JobStatus>(`/jobs/${jobId}/status`);
+  },
+
+  getBuilding: async (buildingId: string) => {
+    return apiClient.get<Building>(`/buildings/${buildingId}`);
+  },
+
+  getValidation: async (buildingId: string) => {
+    return apiClient.get<ValidationResult>(`/validation/${buildingId}`);
+  },
+};
