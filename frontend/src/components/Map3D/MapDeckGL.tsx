@@ -117,17 +117,20 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
   const SCALE_ELEVATION = 2.5;
 
   // 2. 3D Unit Feature Collection with TRUE 3D Altitude Coordinates
-  // Keeps ALL building floors visible so the whole 3D skyscraper context is preserved!
   const unitsGeoJSON = {
     type: "FeatureCollection",
     features: (building?.units || []).map((unit) => {
-      const isSelected = selectedUnit?.unit_id === unit.unit_id;
-      const isHovered = hoveredUnitId === unit.unit_id;
-      const isFloorIsolated = selectedFloor === unit.floor_number;
+      // ── Normalize fields: handle both mock & real backend unit shapes ──
+      const floorNum      = unit.floor_number ?? unit.floor ?? 1;
+      const floorHtM      = unit.floor_height_m ?? 3.5;
+      const zMin          = unit.z_min ?? (floorNum - 1) * floorHtM;
+      const zMax          = unit.z_max ?? floorNum * floorHtM;
+      const floorSliceH   = (zMax - zMin) * SCALE_ELEVATION;
+      const zBase         = zMin * SCALE_ELEVATION;
 
-      // Base altitude for this floor level
-      const zBase = unit.z_min * SCALE_ELEVATION;
-      const floorSliceHeight = (unit.floor_height_m || 3.5) * SCALE_ELEVATION;
+      const isSelected     = selectedUnit?.unit_id === unit.unit_id;
+      const isHovered      = hoveredUnitId === unit.unit_id;
+      const isFloorIsolated = selectedFloor === floorNum;
 
       // Original 2D ring coordinates
       const origRing = unit.polygon_2d?.coordinates?.[0] || [
@@ -145,10 +148,13 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
         type: "Feature",
         properties: {
           ...unit,
+          floor_number: floorNum,   // normalize for downstream use
+          z_min: zMin,
+          z_max: zMax,
           isSelected,
           isHovered,
           isFloorIsolated,
-          floorSliceHeight
+          floorSliceHeight: floorSliceH
         },
         geometry: {
           type: "Polygon",
@@ -161,16 +167,20 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
   // 3. Floor Level Markers Data
   const floorLabelsData = Array.from({ length: building?.floor_count || 4 }, (_, i) => {
     const floorNum = i + 1;
-    const floorUnits = (building?.units || []).filter(u => u.floor_number === floorNum);
+    const floorUnits = (building?.units || []).filter(u => {
+      const fn = u.floor_number ?? u.floor ?? 1;
+      return fn === floorNum;
+    });
     const sampleUnit = floorUnits[0] || firstUnit;
-    const zMax = sampleUnit?.z_max || floorNum * 3.5;
-    const zMin = sampleUnit?.z_min || (floorNum - 1) * 3.5;
+    const floorHtM = sampleUnit?.floor_height_m ?? 3.5;
+    const zMax = sampleUnit?.z_max ?? (floorNum * floorHtM);
+    const zMin = sampleUnit?.z_min ?? ((floorNum - 1) * floorHtM);
     const zMid = (zMin + zMax) / 2;
 
     return {
       text: selectedFloor === floorNum
         ? `⭐ LEVEL ${floorNum} (ISOLATED)`
-        : `Level ${floorNum} (+${zMax}m)`,
+        : `Level ${floorNum} (+${Number(zMax).toFixed(1)}m)`,
       coordinates: [sampleUnit?.centroid?.[1] || centerLng, sampleUnit?.centroid?.[0] || centerLat],
       floorNumber: floorNum,
       zAltitude: zMid * SCALE_ELEVATION

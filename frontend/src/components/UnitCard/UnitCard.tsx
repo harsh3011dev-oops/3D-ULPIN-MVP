@@ -45,7 +45,11 @@ export default function UnitCard({ unit }: UnitCardProps) {
     // Parse ULPIN parts matching AI Blueprint format
     const ulpinParts = unit.ulpin.split('-');
     const geohash = ulpinParts[ulpinParts.length - 1] || '';
-    const floorHeight = unit.floor_height_m || (unit.z_max - unit.z_min);
+      const floorHeight = unit.floor_height_m ?? ((unit.z_max ?? 0) - (unit.z_min ?? 0));
+      const certFloorNum = unit.floor_number ?? unit.floor ?? 1;
+      const certAreaSqm  = unit.area_sqm ?? (unit.area_sqft ? unit.area_sqft / 10.764 : null);
+      const certZmin     = unit.z_min ?? (certFloorNum - 1) * (unit.floor_height_m ?? 3.5);
+      const certZmax     = unit.z_max ?? certFloorNum * (unit.floor_height_m ?? 3.5);
 
     const certText = `
 ===========================================
@@ -61,12 +65,12 @@ Unit Name     : ${unit.unit_name || 'Standard Cadastral Unit'}
 Geohash (7ch) : ${geohash}
 
 --- SPATIAL COORDINATES ---
-Floor Level   : ${unit.floor_number} (${unit.floor_number === 1 ? 'Ground' : `${unit.floor_number - 1}F`})
-Z Min (m)     : +${unit.z_min} m above ground
-Z Max (m)     : +${unit.z_max} m above ground
-Floor Height  : ${floorHeight.toFixed(2)} m
-Floor Area    : ${unit.area_sqm?.toFixed(2) ?? '145.00'} m²
-Centroid      : Lat ${unit.centroid?.[0]?.toFixed(6)}, Lng ${unit.centroid?.[1]?.toFixed(6)}
+Floor Level   : ${certFloorNum} (${certFloorNum === 1 ? 'Ground' : `${certFloorNum - 1}F`})
+Z Min (m)     : +${Number(certZmin).toFixed(2)} m above ground
+Z Max (m)     : +${Number(certZmax).toFixed(2)} m above ground
+Floor Height  : ${Number(floorHeight).toFixed(2)} m
+Floor Area    : ${certAreaSqm != null ? Number(certAreaSqm).toFixed(2) : '—'} m²
+Centroid      : Lat ${unit.centroid?.[0] != null ? Number(unit.centroid[0]).toFixed(6) : '—'}, Lng ${unit.centroid?.[1] != null ? Number(unit.centroid[1]).toFixed(6) : '—'}
 
 --- OWNERSHIP & USAGE ---
 Registered Owner : ${unit.owner || 'Government Cadastral Registry'}
@@ -91,15 +95,22 @@ Engine           : deck.gl + MapLibre GL JS 3D Volumetric Extrusion
     URL.revokeObjectURL(url);
   };
 
-  const floorLabel = unit.floor_number === 1 ? 'Ground Floor' : `Floor ${unit.floor_number - 1}F`;
-  const floorHeight = unit.floor_height_m || parseFloat((unit.z_max - unit.z_min).toFixed(2));
+  // ── Safe field normalization (handles both mock & backend unit shapes) ──
+  const floorNum    = unit.floor_number ?? unit.floor ?? 1;
+  const floorHtM    = unit.floor_height_m ?? 3.5;
+  const zMin        = unit.z_min ?? (floorNum - 1) * floorHtM;
+  const zMax        = unit.z_max ?? floorNum * floorHtM;
+  const floorHeight = unit.floor_height_m ?? parseFloat(((zMax - zMin)).toFixed(2));
+  const areaSqm     = unit.area_sqm ?? (unit.area_sqft ? unit.area_sqft / 10.764 : null);
+  const floorLabel  = floorNum === 1 ? 'Ground Floor' : `Floor ${floorNum - 1}F`;
+  const centroid    = unit.centroid ?? null;
 
   return (
     <div className="unit-card active glass-panel fade-in" id="unit-detail-panel">
       {/* Header */}
       <div className="unit-card-header">
         <div className="header-info">
-          <span className="unit-tag">Floor {unit.floor_number} · {floorLabel}</span>
+          <span className="unit-tag">Floor {floorNum} · {floorLabel}</span>
           <h3 className="unit-name">{unit.unit_name || unit.unit_id}</h3>
         </div>
         <span className="unit-id-badge">{unit.unit_id}</span>
@@ -143,7 +154,7 @@ Engine           : deck.gl + MapLibre GL JS 3D Volumetric Extrusion
             <Layers size={16} className="text-secondary" />
             <span className="spec-label">Floor</span>
           </div>
-          <span className="spec-value">Level {unit.floor_number}</span>
+          <span className="spec-value">Level {floorNum}</span>
         </div>
 
         <div className="spec-card">
@@ -151,7 +162,7 @@ Engine           : deck.gl + MapLibre GL JS 3D Volumetric Extrusion
             <Ruler size={16} className="text-secondary" />
             <span className="spec-label">Floor Area</span>
           </div>
-          <span className="spec-value">{unit.area_sqm?.toFixed(1) ?? '145.0'} m²</span>
+          <span className="spec-value">{areaSqm != null ? Number(areaSqm).toFixed(1) : '—'} m²</span>
         </div>
 
         <div className="spec-card">
@@ -159,7 +170,7 @@ Engine           : deck.gl + MapLibre GL JS 3D Volumetric Extrusion
             <Box size={16} className="text-secondary" />
             <span className="spec-label">Z Min</span>
           </div>
-          <span className="spec-value">+{unit.z_min.toFixed(2)} m</span>
+          <span className="spec-value">+{Number(zMin).toFixed(2)} m</span>
         </div>
 
         <div className="spec-card">
@@ -167,7 +178,7 @@ Engine           : deck.gl + MapLibre GL JS 3D Volumetric Extrusion
             <Box size={16} className="text-secondary" />
             <span className="spec-label">Z Max</span>
           </div>
-          <span className="spec-value">+{unit.z_max.toFixed(2)} m</span>
+          <span className="spec-value">+{Number(zMax).toFixed(2)} m</span>
         </div>
 
         <div className="spec-card">
@@ -175,7 +186,7 @@ Engine           : deck.gl + MapLibre GL JS 3D Volumetric Extrusion
             <AreaChart size={16} className="text-secondary" />
             <span className="spec-label">Floor Height</span>
           </div>
-          <span className="spec-value">{floorHeight.toFixed(2)} m</span>
+          <span className="spec-value">{Number(floorHeight).toFixed(2)} m</span>
         </div>
 
         <div className="spec-card">
@@ -183,7 +194,7 @@ Engine           : deck.gl + MapLibre GL JS 3D Volumetric Extrusion
             <Building2 size={16} className="text-secondary" />
             <span className="spec-label">Elevation</span>
           </div>
-          <span className="spec-value">+{unit.z_min.toFixed(1)}–{unit.z_max.toFixed(1)}m</span>
+          <span className="spec-value">+{Number(zMin).toFixed(1)}–{Number(zMax).toFixed(1)}m</span>
         </div>
       </div>
 
@@ -201,7 +212,7 @@ Engine           : deck.gl + MapLibre GL JS 3D Volumetric Extrusion
             <Compass size={14} /> Centroid (Lat, Lng)
           </span>
           <span className="detail-val font-mono">
-            {unit.centroid ? `${unit.centroid[0].toFixed(5)}, ${unit.centroid[1].toFixed(5)}` : '28.592, 77.049'}
+            {centroid ? `${Number(centroid[0]).toFixed(5)}, ${Number(centroid[1]).toFixed(5)}` : '—'}
           </span>
         </div>
 

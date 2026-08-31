@@ -78,24 +78,25 @@ class Base(DeclarativeBase):
 
 
 # ── Dependency Injection (FastAPI) ────────────────────────────────────────────
-async def get_db() -> AsyncSession:
+async def get_db():
     """
     FastAPI dependency — yields an async DB session.
-    Session is automatically closed after the request completes.
-
-    Usage:
-        async def my_route(db: AsyncSession = Depends(get_db)):
-            ...
+    Yields the session object. Endpoints/services must handle their own commits.
     """
-    async with AsyncSessionLocal() as session:
+    session = AsyncSessionLocal()
+    try:
+        yield session
+    except Exception:
         try:
-            yield session
-            await session.commit()
-        except Exception:
             await session.rollback()
-            raise
-        finally:
+        except Exception:
+            pass
+        raise
+    finally:
+        try:
             await session.close()
+        except Exception:
+            pass
 
 
 # ── Startup Health Check ──────────────────────────────────────────────────────

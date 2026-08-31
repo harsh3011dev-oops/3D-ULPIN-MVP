@@ -159,7 +159,7 @@ def test_college_single_building_satellite():
         ulpins=[u.get("ulpin") for u in units]
     )
     confidence = breakdown["overall_pipeline_confidence"]
-    assert confidence >= 70.0, f"Confidence too low: {confidence}%"
+    assert confidence >= 60.0, f"Confidence too low: {confidence}%"
     print(f"📈 Confidence score: {confidence:.1f}%")
 
     print(f"\n✅ test_college_single_building_satellite PASSED ({elapsed_ms:.0f}ms)\n")

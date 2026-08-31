@@ -88,7 +88,7 @@ def divide_floor_into_units(
                 "polygon_2d": mapping(unit_poly),
                 "centroid": [centroid.y, centroid.x],
                 "area_sqm": round(unit_poly.area * (111_000 ** 2), 2),
-                "floor_height_m": floor["floor_height_m"],
+                "floor_height_m": floor.get("floor_height_m", round(floor["z_max"] - floor["z_min"], 2)),
                 "z_min": floor["z_min"],
                 "z_max": floor["z_max"]
             })

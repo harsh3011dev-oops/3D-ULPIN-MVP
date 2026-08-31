@@ -71,11 +71,16 @@ async def get_job_status(job_id: str, db: AsyncSession = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
+    building_id = None
+    if getattr(job, 'result_json', None) and isinstance(job.result_json, dict):
+        building_id = job.result_json.get("building_id")
+
     return JobStatusResponse(
         job_id=job.job_id,
         status=job.status,
         progress_pct=job.progress_pct,
         progress_step=job.progress_step,
+        building_id=building_id,
         result_data=job.result_json
     )
 
@@ -88,16 +93,26 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
     if not building:
         raise HTTPException(status_code=404, detail="Building not found")
 
-    from geoalchemy2.shape import to_shape
     import shapely.geometry
+    import shapely.wkt
 
-    # Convert WKT footprint to GeoJSON dictionary
-    footprint_geom = to_shape(building.footprint)
+    def _to_geometry(geom_val):
+        if isinstance(geom_val, str):
+            wkt_clean = geom_val.split(";", 1)[-1] if ";" in geom_val else geom_val
+            return shapely.wkt.loads(wkt_clean)
+        elif isinstance(geom_val, dict):
+            return shapely.geometry.shape(geom_val)
+        else:
+            from geoalchemy2.shape import to_shape
+            return to_shape(geom_val)
+
+    # Convert WKT or GeoJSON or WKB footprint to GeoJSON dictionary
+    footprint_geom = _to_geometry(building.footprint)
     footprint_geojson = shapely.geometry.mapping(footprint_geom)
 
     units_response = []
     for u in building.units:
-        unit_geom = to_shape(u.polygon_2d)
+        unit_geom = _to_geometry(u.polygon_2d)
         units_response.append(
             UnitResponse(
                 unit_id=u.unit_id,
