@@ -9,6 +9,8 @@ class CreateBuildingRequest(BaseModel):
     parcel_id: str = Field(..., example="PARCEL_CYBER_HUB_01")
     aerial_image_url: Optional[str] = Field(None, example="https://example.com/aerial.png")
     address: Optional[str] = Field("Cyber Hub, DLF Cyber City, Gurugram", example="Cyber Hub, Gurugram")
+    latitude: Optional[float] = Field(None, example=28.4595)
+    longitude: Optional[float] = Field(None, example=77.0875)
     height_meters: float = Field(70.0, example=70.0)
     floor_count: int = Field(20, example=20)
     units_per_floor: Optional[int] = Field(4, example=4)

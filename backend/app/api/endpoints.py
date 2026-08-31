@@ -32,7 +32,7 @@ async def create_building_endpoint(
     }
 
     # Queue AI Pipeline in background
-    background_tasks.add_task(execute_ai_pipeline_job, job_id, payload.model_dump())
+    background_tasks.add_task(execute_ai_pipeline_job, job_id, **payload.model_dump())
 
     return CreateBuildingResponse(
         building_id=building_id,
@@ -83,6 +83,8 @@ async def get_building_endpoint(building_id: str):
     live_result = process_building({
         "parcel_id": f"PARCEL_{building_id.upper()}",
         "address": "Cyber Hub, DLF Cyber City, Gurugram",
+        "latitude": 28.4595,
+        "longitude": 77.0875,
         "floor_count": 20,
         "height_meters": 70.0,
         "units_per_floor": 4

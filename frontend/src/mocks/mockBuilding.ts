@@ -25,22 +25,13 @@ function simpleGeoHash(lat: number, lng: number): string {
   return hash;
 }
 
-/**
- * Generate ULPIN in exact AI Blueprint format:
- * {PARCEL_ID}-{BLDG_SHORT}-F{FLOOR:02d}-U{UNIT_LABEL}-{GEOHASH}
- */
 function generateULPIN(parcelId: string, buildingId: string, floorNum: number, unitLabel: string, centroid: [number, number]): string {
-  const bldgShort = buildingId.replace(/-/g, '').toUpperCase().substring(0, 8);
+  const bldgShort = buildingId.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().substring(0, 8);
   const geoHash = simpleGeoHash(centroid[0], centroid[1]);
   const floorStr = floorNum.toString().padStart(2, '0');
   return `${parcelId}-${bldgShort}-F${floorStr}-U${unitLabel}-${geoHash}`;
 }
 
-/**
- * Dynamic volumetric 3D unit generator — matches AI Blueprint output format exactly.
- * Unit IDs: UNIT_F01_A01, UNIT_F01_B01 etc.
- * ULPINs: PARCEL_001-BLDGA1B2-F01-UA01-ttnfv1h
- */
 export function generateUnitsForBounds(
   parcelId: string,
   coords: number[][],
@@ -61,28 +52,23 @@ export function generateUnitsForBounds(
   const bId = buildingId || parcelId.toLowerCase().replace(/_/g, '-');
   const units: Unit[] = [];
 
-  let locationName = 'Cadastral Unit';
-  if (parcelId.includes('TAJMAHAL')) locationName = 'Taj Mahal Heritage Zone';
-  else if (parcelId.includes('GURUGRAM')) locationName = 'Cyber City Tech Suite';
-  else if (parcelId.includes('MUMBAI')) locationName = 'BKC IFSC Financial Office';
-  else if (parcelId.includes('DELHI')) locationName = 'Dwarka Sector Unit';
+  const locationName = 'PIET Campus Department';
 
-  // 4 quadrant grid per floor (matching blueprint: cols=2, rows=2 grid)
+  // 4 quadrant grid per floor
   const quadrants = [
-    { col: 'A', row: 1, label: 'A01', name: 'South-West', coords: [[minLng, minLat], [midLng, minLat], [midLng, midLat], [minLng, midLat], [minLng, minLat]], centroid: [(minLat + midLat) / 2, (minLng + midLng) / 2] },
-    { col: 'A', row: 2, label: 'A02', name: 'North-West', coords: [[minLng, midLat], [midLng, midLat], [midLng, maxLat], [minLng, maxLat], [minLng, midLat]], centroid: [(midLat + maxLat) / 2, (minLng + midLng) / 2] },
-    { col: 'B', row: 1, label: 'B01', name: 'South-East', coords: [[midLng, minLat], [maxLng, minLat], [maxLng, midLat], [midLng, midLat], [midLng, minLat]], centroid: [(minLat + midLat) / 2, (midLng + maxLng) / 2] },
-    { col: 'B', row: 2, label: 'B02', name: 'North-East', coords: [[midLng, midLat], [maxLng, midLat], [maxLng, maxLat], [midLng, maxLat], [midLng, midLat]], centroid: [(midLat + maxLat) / 2, (midLng + maxLng) / 2] },
+    { col: 'A', row: 1, label: 'A01', name: 'South Wing Lab', coords: [[minLng, minLat], [midLng, minLat], [midLng, midLat], [minLng, midLat], [minLng, minLat]], centroid: [(minLat + midLat) / 2, (minLng + midLng) / 2] },
+    { col: 'A', row: 2, label: 'A02', name: 'North Wing Lecture Hall', coords: [[minLng, midLat], [midLng, midLat], [midLng, maxLat], [minLng, maxLat], [minLng, midLat]], centroid: [(midLat + maxLat) / 2, (minLng + midLng) / 2] },
+    { col: 'B', row: 1, label: 'B01', name: 'East Wing Faculty Suite', coords: [[midLng, minLat], [maxLng, minLat], [maxLng, midLat], [midLng, midLat], [midLng, minLat]], centroid: [(minLat + midLat) / 2, (midLng + maxLng) / 2] },
+    { col: 'B', row: 2, label: 'B02', name: 'West Wing Research Hub', coords: [[midLng, midLat], [maxLng, midLat], [maxLng, maxLat], [midLng, maxLat], [midLng, midLat]], centroid: [(midLat + maxLat) / 2, (midLng + maxLng) / 2] },
   ];
 
   for (let f = 1; f <= floorCount; f++) {
     const z_min = parseFloat(((f - 1) * floorHeight).toFixed(2));
     const z_max = parseFloat((f * floorHeight).toFixed(2));
-    const floorLabel = f === 1 ? 'G' : `${f - 1}F`;
+    const floorLabel = f === 1 ? 'Ground Floor' : `Floor ${f}`;
 
     quadrants.forEach((q) => {
       const unitLabel = q.label;
-      // Blueprint UNIT ID format: UNIT_F01_A01
       const floorStr = f.toString().padStart(2, '0');
       const unit_id = `UNIT_F${floorStr}_${unitLabel}`;
       const centroid: [number, number] = [q.centroid[0], q.centroid[1]];
@@ -92,22 +78,16 @@ export function generateUnitsForBounds(
         unit_id,
         ulpin,
         floor_number: f,
-        unit_name: `${locationName} ${floorLabel}-${unitLabel} (${q.name})`,
+        unit_name: `${locationName} ${floorLabel} - ${q.name}`,
         z_min,
         z_max,
         floor_height_m: parseFloat(floorHeight.toFixed(2)),
-        area_sqm: parseFloat((180 + Math.random() * 60).toFixed(1)),
+        area_sqm: parseFloat((120 + Math.random() * 40).toFixed(1)),
         centroid,
         polygon_2d: { type: "Polygon", coordinates: [q.coords] },
-        status: "Registered",
-        owner: parcelId.includes('TAJMAHAL')
-          ? "Archaeological Survey of India (ASI)"
-          : `Owner ${parcelId.substring(0, 8).replace(/_/g, '')} #${f}${unitLabel}`,
-        use_type: parcelId.includes('TAJMAHAL')
-          ? "Heritage Monument Zone"
-          : f === 1 ? "Commercial Lobby (Ground Floor)"
-          : f === floorCount ? "Penthouse Executive Suite"
-          : "Commercial Office"
+        status: "Verified Cadastre",
+        owner: "Panipat Institute of Engineering & Technology",
+        use_type: f === 1 ? "Administrative & Reception" : f === floorCount ? "Advanced AI Research Center" : "Smart Classrooms & Labs"
       });
     });
   }
@@ -115,91 +95,98 @@ export function generateUnitsForBounds(
   return units;
 }
 
-// Preset 1: Taj Mahal, Agra (73m — UNESCO World Heritage)
-const tajMahalCoords = [
-  [78.0416, 27.1746], [78.0426, 27.1746], [78.0426, 27.1756], [78.0416, 27.1756], [78.0416, 27.1746]
+// ── PIET Campus Presets ────────────────────────────────────────────────────────
+
+// 1. PIET Main Academic Block (GT Road, Panipat)
+const pietAcademicCoords = [
+  [76.9938, 29.2382], [76.9948, 29.2382], [76.9948, 29.2390], [76.9938, 29.2390], [76.9938, 29.2382]
 ];
-export const mockBuildingTajMahal: Building = {
+export const mockBuildingPietAcademic: Building = {
   status: "success",
-  building_id: "bldg-tajmahal-007",
-  parcel_id: "PARCEL_777_TAJMAHAL_AGRA",
-  aerial_image_url: "https://images.unsplash.com/photo-1564507592333-c60657eea523?q=80&w=1200",
-  building_name: "Taj Mahal World Heritage Monument",
-  address: "Dharmapuri, Forest Colony, Tajganj, Agra, Uttar Pradesh 282001",
-  footprint: { type: "Polygon", coordinates: [tajMahalCoords] },
-  height: 73.0,
-  floor_count: 6,
-  extrusion_3d: { type: "Building3D", z_min: 0.0, z_max: 73.0, floor_height_m: 12.17, floor_count: 6, volume_m3: 158340 },
-  units: generateUnitsForBounds("PARCEL_777_TAJMAHAL_AGRA", tajMahalCoords, 73.0, 6, "bldg-tajmahal-007"),
+  building_id: "bldg-piet-academic",
+  parcel_id: "PARCEL_PIET_ACADEMIC_01",
+  aerial_image_url: "https://images.unsplash.com/photo-1562774053-701939374585?q=80&w=1200",
+  building_name: "PIET Main Academic Block",
+  address: "70 Milestone, GT Road, Samalkha, Panipat, Haryana 132102",
+  footprint: { type: "Polygon", coordinates: [pietAcademicCoords] },
+  height: 18.0,
+  floor_count: 5,
+  extrusion_3d: { type: "Building3D", z_min: 0.0, z_max: 18.0, floor_height_m: 3.6, floor_count: 5, volume_m3: 32400 },
+  units: generateUnitsForBounds("PARCEL_PIET_ACADEMIC_01", pietAcademicCoords, 18.0, 5, "bldg-piet-academic"),
   validation: { valid: true, overlaps_detected: false, overlapping_units: [], out_of_bounds: [], errors: [] },
   created_at: new Date().toISOString()
 };
 
-// Preset 2: Delhi Dwarka Sector 14 (14m — 4-floor residential)
-const delhiCoords = [
-  [77.0490, 28.5920], [77.0500, 28.5920], [77.0500, 28.5930], [77.0490, 28.5930], [77.0490, 28.5920]
+// 2. PIET Tech & Engineering Labs Block
+const pietEngineeringCoords = [
+  [76.9949, 29.2385], [76.9959, 29.2385], [76.9959, 29.2394], [76.9949, 29.2394], [76.9949, 29.2385]
 ];
-export const mockBuildingDelhi: Building = {
+export const mockBuildingPietEngineering: Building = {
   status: "success",
-  building_id: "550e8400-e29b-41d4-a716-446655440000",
-  parcel_id: "PARCEL_001_DELHI_DWARKA",
+  building_id: "bldg-piet-engineering",
+  parcel_id: "PARCEL_PIET_ENGG_02",
   aerial_image_url: "https://images.unsplash.com/photo-1541888946425-d0fbb186a5b7?q=80&w=1200",
-  building_name: "Dwarka Sector 14 Cadastral Complex",
-  address: "Plot 42, Sector 14, Dwarka, New Delhi, 110078",
-  footprint: { type: "Polygon", coordinates: [delhiCoords] },
-  height: 14.0,
-  floor_count: 4,
-  extrusion_3d: { type: "Building3D", z_min: 0.0, z_max: 14.0, floor_height_m: 3.5, floor_count: 4, volume_m3: 12544 },
-  units: generateUnitsForBounds("PARCEL_001_DELHI_DWARKA", delhiCoords, 14.0, 4, "550e8400-e29b-41d4-a716-446655440000"),
+  building_name: "PIET Engineering & Robotics Hub",
+  address: "Department of CSE & AI, PIET Campus, Samalkha, Panipat, Haryana",
+  footprint: { type: "Polygon", coordinates: [pietEngineeringCoords] },
+  height: 22.0,
+  floor_count: 6,
+  extrusion_3d: { type: "Building3D", z_min: 0.0, z_max: 22.0, floor_height_m: 3.66, floor_count: 6, volume_m3: 44000 },
+  units: generateUnitsForBounds("PARCEL_PIET_ENGG_02", pietEngineeringCoords, 22.0, 6, "bldg-piet-engineering"),
   validation: { valid: true, overlaps_detected: false, overlapping_units: [], out_of_bounds: [], errors: [] },
   created_at: new Date().toISOString()
 };
 
-// Preset 3: Gurugram Cyber City (45m — 12-floor IT Tower)
-const gurugramCoords = [
-  [77.0880, 28.4940], [77.0900, 28.4940], [77.0900, 28.4960], [77.0880, 28.4960], [77.0880, 28.4940]
+// 3. PIET Innovation & Auditorium Complex
+const pietAuditoriumCoords = [
+  [76.9932, 29.2375], [76.9942, 29.2375], [76.9942, 29.2381], [76.9932, 29.2381], [76.9932, 29.2375]
 ];
-export const mockBuildingGurugram: Building = {
+export const mockBuildingPietAuditorium: Building = {
   status: "success",
-  building_id: "bldg-gurugram-108",
-  parcel_id: "PARCEL_108_GURUGRAM",
+  building_id: "bldg-piet-auditorium",
+  parcel_id: "PARCEL_PIET_AUDI_03",
   aerial_image_url: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=1200",
-  building_name: "Cyber City IT Hub Tower 4",
-  address: "DLF Cyber City, Sector 24, Gurugram, Haryana, 122002",
-  footprint: { type: "Polygon", coordinates: [gurugramCoords] },
-  height: 45.0,
-  floor_count: 12,
-  extrusion_3d: { type: "Building3D", z_min: 0.0, z_max: 45.0, floor_height_m: 3.75, floor_count: 12, volume_m3: 178200 },
-  units: generateUnitsForBounds("PARCEL_108_GURUGRAM", gurugramCoords, 45.0, 12, "bldg-gurugram-108"),
+  building_name: "PIET Innovation & Convention Centre",
+  address: "Incubation Center, PIET Campus, Samalkha, Panipat",
+  footprint: { type: "Polygon", coordinates: [pietAuditoriumCoords] },
+  height: 15.0,
+  floor_count: 3,
+  extrusion_3d: { type: "Building3D", z_min: 0.0, z_max: 15.0, floor_height_m: 5.0, floor_count: 3, volume_m3: 37500 },
+  units: generateUnitsForBounds("PARCEL_PIET_AUDI_03", pietAuditoriumCoords, 15.0, 3, "bldg-piet-auditorium"),
   validation: { valid: true, overlaps_detected: false, overlapping_units: [], out_of_bounds: [], errors: [] },
   created_at: new Date().toISOString()
 };
 
-// Preset 4: Mumbai BKC IFSC Tower (96m approved height — 24 floors)
-const mumbaiCoords = [
-  [72.8680, 19.0650], [72.8700, 19.0650], [72.8700, 19.0670], [72.8680, 19.0670], [72.8680, 19.0650]
+// 4. PIET Campus Student Residency
+const pietHostelCoords = [
+  [76.9952, 29.2395], [76.9962, 29.2395], [76.9962, 29.2403], [76.9952, 29.2403], [76.9952, 29.2395]
 ];
-export const mockBuildingMumbai: Building = {
+export const mockBuildingPietHostel: Building = {
   status: "success",
-  building_id: "bldg-mumbai-502",
-  parcel_id: "PARCEL_502_MUMBAI",
+  building_id: "bldg-piet-hostel",
+  parcel_id: "PARCEL_PIET_HOSTEL_04",
   aerial_image_url: "https://images.unsplash.com/photo-1577495508048-b635879837f1?q=80&w=1200",
-  building_name: "BKC IFSC Financial Center Tower",
-  address: "G-Block, Bandra Kurla Complex, Mumbai, Maharashtra, 400051",
-  footprint: { type: "Polygon", coordinates: [mumbaiCoords] },
-  height: 96.0,
-  floor_count: 24,
-  extrusion_3d: { type: "Building3D", z_min: 0.0, z_max: 96.0, floor_height_m: 4.0, floor_count: 24, volume_m3: 768000 },
-  units: generateUnitsForBounds("PARCEL_502_MUMBAI", mumbaiCoords, 96.0, 24, "bldg-mumbai-502"),
+  building_name: "PIET Campus Student Residency Block",
+  address: "Hostel Zone, PIET Campus, Samalkha, Panipat",
+  footprint: { type: "Polygon", coordinates: [pietHostelCoords] },
+  height: 28.0,
+  floor_count: 8,
+  extrusion_3d: { type: "Building3D", z_min: 0.0, z_max: 28.0, floor_height_m: 3.5, floor_count: 8, volume_m3: 70000 },
+  units: generateUnitsForBounds("PARCEL_PIET_HOSTEL_04", pietHostelCoords, 28.0, 8, "bldg-piet-hostel"),
   validation: { valid: true, overlaps_detected: false, overlapping_units: [], out_of_bounds: [], errors: [] },
   created_at: new Date().toISOString()
 };
 
 export const PRESETS: Record<string, { building: Building }> = {
-  'cyber-city': { building: mockBuildingGurugram },
-  'bkc-mumbai': { building: mockBuildingMumbai },
-  'delhi-dwarka': { building: mockBuildingDelhi },
-  'taj-mahal': { building: mockBuildingTajMahal },
+  'piet-academic': { building: mockBuildingPietAcademic },
+  'piet-engineering': { building: mockBuildingPietEngineering },
+  'piet-auditorium': { building: mockBuildingPietAuditorium },
+  'piet-hostel': { building: mockBuildingPietHostel },
 };
 
-export const mockBuilding = mockBuildingTajMahal;
+// Default export for initial load
+export const mockBuildingTajMahal = mockBuildingPietAcademic;
+export const mockBuildingDelhi = mockBuildingPietEngineering;
+export const mockBuildingGurugram = mockBuildingPietAuditorium;
+export const mockBuildingMumbai = mockBuildingPietHostel;
+export const mockBuilding = mockBuildingPietAcademic;

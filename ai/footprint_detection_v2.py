@@ -18,9 +18,11 @@ from shapely.ops import unary_union
 try:
     from ai.config.fine_tuning_config import FINE_TUNING_CONFIG
     from ai.footprint_detection import _pixels_to_geo
+    from ai.spatial_validation import _normalize_geojson
 except ModuleNotFoundError:
     from config.fine_tuning_config import FINE_TUNING_CONFIG
     from footprint_detection import _pixels_to_geo
+    from spatial_validation import _normalize_geojson
 
 
 def detect_edges_multiscale(image_path: str) -> np.ndarray:
@@ -149,8 +151,8 @@ def score_footprint_confidence(
     4. Shadow / Cloud penalty (-20% max)
     """
     try:
-        poly_shape = shape(detected_polygon)
-        parcel_shape = shape(parcel_boundary)
+        poly_shape = shape(_normalize_geojson(detected_polygon))
+        parcel_shape = shape(_normalize_geojson(parcel_boundary))
 
         if poly_shape.is_empty or not poly_shape.is_valid:
             return 10.0
@@ -263,8 +265,8 @@ def detect_building_footprint_hybrid(
         blend_ratio = 0.7
         # Geometric centroid-preserving blend of CV and OSM
         try:
-            shape_cv = shape(cv_footprint)
-            shape_osm = shape(osm_footprint)
+            shape_cv = shape(_normalize_geojson(cv_footprint))
+            shape_osm = shape(_normalize_geojson(osm_footprint))
             blended = shape_cv.intersection(shape_osm)
             if blended.is_empty or not blended.is_valid:
                 blended = shape_cv.union(shape_osm).convex_hull

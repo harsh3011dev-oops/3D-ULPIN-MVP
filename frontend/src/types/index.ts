@@ -75,6 +75,8 @@ export interface Building {
 export interface CreateBuildingPayload {
   parcel_id: string;
   address?: string;
+  latitude?: number;
+  longitude?: number;
   aerial_image_url?: string;
   height_meters: number;
   floor_count: number;

@@ -14,24 +14,29 @@ const apiClient = axios.create({
 // Dynamic In-Memory Store for Created Buildings and Preset Buildings
 const buildingStore = new Map<string, Building>();
 
-// Pre-load default preset buildings into store
+// Pre-load PIET campus preset buildings into store
 buildingStore.set(MOCK_BUILDING.building_id, MOCK_BUILDING);
 buildingStore.set(MOCK_BUILDING.parcel_id, MOCK_BUILDING);
+
+// PIET Academic Block
 buildingStore.set(mockBuildingTajMahal.building_id, mockBuildingTajMahal);
-buildingStore.set("PARCEL_777_TAJMAHAL_AGRA", mockBuildingTajMahal);
-buildingStore.set("bldg-tajmahal-007", mockBuildingTajMahal);
+buildingStore.set("PARCEL_PIET_ACADEMIC_01", mockBuildingTajMahal);
+buildingStore.set("bldg-piet-academic", mockBuildingTajMahal);
 
+// PIET Engineering Hub
 buildingStore.set(mockBuildingDelhi.building_id, mockBuildingDelhi);
-buildingStore.set("550e8400-e29b-41d4-a716-446655440000", mockBuildingDelhi);
-buildingStore.set("PARCEL_001_DELHI", mockBuildingDelhi);
+buildingStore.set("PARCEL_PIET_ENGG_02", mockBuildingDelhi);
+buildingStore.set("bldg-piet-engineering", mockBuildingDelhi);
 
+// PIET Auditorium
 buildingStore.set(mockBuildingGurugram.building_id, mockBuildingGurugram);
-buildingStore.set("PARCEL_108_GURUGRAM", mockBuildingGurugram);
-buildingStore.set("bldg-gurugram-108", mockBuildingGurugram);
+buildingStore.set("PARCEL_PIET_AUDI_03", mockBuildingGurugram);
+buildingStore.set("bldg-piet-auditorium", mockBuildingGurugram);
 
+// PIET Hostel Block
 buildingStore.set(mockBuildingMumbai.building_id, mockBuildingMumbai);
-buildingStore.set("PARCEL_502_MUMBAI", mockBuildingMumbai);
-buildingStore.set("bldg-mumbai-502", mockBuildingMumbai);
+buildingStore.set("PARCEL_PIET_HOSTEL_04", mockBuildingMumbai);
+buildingStore.set("bldg-piet-hostel", mockBuildingMumbai);
 
 interface LocalJobStore {
   status: 'pending' | 'processing' | 'completed' | 'done' | 'failed';
@@ -54,43 +59,29 @@ export async function createBuilding(buildingData: CreateBuildingPayload): Promi
     console.warn('FastAPI Backend offline, utilizing dynamic mock job pipeline engine:', error.message);
     const jobId = 'job-' + Math.random().toString(36).substring(2, 9);
     
-    // Check if submitting one of the known preset parcel IDs
-    let buildingId = 'bldg-' + Math.random().toString(36).substring(2, 9);
-    let buildingName = `Cadastral Plot ${buildingData.parcel_id}`;
-    let address = buildingData.address || 'Plot Boundary Location';
+    const buildingId = 'bldg-' + Math.random().toString(36).substring(2, 9);
+    const buildingName = buildingData.address?.split(',')[0] || `Building ${buildingData.parcel_id}`;
+    const address = buildingData.address || 'Cadastral Boundary Location';
 
-    if (buildingData.parcel_id.includes('TAJMAHAL')) {
-      buildingId = mockBuildingTajMahal.building_id;
-      buildingName = mockBuildingTajMahal.building_name!;
-      address = mockBuildingTajMahal.address!;
-    } else if (buildingData.parcel_id.includes('GURUGRAM')) {
-      buildingId = mockBuildingGurugram.building_id;
-      buildingName = mockBuildingGurugram.building_name!;
-      address = mockBuildingGurugram.address!;
-    } else if (buildingData.parcel_id.includes('MUMBAI')) {
-      buildingId = mockBuildingMumbai.building_id;
-      buildingName = mockBuildingMumbai.building_name!;
-      address = mockBuildingMumbai.address!;
-    } else if (buildingData.parcel_id.includes('DELHI') || buildingData.parcel_id.includes('COLLEGE')) {
-      buildingId = MOCK_BUILDING.building_id;
-      buildingName = 'College Academic Block';
-      address = 'College Campus, Delhi';
-    }
+    // Compute dynamic polygon coordinates based on user submitted GPS coordinates
+    const lat = buildingData.latitude ? Number(buildingData.latitude) : 29.211619;
+    const lon = buildingData.longitude ? Number(buildingData.longitude) : 77.016214;
+    const d = 0.00035;
 
-    // Generate dynamic 3D building object from submitted boundary coordinates
     const coords = buildingData.parcel_boundary?.coordinates?.[0] || [
-      [78.0416, 27.1746],
-      [78.0426, 27.1746],
-      [78.0426, 27.1756],
-      [78.0416, 27.1756],
-      [78.0416, 27.1746]
+      [lon - d, lat - d],
+      [lon + d, lat - d],
+      [lon + d, lat + d],
+      [lon - d, lat + d],
+      [lon - d, lat - d]
     ];
 
     const generatedUnits = generateUnitsForBounds(
       buildingData.parcel_id,
       coords,
-      buildingData.height_meters,
-      buildingData.floor_count
+      buildingData.height_meters || 18,
+      buildingData.floor_count || 5,
+      buildingId
     );
 
     const newBuilding: Building = {
@@ -100,10 +91,10 @@ export async function createBuilding(buildingData: CreateBuildingPayload): Promi
       aerial_image_url: buildingData.aerial_image_url,
       building_name: buildingName,
       address,
-      footprint: buildingData.parcel_boundary,
-      height: buildingData.height_meters,
-      height_meters: buildingData.height_meters,
-      floor_count: buildingData.floor_count,
+      footprint: { type: 'Polygon', coordinates: [coords] },
+      height: buildingData.height_meters || 18,
+      height_meters: buildingData.height_meters || 18,
+      floor_count: buildingData.floor_count || 5,
       total_units: generatedUnits.length,
       units: generatedUnits,
       validation: { valid: true, overlaps_detected: false, overlapping_units: [], out_of_bounds: [], errors: [] },
@@ -206,7 +197,9 @@ export async function getValidation(buildingId: string): Promise<SpatialValidati
 export const buildingAPI = {
   create: async (data: {
     parcel_id: string;
-    address: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
     height_meters: number;
     floor_count: number;
     aerial_image_url?: string;

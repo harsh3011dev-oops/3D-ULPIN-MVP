@@ -16,9 +16,17 @@ from app.services.supabase_service import supabase_service
 jobs_db: Dict[str, Dict[str, Any]] = {}
 buildings_db: Dict[str, Dict[str, Any]] = {}
 
-def execute_ai_pipeline_job(job_id: str, payload: Dict[str, Any]):
+def execute_ai_pipeline_job(job_id: str, payload: Dict[str, Any] = None, **kwargs):
     """Background task runner for executing 3D ULPIN AI Pipeline"""
     try:
+        if payload is None:
+            payload = kwargs
+        else:
+            payload = {**payload, **kwargs}
+
+        if job_id not in jobs_db:
+            jobs_db[job_id] = {}
+
         jobs_db[job_id]["status"] = "processing"
         jobs_db[job_id]["progress_pct"] = 25
         jobs_db[job_id]["step"] = "Executing Geocoding & OSM Elevation Retrieval..."
@@ -26,7 +34,10 @@ def execute_ai_pipeline_job(job_id: str, payload: Dict[str, Any]):
         # Call real AI pipeline
         input_data = {
             "parcel_id": payload["parcel_id"],
-            "address": payload.get("address", "Cyber Hub Gurugram"),
+            "address": payload.get("address"),
+            "latitude": payload.get("latitude"),
+            "longitude": payload.get("longitude"),
+            "parcel_boundary": payload.get("parcel_boundary"),
             "floor_count": payload["floor_count"],
             "height_meters": payload["height_meters"],
             "units_per_floor": payload.get("units_per_floor", 4)

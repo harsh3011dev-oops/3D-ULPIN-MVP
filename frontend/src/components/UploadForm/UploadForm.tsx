@@ -17,40 +17,40 @@ interface Preset {
 
 const PRESETS: Preset[] = [
   {
-    id: "preset-tajmahal",
-    name: "Taj Mahal Monument (Agra)",
-    parcel_id: "PARCEL_777_TAJMAHAL_AGRA",
-    aerial_image_url: "https://images.unsplash.com/photo-1564507592333-c60657eea523?q=80&w=800",
-    height_meters: 73.0,
-    floor_count: 6,
-    coords: "[[78.0416, 27.1746], [78.0426, 27.1746], [78.0426, 27.1756], [78.0416, 27.1756]]"
+    id: "preset-piet-academic",
+    name: "PIET Main Academic Block (Panipat)",
+    parcel_id: "PARCEL_PIET_ACADEMIC_01",
+    aerial_image_url: "https://images.unsplash.com/photo-1562774053-701939374585?q=80&w=800",
+    height_meters: 18.0,
+    floor_count: 5,
+    coords: "[[76.9938, 29.2382], [76.9948, 29.2382], [76.9948, 29.2390], [76.9938, 29.2390]]"
   },
   {
-    id: "preset-delhi",
-    name: "Dwarka Sector 14 (Delhi)",
-    parcel_id: "PARCEL_001_DELHI",
+    id: "preset-piet-engineering",
+    name: "PIET Engineering & AI Hub",
+    parcel_id: "PARCEL_PIET_ENGG_02",
     aerial_image_url: "https://images.unsplash.com/photo-1541888946425-d0fbb186a5b7?q=80&w=800",
-    height_meters: 14.0,
-    floor_count: 4,
-    coords: "[[77.049, 28.592], [77.050, 28.592], [77.050, 28.593], [77.049, 28.593]]"
+    height_meters: 22.0,
+    floor_count: 6,
+    coords: "[[76.9949, 29.2385], [76.9959, 29.2385], [76.9959, 29.2394], [76.9949, 29.2394]]"
   },
   {
-    id: "preset-cybercity",
-    name: "Cyber City IT Hub (Gurugram)",
-    parcel_id: "PARCEL_108_GURUGRAM",
+    id: "preset-piet-audi",
+    name: "PIET Innovation & Auditorium",
+    parcel_id: "PARCEL_PIET_AUDI_03",
     aerial_image_url: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=800",
-    height_meters: 45.0,
-    floor_count: 15,
-    coords: "[[77.088, 28.494], [77.090, 28.494], [77.090, 28.496], [77.088, 28.496]]"
+    height_meters: 15.0,
+    floor_count: 3,
+    coords: "[[76.9932, 29.2375], [76.9942, 29.2375], [76.9942, 29.2381], [76.9932, 29.2381]]"
   },
   {
-    id: "preset-bkc",
-    name: "BKC IFSC Financial Tower (Mumbai)",
-    parcel_id: "PARCEL_502_MUMBAI",
+    id: "preset-piet-hostel",
+    name: "PIET Campus Student Residency",
+    parcel_id: "PARCEL_PIET_HOSTEL_04",
     aerial_image_url: "https://images.unsplash.com/photo-1577495508048-b635879837f1?q=80&w=800",
-    height_meters: 96.0,
-    floor_count: 24,
-    coords: "[[72.868, 19.065], [72.870, 19.065], [72.870, 19.067], [72.868, 19.067]]"
+    height_meters: 28.0,
+    floor_count: 8,
+    coords: "[[76.9952, 29.2395], [76.9962, 29.2395], [76.9962, 29.2403], [76.9952, 29.2403]]"
   }
 ];
 
