@@ -1,0 +1,287 @@
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><title>Processing Pipeline (Mono) — 3D ULPIN</title><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "tertiary": "#ffffff",
+                "on-surface-variant": "#64748b",
+                "inverse-primary": "#5d5f5f",
+                "warning": "#F59E0B",
+                "on-primary-fixed-variant": "#454747",
+                "primary-container": "#e2e2e2",
+                "secondary-container": "#f1f5f9",
+                "inverse-on-surface": "#2c303a",
+                "surface-elevated": "#ffffff",
+                "surface-container": "#f8fafc",
+                "on-surface": "#0f172a",
+                "background": "#ffffff",
+                "success": "#10B981",
+                "primary-fixed": "#e2e2e2",
+                "outline": "#94a3b8",
+                "on-tertiary-container": "#576679",
+                "surface-container-low": "#f8fafc",
+                "on-tertiary-fixed-variant": "#39485a",
+                "on-tertiary": "#233143",
+                "tertiary-fixed": "#d4e4fa",
+                "surface-tint": "#c6c6c7",
+                "on-primary-container": "#636565",
+                "on-tertiary-fixed": "#0d1c2d",
+                "tertiary-container": "#d4e4fa",
+                "error-container": "#93000a",
+                "on-primary-fixed": "#1a1c1c",
+                "on-primary": "#ffffff",
+                "secondary-fixed-dim": "#c1c7cf",
+                "tertiary-fixed-dim": "#b9c8de",
+                "surface-dim": "#f8fafc",
+                "on-error": "#690005",
+                "on-secondary-fixed-variant": "#41474e",
+                "on-secondary": "#2b3137",
+                "surface-container-high": "#f1f5f9",
+                "primary-fixed-dim": "#c6c6c7",
+                "error": "#EF4444",
+                "text-dim": "#94A3B8",
+                "outline-variant": "#cbd5e1",
+                "inverse-surface": "#0f172a",
+                "secondary": "#64748b",
+                "surface-variant": "#f1f5f9",
+                "primary": "#0f172a",
+                "surface-container-highest": "#e2e8f0",
+                "border-glass": "rgba(0, 0, 0, 0.08)",
+                "on-secondary-fixed": "#161c22",
+                "on-background": "#0f172a",
+                "surface": "#ffffff",
+                "on-secondary-container": "#0f172a",
+                "secondary-fixed": "#dde3eb",
+                "surface-bright": "#ffffff",
+                "on-error-container": "#ffdad6",
+                "surface-container-lowest": "#ffffff"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+        },
+        "spacing": {
+                "unit": "4px",
+                "gutter-md": "12px",
+                "sidebar-width": "320px",
+                "gutter-sm": "8px",
+                "panel-padding": "16px"
+        },
+        "fontFamily": {
+                "body-sm": [
+                        "Outfit"
+                ],
+                "headline-md": [
+                        "Outfit"
+                ],
+                "mono-label": [
+                        "JetBrains Mono"
+                ],
+                "body-md": [
+                        "Outfit"
+                ],
+                "display-lg": [
+                        "Outfit"
+                ],
+                "mono-data": [
+                        "JetBrains Mono"
+                ]
+        },
+        "fontSize": {
+                "body-sm": [
+                        "12px",
+                        {
+                                "lineHeight": "1.5",
+                                "letterSpacing": "0",
+                                "fontWeight": "400"
+                        }
+                ],
+                "headline-md": [
+                        "20px",
+                        {
+                                "lineHeight": "1.4",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "mono-label": [
+                        "11px",
+                        {
+                                "lineHeight": "1",
+                                "letterSpacing": "0.04em",
+                                "fontWeight": "500"
+                        }
+                ],
+                "body-md": [
+                        "14px",
+                        {
+                                "lineHeight": "1.5",
+                                "letterSpacing": "0",
+                                "fontWeight": "400"
+                        }
+                ],
+                "display-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "1.2",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "mono-data": [
+                        "11px",
+                        {
+                                "lineHeight": "1.2",
+                                "letterSpacing": "0",
+                                "fontWeight": "400"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100..800&amp;family=Outfit:wght@100..900&amp;display=swap" rel="stylesheet"/></head><body class="bg-background font-body-md text-on-surface antialiased"><header class="fixed top-0 left-0 right-0 h-16 bg-surface/80 backdrop-blur-xl border-b border-border-glass z-[60] px-6 flex items-center justify-between"><div class="flex items-center gap-4"><img alt="3D ULPIN Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3Q8jm1ukSJNWJq0rRHiHZb0zT-7QFi0UN2Vd2Caxb69n0hD8nHW4jr1eTkM2LXil3XUGi7T15N6NPOI2jB2Q4c65hdcJHN0aZFtCP3nilgIhtBpfqjHTo9XhwAH6oFy4P1hkLll4WNGzC5QBJ3wZb2ybog_ulPaU0BkGUKpm-4Sxy2tvuIuOkVz-C9PGoGx9cSvwxbFHl6NI1WrmUcZaqW7f692KhINHCkL0zcXM99w-SeaDfT_wH"/><span class="font-headline-md text-headline-md tracking-tight text-on-surface">3D ULPIN</span><div class="ml-8 flex items-center gap-2 px-3 py-1 bg-surface-container-lowest border border-border-glass rounded-full"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-success"></span></span><span class="font-mono-label text-mono-label text-on-surface-variant uppercase">AI Engine Active</span></div></div><nav class="flex items-center gap-2" data-active-classes="bg-primary text-on-primary shadow-[0_0_15px_rgba(0,0,0,0.1)]"><a aria-current="page" class="px-6 py-2 rounded-full font-body-md transition-all bg-primary text-on-primary shadow-[0_0_15px_rgba(0,0,0,0.1)]" data-path="submit-building" href="#">Submit Building</a><a class="px-6 py-2 rounded-full font-body-md text-body-md text-on-surface-variant hover:bg-surface-variant transition-all" data-path="3d-explorer" href="#">3D Explorer</a></nav><div class="flex items-center gap-4"><button class="text-on-surface-variant hover:text-on-surface transition-colors"><span class="material-symbols-outlined">settings</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-sidebar-width bg-surface-elevated/80 backdrop-blur-md border-r border-border-glass z-50 flex flex-col p-panel-padding"><div class="font-mono-label text-mono-label text-outline uppercase tracking-widest mb-4">Geospatial Toolkit</div><nav class="space-y-gutter-sm" data-active-classes="bg-secondary-container text-on-secondary-container"><a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all" data-path="3d-explorer" href="#"><span class="material-symbols-outlined">layers</span><span class="font-body-md text-body-md">Layer Stack</span></a><a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all" data-path="analytics" href="#"><span class="material-symbols-outlined">query_stats</span><span class="font-body-md text-body-md">Analytics</span></a><a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all" data-path="parcel-search" href="#"><span class="material-symbols-outlined">travel_explore</span><span class="font-body-md text-body-md">Parcel Registry</span></a><a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all" data-path="building-permits" href="#"><span class="material-symbols-outlined">home_work</span><span class="font-body-md text-body-md">Permit Audit</span></a></nav><div class="mt-auto p-panel-padding bg-surface-container-high rounded-xl border border-border-glass"><div class="text-mono-data font-mono-data text-outline mb-1">LAT: 40.7128 N</div><div class="text-mono-data font-mono-data text-outline mb-1">LON: 74.0060 W</div><div class="text-mono-data font-mono-data text-outline">ALT: 42.1M AMSL</div></div></aside><div class="pl-sidebar-width"><main class="relative pt-16 min-h-screen bg-background"><div class="flex flex-col w-full relative items-center justify-center py-16 min-h-[calc(100vh-64px)]">
+<div class="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-surface-variant/50 blur-[120px]"></div>
+</div>
+<div class="relative z-10 w-full max-w-4xl px-6">
+<div class="mb-8 flex flex-col items-center text-center">
+<div class="w-16 h-16 rounded-xl bg-surface-container flex items-center justify-center shadow-sm border border-border-glass mb-4">
+<span class="material-symbols-outlined text-[32px] text-primary">view_in_ar</span>
+</div>
+<h1 class="font-display-lg text-display-lg text-on-surface mb-2">Generating 3D Cadastre</h1>
+<p class="font-mono-data text-mono-data text-outline tracking-wider uppercase">Job ID: ULPIN-492-XKA-991</p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+<div class="lg:col-span-7 flex flex-col gap-6">
+<div class="bg-surface-elevated/90 backdrop-blur-[12px] p-6 rounded-xl shadow-sm border border-border-glass">
+<div class="flex items-center justify-between mb-8">
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface">Processing Pipeline</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Estimating completion in 45s</p>
+</div>
+<div class="px-3 py-1 bg-surface-container-high rounded-full border border-border-glass">
+<span class="font-mono-label text-mono-label text-secondary">42%</span>
+</div>
+</div>
+<div class="w-full h-1 bg-surface-container-high rounded-full mb-8 relative overflow-hidden">
+<div class="absolute top-0 left-0 h-full bg-gradient-to-r from-secondary to-primary w-[42%] rounded-full transition-all duration-1000"></div>
+</div>
+<div class="relative pl-6 space-y-8">
+<div class="absolute left-3 top-2 bottom-6 w-px bg-surface-container-highest"></div>
+<div class="relative flex gap-4">
+<div class="absolute -left-[30px] w-6 h-6 rounded-full bg-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-success" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex-1">
+<h3 class="font-body-md text-body-md text-on-surface font-medium">Footprint Detection</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Extracted building outline from LoD1 LiDAR scan.</p>
+</div>
+<div class="font-mono-data text-mono-data text-outline">1.2s</div>
+</div>
+<div class="relative flex gap-4">
+<div class="absolute -left-[30px] w-6 h-6 rounded-full bg-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-success" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex-1">
+<h3 class="font-body-md text-body-md text-on-surface font-medium">3D Extrusion</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Generated volumetric model using median roof height.</p>
+</div>
+<div class="font-mono-data text-mono-data text-outline">2.8s</div>
+</div>
+<div class="relative flex gap-4">
+<div class="absolute -left-[30px] w-6 h-6 rounded-full bg-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px] text-primary animate-spin">progress_activity</span>
+</div>
+<div class="flex-1">
+<h3 class="font-body-md text-body-md text-primary font-medium">Floor Division</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Segmenting volume by standard floor height parameters (3.2m).</p>
+</div>
+<div class="font-mono-data text-mono-data text-secondary animate-pulse">Running</div>
+</div>
+<div class="relative flex gap-4 opacity-50">
+<div class="absolute -left-[30px] w-6 h-6 rounded-full bg-surface flex items-center justify-center">
+<div class="w-2 h-2 rounded-full bg-surface-container-highest"></div>
+</div>
+<div class="flex-1">
+<h3 class="font-body-md text-body-md text-on-surface font-medium">Unit Subdivision</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Awaiting floor division completion.</p>
+</div>
+<div class="font-mono-data text-mono-data text-outline">--</div>
+</div>
+<div class="relative flex gap-4 opacity-50">
+<div class="absolute -left-[30px] w-6 h-6 rounded-full bg-surface flex items-center justify-center">
+<div class="w-2 h-2 rounded-full bg-surface-container-highest"></div>
+</div>
+<div class="flex-1">
+<h3 class="font-body-md text-body-md text-on-surface font-medium">ULPIN Generation</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Assigning 14-digit alphanumeric identifiers.</p>
+</div>
+<div class="font-mono-data text-mono-data text-outline">--</div>
+</div>
+<div class="relative flex gap-4 opacity-50">
+<div class="absolute -left-[30px] w-6 h-6 rounded-full bg-surface flex items-center justify-center">
+<div class="w-2 h-2 rounded-full bg-surface-container-highest"></div>
+</div>
+<div class="flex-1">
+<h3 class="font-body-md text-body-md text-on-surface font-medium">Spatial Validation</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Verifying topology against adjacent cadastre records.</p>
+</div>
+<div class="font-mono-data text-mono-data text-outline">--</div>
+</div>
+</div>
+</div>
+</div>
+<div class="lg:col-span-5 flex flex-col gap-6">
+<div class="bg-surface-elevated/90 backdrop-blur-[12px] rounded-xl shadow-sm border border-border-glass flex flex-col overflow-hidden h-[400px]">
+<div class="px-4 py-3 bg-surface-container flex items-center justify-between border-b border-border-glass">
+<span class="font-mono-label text-mono-label text-on-surface-variant uppercase tracking-widest">Engine Logs</span>
+<div class="flex gap-1">
+<div class="w-2 h-2 rounded-full bg-error"></div>
+<div class="w-2 h-2 rounded-full bg-warning"></div>
+<div class="w-2 h-2 rounded-full bg-success"></div>
+</div>
+</div>
+<div class="p-4 bg-surface flex-1 overflow-y-auto font-mono-data text-mono-data space-y-1" id="log-container">
+<div class="text-outline">[10:42:01] <span class="text-on-surface">INFO</span> Init process ULPIN-492...</div>
+<div class="text-outline">[10:42:01] <span class="text-secondary">SYS</span> Loading geometry drivers... OK</div>
+<div class="text-outline">[10:42:02] <span class="text-primary">GEO</span> Polygon bounds: [102.4, -41.2, 108.9, -38.5]</div>
+<div class="text-outline">[10:42:02] <span class="text-success">OK</span> Footprint matched with confidence 0.98</div>
+<div class="text-outline">[10:42:03] <span class="text-on-surface">INFO</span> Calculating median Z-height... 24.5m</div>
+<div class="text-outline">[10:42:04] <span class="text-primary">GEO</span> Executing extrusion algorithm...</div>
+<div class="text-outline">[10:42:05] <span class="text-success">OK</span> Volume generated: 14,250 m³</div>
+<div class="text-outline">[10:42:06] <span class="text-on-surface">INFO</span> Commencing floor division. Target floor height: 3.2m</div>
+<div class="text-outline">[10:42:06] <span class="text-secondary">SYS</span> Calculating floor instances... <span class="animate-pulse">_</span></div>
+</div>
+</div>
+<div class="bg-surface-container p-4 rounded-xl flex items-start gap-4 border border-border-glass">
+<span class="material-symbols-outlined text-outline mt-1">info</span>
+<div>
+<h4 class="font-mono-label text-mono-label text-on-surface mb-1">Background Processing</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">You can safely navigate away from this page. The generation process will continue in the background and you will be notified upon completion.</p>
+</div>
+</div>
+<button class="w-full py-3 px-4 rounded-lg bg-surface hover:bg-surface-container transition-colors font-mono-label text-mono-label text-on-surface-variant border border-border-glass shadow-sm">
+                    Cancel Process
+                </button>
+</div>
+</div>
+</div>
+</div>
+<script>
+    setTimeout(() => {
+        const logs = document.getElementById('log-container');
+        if(logs) {
+            const newLog = document.createElement('div');
+            newLog.className = 'text-outline';
+            newLog.innerHTML = '[10:42:08] <span class="text-primary">GEO</span> Floor instances calculated: 7 floors.';
+            logs.appendChild(newLog);
+            logs.scrollTop = logs.scrollHeight;
+        }
+    }, 2000);
+</script></main></div></body></html>

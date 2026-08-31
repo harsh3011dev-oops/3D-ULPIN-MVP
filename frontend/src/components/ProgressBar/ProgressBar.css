@@ -1,0 +1,81 @@
+/* ── ProgressBar Container ── */
+.progress-bar-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.progress-bar-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.progress-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 600;
+}
+
+.progress-pct {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent-lavender);
+}
+
+/* Track */
+.progress-track {
+  width: 100%;
+  height: 10px;
+  background: var(--surface-container);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+/* Fill */
+.progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--accent-lavender) 0%, var(--accent-rose) 100%);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 12px rgba(124, 111, 224, 0.4);
+  position: relative;
+}
+
+/* Shimmer */
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%   { left: -40%; }
+  100% { left: 120%; }
+}
+
+/* Done / Error states */
+.progress-fill.done {
+  background: linear-gradient(90deg, var(--accent-sage) 0%, var(--accent-blue) 100%);
+  box-shadow: 0 0 12px rgba(111, 173, 155, 0.35);
+}
+
+.progress-fill.done::after { display: none; }
+
+.progress-fill.error {
+  background: linear-gradient(90deg, var(--accent-rose) 0%, var(--accent-red) 100%);
+  box-shadow: 0 0 12px rgba(224, 111, 143, 0.35);
+}
+
+.progress-fill.error::after { display: none; }

@@ -1,0 +1,455 @@
+{
+    "status": "success",
+    "building_id": "bldg-shiva-shakti-mandir-001",
+    "footprint": {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [
+                    77.0862579,
+                    28.8542965
+                ],
+                [
+                    77.0862579,
+                    28.8535776
+                ],
+                [
+                    77.0867689,
+                    28.8535776
+                ],
+                [
+                    77.086789,
+                    28.8531865
+                ],
+                [
+                    77.0862579,
+                    28.8529398
+                ],
+                [
+                    77.0862901,
+                    28.8525487
+                ],
+                [
+                    77.0883138,
+                    28.8524958
+                ],
+                [
+                    77.0883138,
+                    28.8542648
+                ],
+                [
+                    77.0862579,
+                    28.8542965
+                ]
+            ]
+        ]
+    },
+    "height": 7.5,
+    "floor_count": 2,
+    "extrusion_3d": {
+        "type": "Building3D",
+        "z_min": 0.0,
+        "z_max": 7.5,
+        "floor_height_m": 3.75
+    },
+    "units": [
+        {
+            "unit_id": "UNIT_F01_A01",
+            "floor": 1,
+            "label": "A01",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            77.08728585,
+                            28.853396150000002
+                        ],
+                        [
+                            77.08728585,
+                            28.852522670857834
+                        ],
+                        [
+                            77.0862901,
+                            28.8525487
+                        ],
+                        [
+                            77.0862579,
+                            28.8529398
+                        ],
+                        [
+                            77.086789,
+                            28.8531865
+                        ],
+                        [
+                            77.08677822535157,
+                            28.853396150000002
+                        ],
+                        [
+                            77.08728585,
+                            28.853396150000002
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                28.85290476551833,
+                77.08685061016817
+            ],
+            "area_sqm": 8650.23,
+            "z_min": 0.0,
+            "z_max": 3.75,
+            "ulpin": "PARCEL_SHIVA_SHAKTI_MANDIR_NARELA-BLDGSHIV-F01-UA01-ttnu4hs"
+        },
+        {
+            "unit_id": "UNIT_F01_B01",
+            "floor": 1,
+            "label": "B01",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            77.0883138,
+                            28.8524958
+                        ],
+                        [
+                            77.08728585,
+                            28.852522670857834
+                        ],
+                        [
+                            77.08728585,
+                            28.853396150000002
+                        ],
+                        [
+                            77.0883138,
+                            28.853396150000002
+                        ],
+                        [
+                            77.0883138,
+                            28.8524958
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                28.852952658793352,
+                77.08780242031744
+            ],
+            "area_sqm": 11233.1,
+            "z_min": 0.0,
+            "z_max": 3.75,
+            "ulpin": "PARCEL_SHIVA_SHAKTI_MANDIR_NARELA-BLDGSHIV-F01-UB01-ttnu4ht"
+        },
+        {
+            "unit_id": "UNIT_F01_A02",
+            "floor": 1,
+            "label": "A02",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            77.08728585,
+                            28.853396150000002
+                        ],
+                        [
+                            77.08677822535157,
+                            28.853396150000002
+                        ],
+                        [
+                            77.0867689,
+                            28.8535776
+                        ],
+                        [
+                            77.0862579,
+                            28.8535776
+                        ],
+                        [
+                            77.0862579,
+                            28.8542965
+                        ],
+                        [
+                            77.08728585,
+                            28.85428065
+                        ],
+                        [
+                            77.08728585,
+                            28.853396150000002
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                28.853882782735706,
+                77.08679927266893
+            ],
+            "area_sqm": 10150.06,
+            "z_min": 0.0,
+            "z_max": 3.75,
+            "ulpin": "PARCEL_SHIVA_SHAKTI_MANDIR_NARELA-BLDGSHIV-F01-UA02-ttnu4hs"
+        },
+        {
+            "unit_id": "UNIT_F01_B02",
+            "floor": 1,
+            "label": "B02",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            77.0883138,
+                            28.853396150000002
+                        ],
+                        [
+                            77.08728585,
+                            28.853396150000002
+                        ],
+                        [
+                            77.08728585,
+                            28.85428065
+                        ],
+                        [
+                            77.0883138,
+                            28.8542648
+                        ],
+                        [
+                            77.0883138,
+                            28.853396150000002
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                28.853834449441486,
+                77.08779827607304
+            ],
+            "area_sqm": 11102.15,
+            "z_min": 0.0,
+            "z_max": 3.75,
+            "ulpin": "PARCEL_SHIVA_SHAKTI_MANDIR_NARELA-BLDGSHIV-F01-UB02-ttnu4ht"
+        },
+        {
+            "unit_id": "UNIT_F02_A01",
+            "floor": 2,
+            "label": "A01",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            77.08728585,
+                            28.853396150000002
+                        ],
+                        [
+                            77.08728585,
+                            28.852522670857834
+                        ],
+                        [
+                            77.0862901,
+                            28.8525487
+                        ],
+                        [
+                            77.0862579,
+                            28.8529398
+                        ],
+                        [
+                            77.086789,
+                            28.8531865
+                        ],
+                        [
+                            77.08677822535157,
+                            28.853396150000002
+                        ],
+                        [
+                            77.08728585,
+                            28.853396150000002
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                28.85290476551833,
+                77.08685061016817
+            ],
+            "area_sqm": 8650.23,
+            "z_min": 3.75,
+            "z_max": 7.5,
+            "ulpin": "PARCEL_SHIVA_SHAKTI_MANDIR_NARELA-BLDGSHIV-F02-UA01-ttnu4hs"
+        },
+        {
+            "unit_id": "UNIT_F02_B01",
+            "floor": 2,
+            "label": "B01",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            77.0883138,
+                            28.8524958
+                        ],
+                        [
+                            77.08728585,
+                            28.852522670857834
+                        ],
+                        [
+                            77.08728585,
+                            28.853396150000002
+                        ],
+                        [
+                            77.0883138,
+                            28.853396150000002
+                        ],
+                        [
+                            77.0883138,
+                            28.8524958
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                28.852952658793352,
+                77.08780242031744
+            ],
+            "area_sqm": 11233.1,
+            "z_min": 3.75,
+            "z_max": 7.5,
+            "ulpin": "PARCEL_SHIVA_SHAKTI_MANDIR_NARELA-BLDGSHIV-F02-UB01-ttnu4ht"
+        },
+        {
+            "unit_id": "UNIT_F02_A02",
+            "floor": 2,
+            "label": "A02",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            77.08728585,
+                            28.853396150000002
+                        ],
+                        [
+                            77.08677822535157,
+                            28.853396150000002
+                        ],
+                        [
+                            77.0867689,
+                            28.8535776
+                        ],
+                        [
+                            77.0862579,
+                            28.8535776
+                        ],
+                        [
+                            77.0862579,
+                            28.8542965
+                        ],
+                        [
+                            77.08728585,
+                            28.85428065
+                        ],
+                        [
+                            77.08728585,
+                            28.853396150000002
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                28.853882782735706,
+                77.08679927266893
+            ],
+            "area_sqm": 10150.06,
+            "z_min": 3.75,
+            "z_max": 7.5,
+            "ulpin": "PARCEL_SHIVA_SHAKTI_MANDIR_NARELA-BLDGSHIV-F02-UA02-ttnu4hs"
+        },
+        {
+            "unit_id": "UNIT_F02_B02",
+            "floor": 2,
+            "label": "B02",
+            "polygon_2d": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            77.0883138,
+                            28.853396150000002
+                        ],
+                        [
+                            77.08728585,
+                            28.853396150000002
+                        ],
+                        [
+                            77.08728585,
+                            28.85428065
+                        ],
+                        [
+                            77.0883138,
+                            28.8542648
+                        ],
+                        [
+                            77.0883138,
+                            28.853396150000002
+                        ]
+                    ]
+                ]
+            },
+            "centroid": [
+                28.853834449441486,
+                77.08779827607304
+            ],
+            "area_sqm": 11102.15,
+            "z_min": 3.75,
+            "z_max": 7.5,
+            "ulpin": "PARCEL_SHIVA_SHAKTI_MANDIR_NARELA-BLDGSHIV-F02-UB02-ttnu4ht"
+        }
+    ],
+    "validation": {
+        "valid": false,
+        "overlaps_detected": false,
+        "overlapping_units": [],
+        "out_of_bounds": [
+            "UNIT_F01_A01",
+            "UNIT_F01_B01",
+            "UNIT_F01_A02",
+            "UNIT_F02_A01",
+            "UNIT_F02_B01",
+            "UNIT_F02_A02"
+        ],
+        "errors": [
+            {
+                "unit_id": "UNIT_F01_A01",
+                "type": "OUT_OF_BOUNDS",
+                "description": "Unit extends beyond building footprint boundary"
+            },
+            {
+                "unit_id": "UNIT_F01_B01",
+                "type": "OUT_OF_BOUNDS",
+                "description": "Unit extends beyond building footprint boundary"
+            },
+            {
+                "unit_id": "UNIT_F01_A02",
+                "type": "OUT_OF_BOUNDS",
+                "description": "Unit extends beyond building footprint boundary"
+            },
+            {
+                "unit_id": "UNIT_F02_A01",
+                "type": "OUT_OF_BOUNDS",
+                "description": "Unit extends beyond building footprint boundary"
+            },
+            {
+                "unit_id": "UNIT_F02_B01",
+                "type": "OUT_OF_BOUNDS",
+                "description": "Unit extends beyond building footprint boundary"
+            },
+            {
+                "unit_id": "UNIT_F02_A02",
+                "type": "OUT_OF_BOUNDS",
+                "description": "Unit extends beyond building footprint boundary"
+            }
+        ]
+    },
+    "osm_source": false
+}

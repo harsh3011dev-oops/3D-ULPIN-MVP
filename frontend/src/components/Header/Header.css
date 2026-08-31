@@ -1,0 +1,179 @@
+/* ── Premium Aero Header ── */
+.app-header {
+  height: 64px;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(28px) saturate(1.8);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+  border-bottom: 1px solid rgba(124, 111, 224, 0.1);
+  box-shadow: 0 1px 24px rgba(26, 26, 46, 0.06);
+}
+
+/* ── Brand ── */
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--text-primary);
+  min-width: 200px;
+}
+
+.logo-icon-wrapper {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+  box-shadow: 0 2px 12px rgba(26, 26, 46, 0.18);
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+.brand-title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--primary);
+}
+
+.brand-tagline {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.badge-mvp {
+  background: var(--accent-lavender-soft);
+  color: var(--accent-lavender);
+  border: 1px solid rgba(124, 111, 224, 0.2);
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+/* ── Center Gooey Nav ── */
+.header-nav-gooey {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+}
+
+.gooey-pill-track {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+  background: rgba(248, 248, 252, 0.9);
+  border: 1px solid rgba(124, 111, 224, 0.12);
+  border-radius: var(--radius-full);
+  box-shadow: 0 2px 12px rgba(26, 26, 46, 0.07);
+  position: relative;
+}
+
+.gooey-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 20px;
+  border-radius: var(--radius-full);
+  text-decoration: none;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.gooey-nav-item:hover {
+  color: var(--text-primary);
+}
+
+.gooey-nav-item.active {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* The blob that slides under active item */
+.gooey-active-blob {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  z-index: -1;
+  box-shadow: 0 2px 12px rgba(26, 26, 46, 0.2);
+}
+
+.gooey-nav-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── Right status ── */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 200px;
+  justify-content: flex-end;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent-sage-soft);
+  border: 1px solid rgba(111, 173, 155, 0.25);
+  padding: 5px 13px;
+  border-radius: var(--radius-full);
+  font-size: 0.73rem;
+  font-weight: 600;
+  color: var(--accent-sage);
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-sage);
+  animation: pulseGreen 2.5s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulseGreen {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(111, 173, 155, 0.5); }
+  50%       { box-shadow: 0 0 0 5px rgba(111, 173, 155, 0); }
+}
+
+@media (max-width: 768px) {
+  .app-header { padding: 0 16px; }
+  .brand-tagline { display: none; }
+  .gooey-nav-label { display: none; }
+  .header-actions { display: none; }
+}

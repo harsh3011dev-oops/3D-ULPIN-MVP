@@ -11,30 +11,30 @@ As the AI Module Developer, you are the **brain** of the 3D ULPIN system. You ta
 
 ## 2. 📥 Input Format
 
-The AI module receives the following input (as a Python `dict` or JSON):
+The AI module receives the following input (as a Python `dict` or JSON). Note that **only** `parcel_id` and `parcel_boundary` are strictly required; the pipeline will dynamically download the satellite image and query OSM for height/floors, unless overrides are explicitly supplied:
 
 ```json
 {
-  "aerial_image_path": "string — absolute path to aerial .jpg/.tif image",
+  "parcel_id": "PARCEL_001",
   "parcel_boundary": {
     "type": "Polygon",
     "coordinates": [[[77.049, 28.592], [77.050, 28.592], [77.050, 28.593], [77.049, 28.592]]]
   },
-  "height_meters": 45.0,
-  "floor_count": 15,
-  "parcel_id": "PARCEL_001",
-  "building_id": "uuid-string"
+  "building_id": "uuid-string",
+  "aerial_image_path": "string (Optional) — Override image path",
+  "height_meters": 45.0,  // Optional Override
+  "floor_count": 15       // Optional Override
 }
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `aerial_image_path` | `str` | Path to aerial/satellite image of the parcel |
-| `parcel_boundary` | `GeoJSON Polygon` | Legal boundary of the land parcel |
-| `height_meters` | `float` | Total building height in meters |
-| `floor_count` | `int` | Number of floors in the building |
 | `parcel_id` | `str` | Unique parcel identifier from land records |
+| `parcel_boundary` | `GeoJSON Polygon` | Legal boundary of the land parcel |
 | `building_id` | `str` (UUID) | Pre-generated UUID from Backend |
+| `aerial_image_path` | `str` (Optional) | Override path to satellite image |
+| `height_meters` | `float` (Optional) | Override building height (auto-fetched if not provided) |
+| `floor_count` | `int` (Optional) | Override floor count (auto-fetched if not provided) |
 
 ---
 
