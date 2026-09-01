@@ -47,13 +47,7 @@ async def get_job_status_endpoint(job_id: str = Path(..., example="job-123456"))
     Poll status of AI extraction job
     """
     if job_id not in jobs_db:
-        # Fallback simulation if polling unknown job
-        return JobStatusResponse(
-            status="done",
-            progress_pct=100,
-            step="Completed",
-            building_id="bldg-tajmahal-007"
-        )
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
     
     j = jobs_db[job_id]
     return JobStatusResponse(
@@ -78,27 +72,14 @@ async def get_building_endpoint(building_id: str):
     if cloud_bld:
         return cloud_bld
     
-    # 3. If building not found, generate live building via AI Pipeline
-    from pipeline import process_building
-    live_result = process_building({
-        "parcel_id": f"PARCEL_{building_id.upper()}",
-        "address": "Cyber Hub, DLF Cyber City, Gurugram",
-        "latitude": 28.4595,
-        "longitude": 77.0875,
-        "floor_count": 20,
-        "height_meters": 70.0,
-        "units_per_floor": 4
-    })
-    live_result["building_id"] = building_id
-    buildings_db[building_id] = live_result
-    return live_result
+    raise HTTPException(status_code=404, detail=f"Building '{building_id}' not found")
 
 @router.get("/validation/{building_id}")
 async def get_validation_endpoint(building_id: str):
     """
     Fetch Spatial Overlap & Bounds Validation Report
     """
-    bld = await get_building_endpoint(building_id)
+    bld = get_building_endpoint(building_id)
     return bld.get("validation", {
         "valid": True,
         "overlaps_detected": False,

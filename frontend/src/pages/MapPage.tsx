@@ -8,6 +8,7 @@ import UnitCard from '../components/UnitCard/UnitCard';
 import ValidationAlert from '../components/ValidationAlert/ValidationAlert';
 import { getBuilding } from '../api/api';
 import { Building, Unit } from '../types';
+import { getBuildingCenter } from '../utils/footprintUtils';
 import {
   Building2, MapPin, Layers, BarChart3, Search,
   FileCheck, ShieldCheck, Activity, Loader2, AlertTriangle
@@ -61,20 +62,13 @@ export default function MapPage() {
     loadData();
   }, [buildingId]);
 
-  // Dynamic coordinate calculation from building footprint or unit centroids
   const getCoordinates = () => {
-    if (!building) return { lat: '29.2382', lng: '76.9938' };
-    const fp = building.footprint?.coordinates?.[0];
-    if (fp && fp.length > 0) {
-      const avgLng = fp.reduce((sum: number, p: number[]) => sum + (p[0] || 0), 0) / fp.length;
-      const avgLat = fp.reduce((sum: number, p: number[]) => sum + (p[1] || 0), 0) / fp.length;
-      return { lat: avgLat.toFixed(4), lng: avgLng.toFixed(4) };
+    if (!building) return { lat: '—', lng: '—' };
+    const { lat, lng } = getBuildingCenter(building);
+    if (lat !== 0 || lng !== 0) {
+      return { lat: lat.toFixed(4), lng: lng.toFixed(4) };
     }
-    const u = building.units?.[0];
-    if (u?.centroid) {
-      return { lat: Number(u.centroid[0]).toFixed(4), lng: Number(u.centroid[1]).toFixed(4) };
-    }
-    return { lat: '29.2382', lng: '76.9938' };
+    return { lat: '—', lng: '—' };
   };
 
   const { lat: currentLat, lng: currentLng } = getCoordinates();
