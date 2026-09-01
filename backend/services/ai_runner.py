@@ -14,6 +14,54 @@ from backend.models import Building, Unit, ValidationLog
 
 logger = logging.getLogger(__name__)
 
+# ── Persistent storage directory ─────────────────────────────────────────────
+_EXPORTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../ai/exports'))
+os.makedirs(_EXPORTS_DIR, exist_ok=True)
+
+
+def _save_result_to_disk(job_id: str, result: dict):
+    """Persist pipeline result so it survives server restarts."""
+    try:
+        path = os.path.join(_EXPORTS_DIR, f"{job_id}.json")
+        with open(path, 'w') as f:
+            json.dump({'job_id': job_id, 'result': result}, f, indent=2)
+        logger.info(f"Pipeline result saved to {path}")
+    except Exception as e:
+        logger.warning(f"Could not save result to disk: {e}")
+
+
+def _load_result_from_disk(job_id: str) -> dict | None:
+    """Load pipeline result from disk if available."""
+    try:
+        path = os.path.join(_EXPORTS_DIR, f"{job_id}.json")
+        if os.path.exists(path):
+            with open(path) as f:
+                data = json.load(f)
+            return data.get('result')
+    except Exception:
+        pass
+    return None
+
+
+def _load_result_by_building_id(building_id: str) -> dict | None:
+    """Scan exports dir for a result matching building_id."""
+    try:
+        for fname in os.listdir(_EXPORTS_DIR):
+            if not fname.endswith('.json'):
+                continue
+            fpath = os.path.join(_EXPORTS_DIR, fname)
+            try:
+                with open(fpath) as f:
+                    data = json.load(f)
+                result = data.get('result', {})
+                if result.get('building_id') == building_id:
+                    return result
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return None
+
 async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, height_meters: float, floor_count: int, latitude: float = None, longitude: float = None, units_per_floor: int = 4, aerial_image_url: str = None, parcel_boundary: dict = None):
     """Background task to run the AI pipeline and store results in Supabase."""
     logger.info(f"Starting AI pipeline for job {job_id}")
@@ -49,54 +97,66 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
             # Update progress
             await supabase_service.update_job_status(db, job_id, "processing", 90, "Saving to Database")
 
-            # 3. Save to Supabase
+            # 3. Save to Supabase (or fallback to cache)
             building_id = result.get('building_id')
             
-            # Convert GeoJSON footprints to WKT for PostGIS
-            footprint_wkt = f"SRID=4326;{shape(result['footprint']).wkt}"
-            
-            building = Building(
-                parcel_id=None,  # Ideally we'd look up the parcel UUID first
-                building_id=building_id,
-                footprint=footprint_wkt,
-                height_meters=result['height'],
-                floor_count=result['floor_count'],
-                total_units=len(result.get('units', [])),
-                centroid_lat=result['footprint']['coordinates'][0][0][1], # Rough centroid
-                centroid_lon=result['footprint']['coordinates'][0][0][0]
-            )
-            db.add(building)
-            await db.flush() # Get the UUID
-
-            # Insert Units
-            for u in result.get('units', []):
-                unit_wkt = f"SRID=4326;{shape(u['polygon_2d']).wkt}"
-                unit = Unit(
-                    building_id=building.id,
-                    unit_id=u['unit_id'],
-                    ulpin=u['ulpin'],
-                    floor=u['floor'],
-                    floor_height_m=u['floor_height_m'],
-                    polygon_2d=unit_wkt,
-                    centroid_lat=u['centroid'][0],
-                    centroid_lon=u['centroid'][1],
-                    area_sqft=u.get('area_sqm', 0) * 10.764 # Convert sqm to sqft
+            try:
+                # Convert GeoJSON footprints to WKT for PostGIS
+                footprint_wkt = f"SRID=4326;{shape(result['footprint']).wkt}"
+                
+                building = Building(
+                    parcel_id=None,  # Ideally we'd look up the parcel UUID first
+                    building_id=building_id,
+                    footprint=footprint_wkt,
+                    height_meters=result['height'],
+                    floor_count=result['floor_count'],
+                    total_units=len(result.get('units', [])),
+                    centroid_lat=result['footprint']['coordinates'][0][0][1], # Rough centroid
+                    centroid_lon=result['footprint']['coordinates'][0][0][0]
                 )
-                db.add(unit)
-            
-            # Insert Validation Log
-            val_data = result.get('validation', {})
-            val_log = ValidationLog(
-                building_id=building.id,
-                is_valid=val_data.get('valid', True),
-                overlaps_detected=len(val_data.get('overlapping_units', [])),
-                out_of_bounds=len(val_data.get('out_of_bounds', [])),
-                confidence_score=95.0, # Placeholder
-                validation_report=val_data
-            )
-            db.add(val_log)
-            
-            await db.commit()
+                db.add(building)
+                await db.flush() # Get the UUID
+    
+                # Insert Units
+                for u in result.get('units', []):
+                    unit_wkt = f"SRID=4326;{shape(u['polygon_2d']).wkt}"
+                    unit = Unit(
+                        building_id=building.id,
+                        unit_id=u['unit_id'],
+                        ulpin=u['ulpin'],
+                        floor=u['floor'],
+                        floor_height_m=u['floor_height_m'],
+                        polygon_2d=unit_wkt,
+                        centroid_lat=u['centroid'][0],
+                        centroid_lon=u['centroid'][1],
+                        area_sqft=u.get('area_sqm', 0) * 10.764 # Convert sqm to sqft
+                    )
+                    db.add(unit)
+                
+                # Insert Validation Log
+                val_data = result.get('validation', {})
+                val_log = ValidationLog(
+                    building_id=building.id,
+                    is_valid=val_data.get('valid', True),
+                    overlaps_detected=len(val_data.get('overlapping_units', [])),
+                    out_of_bounds=len(val_data.get('out_of_bounds', [])),
+                    confidence_score=95.0, # Placeholder
+                    validation_report=val_data
+                )
+                db.add(val_log)
+                await db.commit()
+            except Exception as e:
+                logger.warning(f"Database unavailable for pipeline flush, saving result to memory cache: {e}")
+                if db:
+                    try:
+                        await db.rollback()
+                    except:
+                        pass
+            # Save result to disk for persistence across restarts
+            _save_result_to_disk(job_id, result)
+            # Also populate in-memory building cache
+            supabase_service._BUILDINGS_CACHE[building_id] = result
+            supabase_service._VALIDATIONS_CACHE[building_id] = result.get('validation', {})
 
             # 4. Update Job to completed
             await supabase_service.update_job_status(

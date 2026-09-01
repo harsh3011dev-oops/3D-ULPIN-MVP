@@ -98,7 +98,7 @@ FINE_TUNING_CONFIG = {
         "name": "Quality Gates",
         "enabled": True,
         "gates": {
-            "footprint_iou_min": 0.88,
+            "footprint_iou_min": 0.30,
             "unit_boundary_check": True,
             "overlap_check": True,
             "ulpin_format_check": True

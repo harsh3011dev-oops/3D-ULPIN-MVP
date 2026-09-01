@@ -11,7 +11,7 @@ import { PRESETS } from '../mocks/mockBuilding';
 import { Building, Unit } from '../types';
 import {
   Building2, MapPin, Layers, BarChart3, Search,
-  FileCheck, ShieldCheck, Activity
+  FileCheck, ShieldCheck, Activity, Loader2, AlertTriangle
 } from 'lucide-react';
 import './MapPage.css';
 
@@ -30,21 +30,38 @@ export default function MapPage() {
   const [selectedUnit, setSelectedUnit]   = useState<Unit | null>(null);
   const [activePresetKey, setActivePresetKey] = useState<string>('piet-academic');
   const [activeTab, setActiveTab]         = useState('layer');
+  const [isLoading, setIsLoading]         = useState(true);
+  const [loadError, setLoadError]         = useState<string | null>(null);
 
   const navigate = useNavigate();
 
   useEffect(() => {
     async function loadData() {
-      const idToFetch = buildingId || 'bldg-piet-academic';
-      const data = await getBuilding(idToFetch);
-      if (data) {
-        setBuilding(data);
-        if (data.units?.length > 0) setSelectedUnit(data.units[0]);
-
-        if (idToFetch.includes('engineering') || idToFetch.includes('engg')) setActivePresetKey('piet-engineering');
-        else if (idToFetch.includes('auditorium') || idToFetch.includes('audi')) setActivePresetKey('piet-auditorium');
-        else if (idToFetch.includes('hostel')) setActivePresetKey('piet-hostel');
-        else setActivePresetKey('piet-academic');
+      if (!buildingId) {
+        setIsLoading(false);
+        setLoadError('No building ID provided.');
+        return;
+      }
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const data = await getBuilding(buildingId);
+        if (data) {
+          setBuilding(data);
+          if (data.units?.length > 0) setSelectedUnit(data.units[0]);
+          if (buildingId.includes('engineering') || buildingId.includes('engg')) setActivePresetKey('piet-engineering');
+          else if (buildingId.includes('auditorium') || buildingId.includes('audi')) setActivePresetKey('piet-auditorium');
+          else if (buildingId.includes('hostel')) setActivePresetKey('piet-hostel');
+          else setActivePresetKey('piet-academic');
+        } else {
+          setLoadError(`Building "${buildingId}" not found.`);
+        }
+      } catch (err: any) {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to load building data.';
+        setLoadError(msg);
+        console.error('MapPage loadData error:', err);
+      } finally {
+        setIsLoading(false);
       }
     }
     loadData();
@@ -82,6 +99,25 @@ export default function MapPage() {
     <div className="map-page">
       <Header />
 
+      {isLoading && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          flex: 1, gap: 16, height: 'calc(100vh - 60px)', color: 'var(--text-secondary)' }}>
+          <Loader2 size={40} style={{ animation: 'spin 1s linear infinite', color: 'var(--accent-lavender)' }} />
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>Loading 3D Spatial Building…</p>
+        </div>
+      )}
+
+      {!isLoading && loadError && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          flex: 1, gap: 16, height: 'calc(100vh - 60px)' }}>
+          <AlertTriangle size={40} style={{ color: 'var(--accent-rose)' }} />
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{loadError}</p>
+          <button className="btn-primary" style={{ padding: '10px 24px' }}
+            onClick={() => navigate('/explore')}>back Try New Building</button>
+        </div>
+      )}
+
+      {!isLoading && !loadError && (
       <div className="map-content-area">
 
         {/* ── Left Sidebar ── */}
@@ -125,8 +161,9 @@ export default function MapPage() {
             selectedUnit={selectedUnit}
             onUnitClick={(unit) => {
               setSelectedUnit(unit);
-              if (unit.floor_number != null) {
-                setSelectedFloor(unit.floor_number);
+              const fn = unit.floor_number ?? unit.floor;
+              if (fn != null) {
+                setSelectedFloor(fn);
               }
             }}
           />
@@ -254,6 +291,7 @@ export default function MapPage() {
         </motion.aside>
 
       </div>
+      )}
     </div>
   );
 }

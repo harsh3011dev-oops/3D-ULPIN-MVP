@@ -236,6 +236,7 @@ def test_all_building_types():
 
     print("-" * 80)
     assert len(results) == 10
+    return results
 
 
 def benchmark_by_difficulty():
