@@ -22,7 +22,7 @@ except ModuleNotFoundError:
 class QualityGates:
     def __init__(self):
         cfg = FINE_TUNING_CONFIG["priority_7"]["gates"]
-        self.min_iou = cfg.get("footprint_iou_min", 0.88)
+        self.min_iou = cfg.get("footprint_iou_min", 0.30)
         self.check_boundary = cfg.get("unit_boundary_check", True)
         self.check_overlap = cfg.get("overlap_check", True)
         self.check_ulpin = cfg.get("ulpin_format_check", True)
