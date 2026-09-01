@@ -89,6 +89,13 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
                     floor_count=floor_count,
                     parcel_boundary=parcel_boundary
                 )
+
+                # The AI pipeline reports expected processing failures as a
+                # structured result. Convert these into a job failure before
+                # any result fields are accessed, so the original cause is
+                # retained instead of being replaced by a KeyError.
+                if result.get("status") != "success":
+                    raise RuntimeError(result.get("message", "AI pipeline returned an invalid result."))
             except ImportError:
                 # Fallback mock for testing if AI module isn't fully ready
                 logger.warning("Could not import ai.pipeline.process_building. Using mock data.")
@@ -99,6 +106,8 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
 
             # 3. Save to Supabase (or fallback to cache)
             building_id = result.get('building_id')
+            if not building_id:
+                raise RuntimeError("AI pipeline completed without a building ID.")
             
             try:
                 # Convert GeoJSON footprints to WKT for PostGIS

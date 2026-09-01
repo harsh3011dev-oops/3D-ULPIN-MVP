@@ -81,7 +81,8 @@ async def get_job_status(job_id: str, db: AsyncSession = Depends(get_db)):
         progress_pct=job.progress_pct,
         progress_step=job.progress_step,
         building_id=building_id,
-        result_data=job.result_json
+        result_data=job.result_json,
+        error_message=getattr(job, "error_message", None)
     )
 
 @router.get("/buildings/{building_id}", response_model=BuildingResponse)

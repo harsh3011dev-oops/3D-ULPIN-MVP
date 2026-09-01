@@ -26,6 +26,7 @@ class JobStatusResponse(BaseModel):
     progress_step: Optional[str] = None
     building_id: Optional[str] = None
     result_data: Optional[Dict[str, Any]] = None
+    error_message: Optional[str] = None
     estimated_time_remaining_sec: Optional[int] = None
 
 class UnitResponse(BaseModel):

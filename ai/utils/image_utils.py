@@ -115,10 +115,11 @@ def download_satellite_image(
 
 def _get_fallback_image() -> str:
     """Return the path of the best available fallback image."""
+    sample_data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "sample_data"))
     for candidate in [
-        "sample_data/Gemini_Generated_Image_ih606sih606sih60.png",
-        "sample_data/test_building.jpg"
+        os.path.join(sample_data_dir, "Gemini_Generated_Image_ih606sih606sih60.png"),
+        os.path.join(sample_data_dir, "test_building.jpg"),
     ]:
         if os.path.exists(candidate):
             return candidate
-    raise FileNotFoundError("No fallback images found in sample_data/.")
+    raise FileNotFoundError(f"No fallback images found in {sample_data_dir}.")

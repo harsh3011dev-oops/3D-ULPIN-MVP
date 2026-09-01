@@ -56,6 +56,7 @@ async def test_get_jobs_status_endpoint():
     mock_job.progress_pct = 45
     mock_job.progress_step = "EXTRUDING_3D_VOLUMES"
     mock_job.result_json = None
+    mock_job.error_message = "Footprint detection failed"
 
     for path in ["/jobs/test-job-uuid-1234/status", "/api/v1/jobs/test-job-uuid-1234/status"]:
         with patch("backend.api.endpoints.get_job", new_callable=AsyncMock, return_value=mock_job):
@@ -69,6 +70,7 @@ async def test_get_jobs_status_endpoint():
         assert data["progress_pct"] == 45
         assert data["status"] == "processing"
         assert data["job_id"] == "test-job-uuid-1234"
+        assert data["error_message"] == "Footprint detection failed"
 
 
 @pytest.mark.asyncio
