@@ -7,7 +7,6 @@ import FloorSelector from '../components/FloorSelector/FloorSelector';
 import UnitCard from '../components/UnitCard/UnitCard';
 import ValidationAlert from '../components/ValidationAlert/ValidationAlert';
 import { getBuilding } from '../api/api';
-import { PRESETS } from '../mocks/mockBuilding';
 import { Building, Unit } from '../types';
 import {
   Building2, MapPin, Layers, BarChart3, Search,
@@ -28,7 +27,6 @@ export default function MapPage() {
   const [building, setBuilding]           = useState<Building | null>(null);
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
   const [selectedUnit, setSelectedUnit]   = useState<Unit | null>(null);
-  const [activePresetKey, setActivePresetKey] = useState<string>('piet-academic');
   const [activeTab, setActiveTab]         = useState('layer');
   const [isLoading, setIsLoading]         = useState(true);
   const [loadError, setLoadError]         = useState<string | null>(null);
@@ -49,10 +47,6 @@ export default function MapPage() {
         if (data) {
           setBuilding(data);
           if (data.units?.length > 0) setSelectedUnit(data.units[0]);
-          if (buildingId.includes('engineering') || buildingId.includes('engg')) setActivePresetKey('piet-engineering');
-          else if (buildingId.includes('auditorium') || buildingId.includes('audi')) setActivePresetKey('piet-auditorium');
-          else if (buildingId.includes('hostel')) setActivePresetKey('piet-hostel');
-          else setActivePresetKey('piet-academic');
         } else {
           setLoadError(`Building "${buildingId}" not found.`);
         }
@@ -66,16 +60,6 @@ export default function MapPage() {
     }
     loadData();
   }, [buildingId]);
-
-  const handleLocationSwitch = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const key = e.target.value;
-    setActivePresetKey(key);
-    setSelectedFloor(null);
-    const presetObj = PRESETS[key];
-    if (presetObj) {
-      navigate(`/map/${presetObj.building.building_id}`);
-    }
-  };
 
   // Dynamic coordinate calculation from building footprint or unit centroids
   const getCoordinates = () => {

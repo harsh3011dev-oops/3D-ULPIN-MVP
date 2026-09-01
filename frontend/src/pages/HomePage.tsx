@@ -62,13 +62,6 @@ export default function HomePage() {
               <span>Generate 3D ULPIN Model</span>
               <ArrowRight size={18} />
             </button>
-            <button
-              type="button"
-              className="btn-secondary start-explorer-btn-outline"
-              onClick={() => navigate('/map/bldg-piet-academic')}
-            >
-              <span>View Demo 3D Map</span>
-            </button>
           </motion.div>
 
           {/* Core Feature Highlights */}

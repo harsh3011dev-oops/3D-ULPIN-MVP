@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Box, Upload, Compass, Search } from 'lucide-react';
+import { Box, Upload, Search } from 'lucide-react';
 import './Header.css';
 
 const NAV_ITEMS = [
   { label: 'Home',       icon: Upload,  to: '/' },
-  { label: 'Submit AI',  icon: Box,     to: '/upload' },
   { label: 'Explore',    icon: Search,  to: '/explore' },
-  { label: '3D Explorer',icon: Compass, to: '/map/bldg-piet-academic' },
 ];
 
 export default function Header() {
