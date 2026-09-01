@@ -10,6 +10,7 @@ import {
   getUnitFloor,
   footprintToShape,
 } from '../../utils/footprintUtils';
+import { fetchTerrainHeight } from '../../utils/reearth';
 import { RotateCw, Layers, MapPin, ZoomIn, ZoomOut } from 'lucide-react';
 import './Map3D.css';
 
@@ -95,8 +96,20 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
   const [autoRotate, setAutoRotate] = useState(false);
   const [wireframeMode, setWireframeMode] = useState(false);
   const [, setHoveredUnitId] = useState<string | null>(null);
+  const [groundElevation, setGroundElevation] = useState<number | null>(null);
 
   const { lat: centerLat, lng: centerLng } = getBuildingCenter(building);
+
+  useEffect(() => {
+    if (!centerLat || !centerLng) return;
+    let cancelled = false;
+    fetchTerrainHeight(centerLng, centerLat).then((result) => {
+      if (!cancelled && result?.elevation != null) {
+        setGroundElevation(result.elevation);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [centerLat, centerLng]);
 
   autoRotateRef.current = autoRotate;
 
@@ -383,6 +396,7 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
           </span>
           <span className="text-[0.68rem] font-mono text-indigo-300">
             {centerLat.toFixed(5)}°N, {centerLng.toFixed(5)}°E • {displayHeight.toFixed(1)}m ({building?.floor_count || totalFloorsFromBuilding(building)} Floors)
+            {groundElevation != null ? ` • Ground ${groundElevation.toFixed(1)}m MSL` : ''}
           </span>
         </div>
       </div>

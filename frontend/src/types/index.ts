@@ -100,6 +100,7 @@ export interface JobStatusResponse {
   progress_step?: string;
   building_id?: string;
   error_message?: string;
+  result_data?: { building_id?: string };
 }
 
 export interface PresetBuilding {
