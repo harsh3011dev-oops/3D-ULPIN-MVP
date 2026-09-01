@@ -172,11 +172,17 @@ def process_building(*args, **kwargs) -> dict:
         }
 
 
-def process_multi_building_parcel(input_data: dict) -> dict:
+def process_multi_building_parcel(*args, **kwargs) -> dict:
     """
     Orchestrate the SMART AI pipeline for a Multi-Building Parcel (e.g. Housing Society, Campus):
     Detects multiple building footprints in a single land parcel and generates 3D ULPINs for each.
     """
+    if len(args) == 1 and isinstance(args[0], dict):
+        input_data = args[0].copy()
+        input_data.update(kwargs)
+    else:
+        input_data = kwargs.copy()
+
     try:
         parcel_id = input_data.get("parcel_id", "MULTI_PARCEL")
         parcel_boundary = input_data.get("parcel_boundary")
@@ -184,9 +190,9 @@ def process_multi_building_parcel(input_data: dict) -> dict:
         max_buildings = input_data.get("max_buildings", 5)
 
         if address and not parcel_boundary:
-            geo_info = geocode_address(address)
-            if geo_info:
-                lat, lon = geo_info["lat"], geo_info["lon"]
+            geo_info = geocode_address_robust(address)
+            if geo_info and "latitude" in geo_info:
+                lat, lon = geo_info["latitude"], geo_info["longitude"]
                 delta = 0.001  # Larger 110m bounding box for multi-building parcel
                 parcel_boundary = {
                     "type": "Polygon",

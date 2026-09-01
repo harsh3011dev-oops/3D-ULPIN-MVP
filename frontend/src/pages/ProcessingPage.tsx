@@ -61,11 +61,12 @@ export default function ProcessingPage() {
           });
         }
 
-        if (data.status === 'done' && data.building_id) {
+        const effectiveBuildingId = data.building_id || data.result_data?.building_id;
+        if ((data.status === 'done' || data.status === 'completed') && effectiveBuildingId) {
           setStatus('done');
-          setBuildingId(data.building_id);
+          setBuildingId(effectiveBuildingId);
           clearInterval(interval);
-          redirectTimer = setTimeout(() => { if (isMounted) navigate(`/map/${data.building_id}`); }, 1500);
+          redirectTimer = setTimeout(() => { if (isMounted) navigate(`/map/${effectiveBuildingId}`); }, 1500);
         } else if (data.status === 'failed') {
           setStatus('failed');
           setError(data.error_message || 'AI Pipeline processing failed');
