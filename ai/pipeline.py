@@ -63,7 +63,7 @@ def process_building(*args, **kwargs) -> dict:
 
         # Step 1: GET GPS COORDINATES
         lat, lon = None, None
-        if address and not parcel_boundary:
+        if address and not parcel_boundary and not (latitude is not None and longitude is not None):
             print(f"[STEP 1] Geocoding address: {address}")
             try:
                 geo_info = geocode_address_robust(address)
