@@ -34,3 +34,4 @@ temp/
 # Environment
 .env.local
 .env.*.local
+ai/exports/
