@@ -1,0 +1,30 @@
+# 3D ULPIN Building Export (Local Metric Units)
+# Building ID: bldg-shiva-shakti-mandir-001
+# Height: 7.5m, Floors: 2
+mtllib shiva_shakti_mandir.mtl
+
+o bldg-shiva-shakti-mandir-001
+
+v -100.620 0.000 98.160
+v -97.481 0.000 -95.042
+v 99.831 0.000 -100.890
+v 98.271 0.000 97.773
+v -100.620 7.500 98.160
+v -97.481 7.500 -95.042
+v 99.831 7.500 -100.890
+v 98.271 7.500 97.773
+
+usemtl BuildingWall
+# Walls (side faces)
+f 1 2 6 5
+f 2 3 7 6
+f 3 4 8 7
+f 4 1 5 8
+
+usemtl BuildingFloor
+# Floor (ground face)
+f 1 2 3 4
+
+usemtl BuildingRoof
+# Roof (top face)
+f 5 6 7 8

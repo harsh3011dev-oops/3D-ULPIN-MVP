@@ -1,12 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import DeckGL from '@deck.gl/react';
 import { GeoJsonLayer, TextLayer } from '@deck.gl/layers';
+import { Tile3DLayer } from '@deck.gl/geo-layers';
+import { Tiles3DLoader } from '@loaders.gl/3d-tiles';
 import Map from 'react-map-gl/maplibre';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { Building, Unit } from '../../types';
-import { RotateCw, Layers, MapPin, Map as MapIcon, Maximize2 } from 'lucide-react';
+import { getBuildingCenter } from '../../utils/footprintUtils';
+import { REEARTH, setupReearthTerrain } from '../../utils/reearth';
+import { RotateCw, Layers, MapPin, Map as MapIcon, Maximize2, Building2 } from 'lucide-react';
 import './Map3D.css';
 
 interface MapDeckGLProps {
@@ -22,67 +26,87 @@ const MAP_STYLES = [
   { id: 'voyager', name: 'Voyager Topography', url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json' },
 ];
 
-// Dark mode architectural palette — muted slate glass
 const ARCHITECTURAL_FLOOR_COLORS_DARK: [number, number, number][] = [
-  [94, 109, 130],   // Floor 1: Slate Blue
-  [80, 95, 116],    // Floor 2: Cool Steel
-  [68, 83, 104],    // Floor 3: Deep Slate
-  [56, 71, 92],     // Floor 4: Midnight Glass
-  [45, 60, 80],     // Floor 5: Dark Steel
-  [35, 48, 68],     // Floor 6: Dark Charcoal
+  [94, 109, 130],
+  [80, 95, 116],
+  [68, 83, 104],
+  [56, 71, 92],
+  [45, 60, 80],
+  [35, 48, 68],
 ];
 
-// Light mode architectural palette — crisp porcelain, cobalt & slate glass for Light Architectural basemap
 const ARCHITECTURAL_FLOOR_COLORS_LIGHT: [number, number, number][] = [
-  [71, 85, 105],    // Floor 1: Deep Slate
-  [51, 65, 85],     // Floor 2: Dark Navy Glass
-  [30, 41, 59],     // Floor 3: Charcoal Steel
-  [15, 23, 42],     // Floor 4: Obsidian Glass
-  [51, 65, 85],     // Floor 5: Slate Glass
-  [71, 85, 105],    // Floor 6: Porcelain Slate
+  [71, 85, 105],
+  [51, 65, 85],
+  [30, 41, 59],
+  [15, 23, 42],
+  [51, 65, 85],
+  [71, 85, 105],
 ];
 
 export default function MapDeckGL({ building, selectedUnit, onUnitClick, selectedFloor }: MapDeckGLProps) {
+  const mapRef = useRef<maplibregl.Map | null>(null);
   const [selectedStyleUrl, setSelectedStyleUrl] = useState(MAP_STYLES[0].url);
   const [hoveredUnitId, setHoveredUnitId] = useState<string | null>(null);
+  const [showContextBuildings, setShowContextBuildings] = useState(true);
+  const [terrainEnabled, setTerrainEnabled] = useState(true);
 
   const isLightStyle = selectedStyleUrl.includes('positron');
 
-  // Extract center coordinates from building footprint or first unit
+  const { lat: centerLat, lng: centerLng } = getBuildingCenter(building);
   const firstUnit = building?.units?.[0];
-  const rawLng = Number(firstUnit?.centroid?.[1]);
-  const rawLat = Number(firstUnit?.centroid?.[0]);
-  const centerLng = !isNaN(rawLng) && rawLng !== 0 ? rawLng : 77.0886;
-  const centerLat = !isNaN(rawLat) && rawLat !== 0 ? rawLat : 28.4942;
+  const mapLng = centerLng !== 0 ? centerLng : Number(firstUnit?.centroid?.[1]) || 77.0886;
+  const mapLat = centerLat !== 0 ? centerLat : Number(firstUnit?.centroid?.[0]) || 28.4942;
 
-  // Controlled ViewState for deck.gl
   const [viewState, setViewState] = useState({
-    longitude: centerLng,
-    latitude: centerLat,
+    longitude: mapLng,
+    latitude: mapLat,
     zoom: 17.5,
     pitch: 62,
     bearing: -25,
     maxPitch: 85,
   });
 
-  // Re-center camera whenever building dataset changes
   useEffect(() => {
+    const { lat, lng } = getBuildingCenter(building);
     const u = building?.units?.[0];
-    if (u && Array.isArray(u.centroid) && u.centroid.length >= 2) {
-      const lat = Number(u.centroid[0]);
-      const lng = Number(u.centroid[1]);
-      if (!isNaN(lat) && !isNaN(lng)) {
-        setViewState({
-          longitude: lng,
-          latitude: lat,
-          zoom: 17.5,
-          pitch: 62,
-          bearing: -25,
-          maxPitch: 85,
-        });
-      }
+    const lngFinal = lng !== 0 ? lng : Number(u?.centroid?.[1]);
+    const latFinal = lat !== 0 ? lat : Number(u?.centroid?.[0]);
+    if (!isNaN(latFinal) && !isNaN(lngFinal) && latFinal !== 0 && lngFinal !== 0) {
+      setViewState({
+        longitude: lngFinal,
+        latitude: latFinal,
+        zoom: 17.5,
+        pitch: 62,
+        bearing: -25,
+        maxPitch: 85,
+      });
     }
   }, [building?.building_id]);
+
+  const handleMapLoad = useCallback((evt: { target: maplibregl.Map }) => {
+    mapRef.current = evt.target;
+    if (terrainEnabled) {
+      setupReearthTerrain(evt.target);
+    }
+    evt.target.on('style.load', () => {
+      if (terrainEnabled && mapRef.current) {
+        setupReearthTerrain(mapRef.current);
+      }
+    });
+  }, [terrainEnabled]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (terrainEnabled) {
+      setupReearthTerrain(map);
+    } else {
+      map.setTerrain(null);
+      if (map.getLayer('reearth-hillshade')) map.removeLayer('reearth-hillshade');
+      if (map.getSource('reearth-terrain')) map.removeSource('reearth-terrain');
+    }
+  }, [terrainEnabled, selectedStyleUrl]);
 
   const handleRotate = () => {
     setViewState((prev) => ({ ...prev, bearing: prev.bearing + 45 }));
@@ -94,8 +118,8 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
 
   const handleResetCamera = () => {
     setViewState({
-      longitude: centerLng,
-      latitude: centerLat,
+      longitude: mapLng,
+      latitude: mapLat,
       zoom: 17.5,
       pitch: 62,
       bearing: -25,
@@ -103,107 +127,111 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
     });
   };
 
-  // 1. Ground Footprint Base Feature Collection (z=0)
-  const footprintBaseGeoJSON = building?.footprint ? {
-    type: "FeatureCollection",
-    features: [{
-      type: "Feature",
-      properties: { name: building.building_name },
-      geometry: building.footprint
-    }]
-  } : null;
-
-  // Scale factor for 3D map elevation rendering
   const SCALE_ELEVATION = 2.5;
 
-  // 2. 3D Unit Feature Collection with TRUE 3D Altitude Coordinates
-  const unitsGeoJSON = {
-    type: "FeatureCollection",
-    features: (building?.units || []).map((unit) => {
-      // ── Normalize fields: handle both mock & real backend unit shapes ──
-      const floorNum      = unit.floor_number ?? unit.floor ?? 1;
-      const floorHtM      = unit.floor_height_m ?? 3.5;
-      const zMin          = unit.z_min ?? (floorNum - 1) * floorHtM;
-      const zMax          = unit.z_max ?? floorNum * floorHtM;
-      const floorSliceH   = (zMax - zMin) * SCALE_ELEVATION;
-      const zBase         = zMin * SCALE_ELEVATION;
+  const footprintBaseGeoJSON = building?.footprint ? {
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      properties: { name: building.building_name },
+      geometry: building.footprint,
+    }],
+  } : null;
 
-      const isSelected     = selectedUnit?.unit_id === unit.unit_id;
-      const isHovered      = hoveredUnitId === unit.unit_id;
+  const unitsGeoJSON = useMemo(() => ({
+    type: 'FeatureCollection',
+    features: (building?.units || []).flatMap((unit) => {
+      const floorNum = unit.floor_number ?? unit.floor ?? 1;
+      const floorHtM = unit.floor_height_m ?? 3.5;
+      const zMin = unit.z_min ?? (floorNum - 1) * floorHtM;
+      const zMax = unit.z_max ?? floorNum * floorHtM;
+      const floorSliceH = (zMax - zMin) * SCALE_ELEVATION;
+      const zBase = zMin * SCALE_ELEVATION;
+
+      const isSelected = selectedUnit?.unit_id === unit.unit_id;
+      const isHovered = hoveredUnitId === unit.unit_id;
       const isFloorIsolated = selectedFloor === floorNum;
 
-      // Original 2D ring coordinates
-      const origRing = unit.polygon_2d?.coordinates?.[0] || [
-        [centerLng - 0.0005, centerLat - 0.0005],
-        [centerLng + 0.0005, centerLat - 0.0005],
-        [centerLng + 0.0005, centerLat + 0.0005],
-        [centerLng - 0.0005, centerLat + 0.0005],
-        [centerLng - 0.0005, centerLat - 0.0005]
+      const fallbackRing = [
+        [mapLng - 0.0005, mapLat - 0.0005],
+        [mapLng + 0.0005, mapLat - 0.0005],
+        [mapLng + 0.0005, mapLat + 0.0005],
+        [mapLng - 0.0005, mapLat + 0.0005],
+        [mapLng - 0.0005, mapLat - 0.0005],
       ];
+      const geometry = unit.polygon_2d;
+      const polygons = geometry?.type === 'MultiPolygon'
+        ? geometry.coordinates
+        : [geometry?.coordinates || [fallbackRing]];
 
-      // Convert 2D coordinates to 3D coordinates [lng, lat, zBase]
-      const ring3D = origRing.map((coord: number[]) => [coord[0], coord[1], zBase]);
-
-      return {
-        type: "Feature",
+      return polygons.map((polygon: number[][][]) => ({
+        type: 'Feature',
         properties: {
           ...unit,
-          floor_number: floorNum,   // normalize for downstream use
+          floor_number: floorNum,
           z_min: zMin,
           z_max: zMax,
           isSelected,
           isHovered,
           isFloorIsolated,
-          floorSliceHeight: floorSliceH
+          floorSliceHeight: floorSliceH,
         },
         geometry: {
-          type: "Polygon",
-          coordinates: [ring3D]
-        }
-      };
-    })
-  };
+          type: 'Polygon',
+          coordinates: polygon.map((ring: number[][]) =>
+            ring.map((coord: number[]) => [coord[0], coord[1], zBase])
+          ),
+        },
+      }));
+    }),
+  }), [building?.units, selectedUnit, hoveredUnitId, selectedFloor, mapLng, mapLat]);
 
-  // 3. Floor Level Markers Data
   const floorLabelsData = Array.from({ length: building?.floor_count || 4 }, (_, i) => {
     const floorNum = i + 1;
-    const floorUnits = (building?.units || []).filter(u => {
-      const fn = u.floor_number ?? u.floor ?? 1;
-      return fn === floorNum;
-    });
+    const floorUnits = (building?.units || []).filter((u) => (u.floor_number ?? u.floor ?? 1) === floorNum);
     const sampleUnit = floorUnits[0] || firstUnit;
     const floorHtM = sampleUnit?.floor_height_m ?? 3.5;
-    const zMax = sampleUnit?.z_max ?? (floorNum * floorHtM);
-    const zMin = sampleUnit?.z_min ?? ((floorNum - 1) * floorHtM);
+    const zMax = sampleUnit?.z_max ?? floorNum * floorHtM;
+    const zMin = sampleUnit?.z_min ?? (floorNum - 1) * floorHtM;
     const zMid = (zMin + zMax) / 2;
 
     return {
       text: selectedFloor === floorNum
         ? `⭐ LEVEL ${floorNum} (ISOLATED)`
         : `Level ${floorNum} (+${Number(zMax).toFixed(1)}m)`,
-      coordinates: [sampleUnit?.centroid?.[1] || centerLng, sampleUnit?.centroid?.[0] || centerLat],
+      coordinates: [sampleUnit?.centroid?.[1] || mapLng, sampleUnit?.centroid?.[0] || mapLat],
       floorNumber: floorNum,
-      zAltitude: zMid * SCALE_ELEVATION
+      zAltitude: zMid * SCALE_ELEVATION,
     };
   });
 
-  // deck.gl Multi-Layer Stack for Architectural 3D Visualization
-  const layers = [
-    // Ground Footprint Foundation Base Layer
+  const layers = useMemo(() => [
+    ...(showContextBuildings ? [
+      new Tile3DLayer({
+        id: 'reearth-osm-buildings',
+        data: REEARTH.buildingsTileset,
+        loader: Tiles3DLoader,
+        opacity: 0.82,
+        pickable: false,
+        loadOptions: {
+          '3d-tiles': { loadGLTF: true },
+        },
+      }),
+    ] : []),
+
     ...(footprintBaseGeoJSON ? [
       new GeoJsonLayer({
         id: '3d-footprint-base-layer',
         data: footprintBaseGeoJSON as any,
         extruded: false,
-        getFillColor: isLightStyle ? [99, 102, 241, 40] : [124, 111, 224, 30],
-        getLineColor: isLightStyle ? [79, 70, 229, 240] : [124, 111, 224, 200],
-        getLineWidth: 2.5,
+        getFillColor: isLightStyle ? [99, 102, 241, 50] : [124, 111, 224, 40],
+        getLineColor: isLightStyle ? [79, 70, 229, 255] : [124, 111, 224, 220],
+        getLineWidth: 3,
         lineWidthUnits: 'pixels',
         pickable: false,
-      })
+      }),
     ] : []),
 
-    // 3D Architectural Volumetric Unit Layer
     new GeoJsonLayer({
       id: '3d-ulpin-units-layer',
       data: unitsGeoJSON as any,
@@ -212,25 +240,15 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       getElevation: (f: any) => f.properties.floorSliceHeight,
       getFillColor: (f: any) => {
         const p = f.properties;
-        
-        // 1. If Floor Isolator is active and this floor is NOT selected, dim to subtle ghost glass!
         if (selectedFloor !== null && !p.isFloorIsolated) {
-          return isLightStyle ? [203, 213, 225, 45] : [30, 41, 59, 35];
+          return isLightStyle ? [203, 213, 225, 55] : [30, 41, 59, 45];
         }
-
-        // 2. Selected unit highlight: vibrant cyan glass
-        if (p.isSelected) return [56, 189, 248, 240];
-
-        // 3. Isolated floor highlight: glowing lavender glass
-        if (p.isFloorIsolated) return [124, 111, 224, 235];
-
-        // 4. Hovered unit highlight: bright cyan accent
-        if (p.isHovered) return [56, 189, 248, 220];
-
-        // 5. Default architectural theme colors
+        if (p.isSelected) return [56, 189, 248, 245];
+        if (p.isFloorIsolated) return [124, 111, 224, 240];
+        if (p.isHovered) return [56, 189, 248, 225];
         const palette = isLightStyle ? ARCHITECTURAL_FLOOR_COLORS_LIGHT : ARCHITECTURAL_FLOOR_COLORS_DARK;
         const rgb = palette[(p.floor_number - 1) % palette.length];
-        return [...rgb, isLightStyle ? 180 : 150];
+        return [...rgb, isLightStyle ? 190 : 165];
       },
       getLineColor: (f: any) => {
         const p = f.properties;
@@ -271,17 +289,16 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       updateTriggers: {
         getFillColor: [selectedUnit, hoveredUnitId, selectedFloor, selectedStyleUrl],
         getLineColor: [selectedUnit, hoveredUnitId, selectedFloor, selectedStyleUrl],
-        getLineWidth: [selectedUnit, hoveredUnitId, selectedFloor, selectedStyleUrl]
-      }
+        getLineWidth: [selectedUnit, hoveredUnitId, selectedFloor, selectedStyleUrl],
+      },
     }),
 
-    // 3D Floor Elevation Text Markers
     new TextLayer({
       id: '3d-floor-labels-layer',
       data: floorLabelsData,
       getPosition: (d: any) => [d.coordinates[0], d.coordinates[1], d.zAltitude],
       getText: (d: any) => d.text,
-      getSize: (d: any) => selectedFloor === d.floorNumber ? 15 : 12,
+      getSize: (d: any) => (selectedFloor === d.floorNumber ? 15 : 12),
       getColor: (d: any) => {
         if (selectedFloor === d.floorNumber) return [255, 255, 255, 255];
         return isLightStyle ? [15, 23, 42, 230] : [203, 213, 225, 220];
@@ -300,16 +317,27 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       updateTriggers: {
         getColor: [selectedFloor, selectedStyleUrl],
         getBackgroundColor: [selectedFloor, selectedStyleUrl],
-        getPosition: [selectedFloor]
-      }
-    })
-  ];
+        getPosition: [selectedFloor],
+      },
+    }),
+  ], [
+    showContextBuildings,
+    footprintBaseGeoJSON,
+    unitsGeoJSON,
+    floorLabelsData,
+    isLightStyle,
+    selectedUnit,
+    hoveredUnitId,
+    selectedFloor,
+    selectedStyleUrl,
+    onUnitClick,
+  ]);
 
   return (
     <div className="deckgl-map-container">
       <DeckGL
         viewState={viewState}
-        onViewStateChange={({ viewState }) => setViewState(viewState as any)}
+        onViewStateChange={({ viewState: vs }) => setViewState(vs as any)}
         controller={true}
         layers={layers}
         getCursor={({ isHovering }) => (isHovering ? 'pointer' : 'grab')}
@@ -317,40 +345,30 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
         <Map
           mapLib={maplibregl}
           mapStyle={selectedStyleUrl}
+          onLoad={handleMapLoad}
         />
       </DeckGL>
 
-      {/* Floating Toolbar Controls */}
       <div className="floating-toolbar">
-        <button
-          type="button"
-          className="map-control-btn"
-          onClick={handleRotate}
-          title="Rotate Camera Bearing (+45°)"
-        >
+        <button type="button" className="map-control-btn" onClick={handleRotate} title="Rotate Camera Bearing (+45°)">
           <RotateCw size={17} />
         </button>
-
-        <button
-          type="button"
-          className="map-control-btn"
-          onClick={handlePitchToggle}
-          title="Toggle 2D / 3D Pitch Angle"
-        >
+        <button type="button" className="map-control-btn" onClick={handlePitchToggle} title="Toggle 2D / 3D Pitch Angle">
           <Layers size={17} />
         </button>
-
+        <button type="button" className="map-control-btn" onClick={handleResetCamera} title="Reset Camera View">
+          <Maximize2 size={15} />
+        </button>
         <button
           type="button"
-          className="map-control-btn"
-          onClick={handleResetCamera}
-          title="Reset Camera View"
+          className={`map-control-btn ${showContextBuildings ? 'active' : ''}`}
+          onClick={() => setShowContextBuildings((v) => !v)}
+          title="Toggle Re:Earth OSM 3D Buildings"
         >
-          <Maximize2 size={15} />
+          <Building2 size={17} />
         </button>
       </div>
 
-      {/* Map Style Selector Dropdown */}
       <div className="basemap-selector-box">
         <MapIcon size={14} style={{ color: 'var(--accent-lavender)' }} />
         <span>Style:</span>
@@ -359,31 +377,45 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
           value={selectedStyleUrl}
           onChange={(e) => setSelectedStyleUrl(e.target.value)}
         >
-          {MAP_STYLES.map(style => (
+          {MAP_STYLES.map((style) => (
             <option key={style.id} value={style.url}>{style.name}</option>
           ))}
         </select>
+        <label className="terrain-toggle-label" title="Re:Earth Terrain hillshade">
+          <input
+            type="checkbox"
+            checked={terrainEnabled}
+            onChange={(e) => setTerrainEnabled(e.target.checked)}
+          />
+          Terrain
+        </label>
       </div>
 
-      {/* Location Banner Header */}
       <div className="location-overlay-banner">
         <div className="location-icon-pin">
           <MapPin size={16} />
         </div>
         <div className="location-text-info">
           <span className="location-bldg-title">
-            {building?.building_name || 'Cadastral Parcel'}
+            {building?.building_name || building?.address || 'Cadastral Parcel'}
           </span>
           <span className="location-coords-sub">
-            {selectedFloor !== null ? `Isolated Floor ${selectedFloor} Active` : `All ${building?.floor_count || 4} Floors Active`}
+            {selectedFloor !== null
+              ? `Isolated Floor ${selectedFloor} Active`
+              : `All ${building?.floor_count || 4} Floors · ULPIN Overlay`}
           </span>
         </div>
       </div>
 
-      {/* Tech Stack Badge Footer */}
       <div className="tech-badge-footer">
         <span className="pulse-dot" />
-        <span style={{ color: 'var(--accent-lavender)', fontWeight: 600 }}>3D GeoJSON Extrusions</span> + <span>MapLibre GL</span>
+        <span style={{ color: 'var(--accent-lavender)', fontWeight: 600 }}>Re:Earth 3D Buildings + Terrain</span>
+        {' · '}
+        <span>deck.gl + MapLibre</span>
+      </div>
+
+      <div className="map-attribution-footer" title={REEARTH.attribution}>
+        {REEARTH.attribution}
       </div>
     </div>
   );

@@ -4,8 +4,25 @@ from datetime import datetime
 
 # --- Request Models ---
 
+class BuildingAutoDetectRequest(BaseModel):
+    building_name: str = Field(..., min_length=1, description="Famous building name")
+    city: str = Field(..., min_length=1, description="City where the building is located")
+
+
+class BuildingAutoDetectResponse(BaseModel):
+    building_name: str
+    city: str
+    latitude: float
+    longitude: float
+    height_meters: Optional[float] = None
+    floors: Optional[int] = None
+    confidence: int
+    source: str = "gemini"
+
+
 class BuildingCreateRequest(BaseModel):
     parcel_id: str = Field(..., description="Unique identifier for the parcel")
+    building_name: Optional[str] = Field(None, description="User supplied building name")
     address: Optional[str] = Field(None, description="Full address of the parcel")
     latitude: Optional[float] = Field(None, description="Latitude coordinate")
     longitude: Optional[float] = Field(None, description="Longitude coordinate")
@@ -26,6 +43,7 @@ class JobStatusResponse(BaseModel):
     progress_step: Optional[str] = None
     building_id: Optional[str] = None
     result_data: Optional[Dict[str, Any]] = None
+    error_message: Optional[str] = None
     estimated_time_remaining_sec: Optional[int] = None
 
 class UnitResponse(BaseModel):
@@ -35,6 +53,16 @@ class UnitResponse(BaseModel):
     centroid: List[float]  # [lat, lon]
     polygon_2d: Dict[str, Any]  # GeoJSON
     area_sqft: float
+    z_min: Optional[float] = None
+    z_max: Optional[float] = None
+    floor_height_m: Optional[float] = None
+
+class BuildingValidationSummary(BaseModel):
+    is_valid: bool = True
+    overlaps_detected: int = 0
+    out_of_bounds: int = 0
+    confidence_score: float = 0.0
+    errors: List[Any] = []
 
 class BuildingResponse(BaseModel):
     building_id: str
@@ -44,6 +72,12 @@ class BuildingResponse(BaseModel):
     floor_count: int
     total_units: int
     units: List[UnitResponse]
+    building_name: Optional[str] = None
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    created_at: Optional[datetime] = None
+    validation: Optional[BuildingValidationSummary] = None
 
 class ValidationResponse(BaseModel):
     building_id: str

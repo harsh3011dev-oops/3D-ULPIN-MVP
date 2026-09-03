@@ -15,6 +15,7 @@
     "@deck.gl/layers": "^9.0.0",
     "@deck.gl/mapbox": "^9.0.0",
     "@deck.gl/react": "^9.0.0",
+    "@loaders.gl/3d-tiles": "^4.4.5",
     "axios": "^1.7.2",
     "framer-motion": "^13.1.1",
     "lucide-react": "^0.380.0",

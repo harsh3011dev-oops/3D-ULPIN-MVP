@@ -7,8 +7,8 @@ import FloorSelector from '../components/FloorSelector/FloorSelector';
 import UnitCard from '../components/UnitCard/UnitCard';
 import ValidationAlert from '../components/ValidationAlert/ValidationAlert';
 import { getBuilding } from '../api/api';
-import { PRESETS } from '../mocks/mockBuilding';
 import { Building, Unit } from '../types';
+import { getBuildingCenter } from '../utils/footprintUtils';
 import {
   Building2, MapPin, Layers, BarChart3, Search,
   FileCheck, ShieldCheck, Activity, Loader2, AlertTriangle
@@ -23,12 +23,11 @@ const SIDEBAR_NAV = [
 ];
 
 export default function MapPage() {
-  const { buildingId } = useParams<{ buildingId: string }>();
+  const { buildingId: building_id } = useParams<{ buildingId: string }>();
 
   const [building, setBuilding]           = useState<Building | null>(null);
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
   const [selectedUnit, setSelectedUnit]   = useState<Unit | null>(null);
-  const [activePresetKey, setActivePresetKey] = useState<string>('piet-academic');
   const [activeTab, setActiveTab]         = useState('layer');
   const [isLoading, setIsLoading]         = useState(true);
   const [loadError, setLoadError]         = useState<string | null>(null);
@@ -37,7 +36,7 @@ export default function MapPage() {
 
   useEffect(() => {
     async function loadData() {
-      if (!buildingId) {
+      if (!building_id) {
         setIsLoading(false);
         setLoadError('No building ID provided.');
         return;
@@ -45,16 +44,15 @@ export default function MapPage() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const data = await getBuilding(buildingId);
+        // Use direct axios call as specified
+        const axios = (await import('axios')).default;
+        const response = await axios.get(`/api/v1/buildings/${building_id}`);
+        const data = response.data;
         if (data) {
           setBuilding(data);
           if (data.units?.length > 0) setSelectedUnit(data.units[0]);
-          if (buildingId.includes('engineering') || buildingId.includes('engg')) setActivePresetKey('piet-engineering');
-          else if (buildingId.includes('auditorium') || buildingId.includes('audi')) setActivePresetKey('piet-auditorium');
-          else if (buildingId.includes('hostel')) setActivePresetKey('piet-hostel');
-          else setActivePresetKey('piet-academic');
         } else {
-          setLoadError(`Building "${buildingId}" not found.`);
+          setLoadError(`Building "${building_id}" not found.`);
         }
       } catch (err: any) {
         const msg = err?.response?.data?.detail || err?.message || 'Failed to load building data.';
@@ -65,32 +63,18 @@ export default function MapPage() {
       }
     }
     loadData();
-  }, [buildingId]);
+  }, [building_id]);
 
-  const handleLocationSwitch = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const key = e.target.value;
-    setActivePresetKey(key);
-    setSelectedFloor(null);
-    const presetObj = PRESETS[key];
-    if (presetObj) {
-      navigate(`/map/${presetObj.building.building_id}`);
-    }
-  };
-
-  // Dynamic coordinate calculation from building footprint or unit centroids
   const getCoordinates = () => {
-    if (!building) return { lat: '29.2382', lng: '76.9938' };
-    const fp = building.footprint?.coordinates?.[0];
-    if (fp && fp.length > 0) {
-      const avgLng = fp.reduce((sum: number, p: number[]) => sum + (p[0] || 0), 0) / fp.length;
-      const avgLat = fp.reduce((sum: number, p: number[]) => sum + (p[1] || 0), 0) / fp.length;
-      return { lat: avgLat.toFixed(4), lng: avgLng.toFixed(4) };
+    if (!building) return { lat: '—', lng: '—' };
+    if (building.latitude != null && building.longitude != null) {
+      return { lat: building.latitude.toFixed(5), lng: building.longitude.toFixed(5) };
     }
-    const u = building.units?.[0];
-    if (u?.centroid) {
-      return { lat: Number(u.centroid[0]).toFixed(4), lng: Number(u.centroid[1]).toFixed(4) };
+    const { lat, lng } = getBuildingCenter(building);
+    if (lat !== 0 || lng !== 0) {
+      return { lat: lat.toFixed(5), lng: lng.toFixed(5) };
     }
-    return { lat: '29.2382', lng: '76.9938' };
+    return { lat: '—', lng: '—' };
   };
 
   const { lat: currentLat, lng: currentLng } = getCoordinates();
@@ -250,7 +234,19 @@ export default function MapPage() {
               <FloorSelector
                 totalFloors={building.floor_count}
                 selectedFloor={selectedFloor}
-                onSelectFloor={(floor) => setSelectedFloor(floor)}
+                onSelectFloor={(floor) => {
+                  setSelectedFloor(floor);
+                  // Auto-select first unit on the chosen floor
+                  if (floor === null) {
+                    // "All" selected — show first unit overall
+                    if (building.units?.length > 0) setSelectedUnit(building.units[0]);
+                  } else {
+                    const firstUnitOnFloor = building.units?.find(
+                      (u) => (u.floor_number ?? u.floor) === floor
+                    );
+                    if (firstUnitOnFloor) setSelectedUnit(firstUnitOnFloor);
+                  }
+                }}
               />
             </div>
           )}
@@ -274,7 +270,7 @@ export default function MapPage() {
                 </div>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem',
                   fontWeight: 800, color: 'var(--primary)' }}>
-                  98.4<span style={{ fontSize: '0.85rem', fontWeight: 400,
+                  {(building?.validation?.confidence_score ?? 0).toFixed(1)}<span style={{ fontSize: '0.85rem', fontWeight: 400,
                     color: 'var(--text-muted)' }}>%</span>
                 </div>
               </div>
@@ -283,7 +279,7 @@ export default function MapPage() {
                   stroke="var(--surface-container)" />
                 <circle cx="20" cy="20" r="16" strokeWidth="4" fill="none"
                   stroke="var(--accent-sage)" strokeDasharray="100.53"
-                  strokeDashoffset="1.6" strokeLinecap="round"
+                  strokeDashoffset={100.53 - ((building?.validation?.confidence_score ?? 0) / 100) * 100.53} strokeLinecap="round"
                   style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }} />
               </svg>
             </div>

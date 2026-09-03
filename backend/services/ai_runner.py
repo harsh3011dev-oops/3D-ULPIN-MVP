@@ -62,7 +62,7 @@ def _load_result_by_building_id(building_id: str) -> dict | None:
         pass
     return None
 
-async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, height_meters: float, floor_count: int, latitude: float = None, longitude: float = None, units_per_floor: int = 4, aerial_image_url: str = None, parcel_boundary: dict = None):
+async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, height_meters: float, floor_count: int, latitude: float = None, longitude: float = None, units_per_floor: int = 4, aerial_image_url: str = None, parcel_boundary: dict = None, building_name: str = None):
     """Background task to run the AI pipeline and store results in Supabase."""
     logger.info(f"Starting AI pipeline for job {job_id}")
     
@@ -82,6 +82,7 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
                 # Mock or real call depending on if process_building is async
                 result = process_building(
                     parcel_id=parcel_id,
+                    building_name=building_name,
                     address=address,
                     latitude=latitude,
                     longitude=longitude,
@@ -89,6 +90,13 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
                     floor_count=floor_count,
                     parcel_boundary=parcel_boundary
                 )
+
+                # The AI pipeline reports expected processing failures as a
+                # structured result. Convert these into a job failure before
+                # any result fields are accessed, so the original cause is
+                # retained instead of being replaced by a KeyError.
+                if result.get("status") != "success":
+                    raise RuntimeError(result.get("message", "AI pipeline returned an invalid result."))
             except ImportError:
                 # Fallback mock for testing if AI module isn't fully ready
                 logger.warning("Could not import ai.pipeline.process_building. Using mock data.")
@@ -99,13 +107,26 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
 
             # 3. Save to Supabase (or fallback to cache)
             building_id = result.get('building_id')
+            if not building_id:
+                raise RuntimeError("AI pipeline completed without a building ID.")
             
             try:
+                from sqlalchemy import select
+                from backend.models import Parcel
+
                 # Convert GeoJSON footprints to WKT for PostGIS
                 footprint_wkt = f"SRID=4326;{shape(result['footprint']).wkt}"
                 
+                # Get or create Parcel
+                parcel_res = await db.execute(select(Parcel).filter_by(parcel_id=parcel_id))
+                parcel_record = parcel_res.scalars().first()
+                if not parcel_record:
+                    parcel_record = Parcel(parcel_id=parcel_id, center_lat=latitude, center_lon=longitude)
+                    db.add(parcel_record)
+                    await db.flush()
+
                 building = Building(
-                    parcel_id=None,  # Ideally we'd look up the parcel UUID first
+                    parcel_id=parcel_record.id,
                     building_id=building_id,
                     footprint=footprint_wkt,
                     height_meters=result['height'],
@@ -140,7 +161,7 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
                     is_valid=val_data.get('valid', True),
                     overlaps_detected=len(val_data.get('overlapping_units', [])),
                     out_of_bounds=len(val_data.get('out_of_bounds', [])),
-                    confidence_score=95.0, # Placeholder
+                    confidence_score=val_data.get('confidence_score', 0.0),
                     validation_report=val_data
                 )
                 db.add(val_log)

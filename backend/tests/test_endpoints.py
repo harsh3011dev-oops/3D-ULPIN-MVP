@@ -56,6 +56,7 @@ async def test_get_jobs_status_endpoint():
     mock_job.progress_pct = 45
     mock_job.progress_step = "EXTRUDING_3D_VOLUMES"
     mock_job.result_json = None
+    mock_job.error_message = "Footprint detection failed"
 
     for path in ["/jobs/test-job-uuid-1234/status", "/api/v1/jobs/test-job-uuid-1234/status"]:
         with patch("backend.api.endpoints.get_job", new_callable=AsyncMock, return_value=mock_job):
@@ -69,6 +70,7 @@ async def test_get_jobs_status_endpoint():
         assert data["progress_pct"] == 45
         assert data["status"] == "processing"
         assert data["job_id"] == "test-job-uuid-1234"
+        assert data["error_message"] == "Footprint detection failed"
 
 
 @pytest.mark.asyncio
@@ -118,6 +120,51 @@ async def test_get_buildings_by_id_endpoint():
         assert "centroid" in unit
         assert "polygon_2d" in unit
         assert "area_sqft" in unit
+
+
+@pytest.mark.asyncio
+async def test_auto_detect_building_endpoint():
+    """POST /buildings/auto-detect returns Gemini lookup fields."""
+    sample = {
+        "building_name": "Taj Mahal",
+        "city": "Agra",
+        "latitude": 27.1751,
+        "longitude": 78.0421,
+        "height_meters": 73,
+        "floors": 7,
+        "confidence": 95,
+        "source": "gemini",
+    }
+    from backend.services import gemini_lookup
+    gemini_lookup.CACHE.clear()
+
+    with patch("backend.api.endpoints.call_gemini_api", new_callable=AsyncMock, return_value=sample):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            response = await ac.post(
+                "/api/v1/buildings/auto-detect",
+                json={"building_name": "Taj Mahal", "city": "Agra"},
+            )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["latitude"] == 27.1751
+    assert data["source"] == "gemini"
+
+
+@pytest.mark.asyncio
+async def test_auto_detect_building_not_found():
+    from backend.services import gemini_lookup
+    gemini_lookup.CACHE.clear()
+
+    with patch("backend.api.endpoints.call_gemini_api", new_callable=AsyncMock, return_value=None):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            response = await ac.post(
+                "/api/v1/buildings/auto-detect",
+                json={"building_name": "Random College", "city": "Random City"},
+            )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Building not found"
 
 
 @pytest.mark.asyncio

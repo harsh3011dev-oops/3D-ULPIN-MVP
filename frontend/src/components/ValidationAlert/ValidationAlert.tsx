@@ -12,7 +12,9 @@ export default function ValidationAlert({ validation }: ValidationAlertProps) {
 
   if (!validation) return null;
 
-  if (validation.valid) {
+  const isValid = validation.valid ?? validation.is_valid ?? false;
+
+  if (isValid) {
     return (
       <div className="validation-alert valid glass-panel" id="validation-status">
         <div className="validation-badge-icon green">
