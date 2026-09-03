@@ -232,12 +232,16 @@ def detect_building_footprint_hybrid(
     else:
         valid_contours = [c for c in contours if cv2.contourArea(c) >= 100]
         largest_cnt = max(valid_contours, key=cv2.contourArea) if valid_contours else max(contours, key=cv2.contourArea)
-        epsilon = 0.02 * cv2.arcLength(largest_cnt, True)
+        epsilon = 0.008 * cv2.arcLength(largest_cnt, True)
         approx = cv2.approxPolyDP(largest_cnt, epsilon, True)
 
-        if len(approx) < 3:
-            x, y, w, h = cv2.boundingRect(largest_cnt)
-            approx = np.array([[[x, y]], [[x + w, y]], [[x + w, y + h]], [[x, y + h]]])
+        if len(approx) < 4:
+            # Fallback to convex hull instead of a simple bounding box
+            hull = cv2.convexHull(largest_cnt)
+            approx = cv2.approxPolyDP(hull, epsilon, True)
+            if len(approx) < 3:
+                x, y, w, h = cv2.boundingRect(largest_cnt)
+                approx = np.array([[[x, y]], [[x + w, y]], [[x + w, y + h]], [[x, y + h]]])
 
         pixel_coords = approx.reshape(-1, 2).tolist()
         geo_coords = _pixels_to_geo(pixel_coords, image_path)

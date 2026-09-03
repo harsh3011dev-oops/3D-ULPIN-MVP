@@ -48,6 +48,7 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [selectedStyleUrl, setSelectedStyleUrl] = useState(MAP_STYLES[0].url);
   const [hoveredUnitId, setHoveredUnitId] = useState<string | null>(null);
+  const [hoveredUnitInfo, setHoveredUnitInfo] = useState<{ unit: Unit; x: number; y: number } | null>(null);
   const [showContextBuildings, setShowContextBuildings] = useState(true);
   const [terrainEnabled, setTerrainEnabled] = useState(true);
 
@@ -186,24 +187,24 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
     }),
   }), [building?.units, selectedUnit, hoveredUnitId, selectedFloor, mapLng, mapLat]);
 
-  const floorLabelsData = Array.from({ length: building?.floor_count || 4 }, (_, i) => {
-    const floorNum = i + 1;
-    const floorUnits = (building?.units || []).filter((u) => (u.floor_number ?? u.floor ?? 1) === floorNum);
+  // Only render a label for the actively selected floor — no clutter for 163 floors
+  const floorLabelsData = useMemo(() => {
+    if (selectedFloor === null) return [];
+    const floorUnits = (building?.units || []).filter(
+      (u) => (u.floor_number ?? u.floor ?? 1) === selectedFloor
+    );
     const sampleUnit = floorUnits[0] || firstUnit;
     const floorHtM = sampleUnit?.floor_height_m ?? 3.5;
-    const zMax = sampleUnit?.z_max ?? floorNum * floorHtM;
-    const zMin = sampleUnit?.z_min ?? (floorNum - 1) * floorHtM;
+    const zMax = sampleUnit?.z_max ?? selectedFloor * floorHtM;
+    const zMin = sampleUnit?.z_min ?? (selectedFloor - 1) * floorHtM;
     const zMid = (zMin + zMax) / 2;
-
-    return {
-      text: selectedFloor === floorNum
-        ? `⭐ LEVEL ${floorNum} (ISOLATED)`
-        : `Level ${floorNum} (+${Number(zMax).toFixed(1)}m)`,
+    return [{
+      text: `▶ Floor ${selectedFloor}  +${Number(zMax).toFixed(1)}m`,
       coordinates: [sampleUnit?.centroid?.[1] || mapLng, sampleUnit?.centroid?.[0] || mapLat],
-      floorNumber: floorNum,
+      floorNumber: selectedFloor,
       zAltitude: zMid * SCALE_ELEVATION,
-    };
-  });
+    }];
+  }, [selectedFloor, building?.units, firstUnit, mapLng, mapLat]);
 
   const layers = useMemo(() => [
     ...(showContextBuildings ? [
@@ -282,8 +283,10 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       onHover: (info) => {
         if (info.object?.properties?.unit_id) {
           setHoveredUnitId(info.object.properties.unit_id);
+          setHoveredUnitInfo({ unit: info.object.properties as Unit, x: info.x, y: info.y });
         } else {
           setHoveredUnitId(null);
+          setHoveredUnitInfo(null);
         }
       },
       updateTriggers: {
@@ -406,6 +409,41 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
           </span>
         </div>
       </div>
+
+      {/* Hover Tooltip */}
+      {hoveredUnitInfo && (
+        <div
+          style={{
+            position: 'absolute',
+            left: hoveredUnitInfo.x + 14,
+            top: hoveredUnitInfo.y - 10,
+            zIndex: 100,
+            pointerEvents: 'none',
+            background: 'rgba(10,15,30,0.92)',
+            border: '1px solid rgba(124,111,224,0.5)',
+            borderRadius: 8,
+            padding: '8px 12px',
+            color: '#e2e8f0',
+            fontFamily: 'Inter, sans-serif',
+            fontSize: 12,
+            lineHeight: 1.6,
+            backdropFilter: 'blur(8px)',
+            minWidth: 180,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+          }}
+        >
+          <div style={{ fontWeight: 700, color: '#a5b4fc', marginBottom: 4 }}>
+            {hoveredUnitInfo.unit.unit_id || 'Unit'}
+          </div>
+          <div>Floor: <strong style={{color:'#fff'}}>{hoveredUnitInfo.unit.floor_number ?? hoveredUnitInfo.unit.floor ?? '—'}</strong></div>
+          <div>Z: <strong style={{color:'#fff'}}>{Number(hoveredUnitInfo.unit.z_min ?? 0).toFixed(1)}m → {Number(hoveredUnitInfo.unit.z_max ?? 0).toFixed(1)}m</strong></div>
+          {hoveredUnitInfo.unit.ulpin && (
+            <div style={{ marginTop: 4, fontSize: 10, color: '#7c6fe0', wordBreak: 'break-all' }}>
+              {hoveredUnitInfo.unit.ulpin}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="tech-badge-footer">
         <span className="pulse-dot" />
