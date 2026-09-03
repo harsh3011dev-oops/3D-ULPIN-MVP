@@ -18,8 +18,6 @@ CACHE: dict[str, dict[str, Any]] = {}
 
 GEMINI_MODELS = (
     "gemini-3.6-flash",
-    "gemini-flash-latest",
-    "gemini-2.5-flash",
 )
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
@@ -94,15 +92,11 @@ def _normalize(data: dict[str, Any], city: str) -> Optional[dict[str, Any]]:
 
 
 async def call_gemini_api(building_name: str, city: str) -> Optional[dict[str, Any]]:
-    api_key = (
-        settings.gemini_api_key
-        or os.getenv("GEMINI_API_KEY")
-        or os.getenv("GOOGLE_API_KEY")
-        or ""
-    )
+    # Changed to use Groq instead of Gemini due to timeouts
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        logger.error("GEMINI_API_KEY is not set")
-        raise RuntimeError("GEMINI_API_KEY is not configured")
+        logger.error("GROQ_API_KEY is not set")
+        return None
 
     prompt = f"""You are a geospatial lookup tool for well-known buildings.
 
@@ -126,48 +120,60 @@ Rules:
 """
 
     payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": 0.1,
-            "responseMimeType": "application/json",
-        },
+        "model": "qwen/qwen3.8-27b",
+        "messages": [
+            {"role": "system", "content": "You output JSON only."},
+            {"role": "user", "content": prompt}
+        ],
+        "response_format": {"type": "json_object"},
+        "temperature": 0.1,
     }
 
     last_error: Optional[str] = None
+    import asyncio
+
     async with httpx.AsyncClient(timeout=25.0) as client:
-        for model in GEMINI_MODELS:
-            url = GEMINI_URL.format(model=model)
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        for attempt in range(3):
             try:
                 response = await client.post(
                     url,
-                    params={"key": api_key},
                     json=payload,
-                    headers={"x-goog-api-key": api_key},
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
                 )
-            except httpx.HTTPError as exc:
-                last_error = str(exc)
-                logger.warning("Gemini request failed for %s: %s", model, exc)
+            except Exception as exc:
+                last_error = repr(exc)
+                logger.warning("Groq request failed: %r", exc)
+                break 
+            
+            if response.status_code == 429:
+                logger.warning("Groq rate limited, retrying in 2s...")
+                await asyncio.sleep(2.0)
                 continue
-
+                
             if response.status_code != 200:
-                last_error = f"{model} HTTP {response.status_code}: {response.text[:240]}"
-                logger.warning("Gemini %s: %s", model, last_error)
-                continue
+                last_error = f"HTTP {response.status_code}: {response.text[:240]}"
+                logger.warning("Groq error: %s", last_error)
+                break
 
             try:
                 result = response.json()
-                text = result["candidates"][0]["content"]["parts"][0]["text"]
+                text = result["choices"][0]["message"]["content"]
             except (KeyError, IndexError, TypeError) as exc:
                 last_error = str(exc)
-                continue
+                break
 
             parsed = _extract_json(text)
             if not parsed:
-                continue
+                break
             normalized = _normalize(parsed, city)
             if normalized:
+                normalized["source"] = "groq"
                 return normalized
             return None
 
-    logger.warning("Gemini lookup failed: %s", last_error)
+    logger.warning("Groq lookup failed: %s", last_error)
     return None
