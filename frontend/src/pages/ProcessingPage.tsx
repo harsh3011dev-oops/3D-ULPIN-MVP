@@ -51,13 +51,14 @@ export default function ProcessingPage() {
         const data = await getJobStatus(jobId);
         if (!isMounted) return;
         setProgress(data.progress_pct);
-        setStepText(data.step || 'Processing...');
+        const currentStep = data.progress_step || data.step || 'Processing...';
+        setStepText(currentStep);
 
-        if (data.step) {
+        if (currentStep) {
           const timeStr = new Date().toLocaleTimeString([], { hour12: false });
           setLogs(prev => {
-            if (prev.some(l => l.msg.includes(data.step!))) return prev;
-            return [...prev, { time: timeStr, level: 'AI', msg: `${data.step} (${data.progress_pct}%)`, type: 'ai' }];
+            if (prev.some(l => l.msg.includes(currentStep))) return prev;
+            return [...prev, { time: timeStr, level: 'AI', msg: `${currentStep} (${data.progress_pct}%)`, type: 'ai' }];
           });
         }
 

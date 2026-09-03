@@ -140,7 +140,7 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
 
   const unitsGeoJSON = useMemo(() => ({
     type: 'FeatureCollection',
-    features: (building?.units || []).map((unit) => {
+    features: (building?.units || []).flatMap((unit) => {
       const floorNum = unit.floor_number ?? unit.floor ?? 1;
       const floorHtM = unit.floor_height_m ?? 3.5;
       const zMin = unit.z_min ?? (floorNum - 1) * floorHtM;
@@ -152,17 +152,19 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
       const isHovered = hoveredUnitId === unit.unit_id;
       const isFloorIsolated = selectedFloor === floorNum;
 
-      const origRing = unit.polygon_2d?.coordinates?.[0] || [
+      const fallbackRing = [
         [mapLng - 0.0005, mapLat - 0.0005],
         [mapLng + 0.0005, mapLat - 0.0005],
         [mapLng + 0.0005, mapLat + 0.0005],
         [mapLng - 0.0005, mapLat + 0.0005],
         [mapLng - 0.0005, mapLat - 0.0005],
       ];
+      const geometry = unit.polygon_2d;
+      const polygons = geometry?.type === 'MultiPolygon'
+        ? geometry.coordinates
+        : [geometry?.coordinates || [fallbackRing]];
 
-      const ring3D = origRing.map((coord: number[]) => [coord[0], coord[1], zBase]);
-
-      return {
+      return polygons.map((polygon: number[][][]) => ({
         type: 'Feature',
         properties: {
           ...unit,
@@ -176,9 +178,11 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
         },
         geometry: {
           type: 'Polygon',
-          coordinates: [ring3D],
+          coordinates: polygon.map((ring: number[][]) =>
+            ring.map((coord: number[]) => [coord[0], coord[1], zBase])
+          ),
         },
-      };
+      }));
     }),
   }), [building?.units, selectedUnit, hoveredUnitId, selectedFloor, mapLng, mapLat]);
 

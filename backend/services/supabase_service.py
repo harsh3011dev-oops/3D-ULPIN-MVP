@@ -117,41 +117,37 @@ async def get_building_with_units(db: AsyncSession, building_id: str):
         except Exception:
             pass
             
+    class DummyUnit:
+        def __init__(self, data):
+            self.unit_id = data.get('unit_id')
+            self.ulpin = data.get('ulpin')
+            self.floor = data.get('floor')
+            self.floor_height_m = data.get('floor_height_m', 0.0)
+            centroid = data.get('centroid', [0, 0])
+            self.centroid_lat = centroid[0]
+            self.centroid_lon = centroid[1]
+            self.area_sqft = data.get('area_sqft', data.get('area_sqm', 0) * 10.764)
+            self.polygon_2d = data.get('polygon_2d')
+
+    class DummyBuilding:
+        def __init__(self, data):
+            self.building_id = data.get('building_id')
+            self.parcel_id = data.get('parcel_id')
+            self.height_meters = data.get('height', data.get('height_meters', 0.0))
+            self.floor_count = data.get('floor_count')
+            self.total_units = len(data.get('units', []))
+            self.building_name = data.get('building_name')
+            self.address = data.get('address')
+            self.centroid_lat = data.get('latitude')
+            self.centroid_lon = data.get('longitude')
+            self.created_at = data.get('created_at')
+            self.validation = None
+            self.footprint = data.get('footprint')
+            self.units = [DummyUnit(u) for u in data.get('units', [])]
+
     # Fallback to cache
     cached = _BUILDINGS_CACHE.get(building_id)
     if cached:
-        # Instead of returning a SQLAlchemy model, we return the raw dictionary
-        # We need to tell the caller that this is cached data, or we can just return it.
-        # But endpoints.py expects a SQLAlchemy model. Let's create dummy objects.
-        class DummyUnit:
-            def __init__(self, data):
-                self.unit_id = data.get('unit_id')
-                self.ulpin = data.get('ulpin')
-                self.floor = data.get('floor')
-                self.floor_height_m = data.get('floor_height_m', 0.0)
-                self.centroid_lat = data.get('centroid', [0, 0])[0]
-                self.centroid_lon = data.get('centroid', [0, 0])[1]
-                self.area_sqft = data.get('area_sqft', data.get('area_sqm', 0) * 10.764)
-                from shapely.geometry import shape
-                self.polygon_2d = f"SRID=4326;{shape(data.get('polygon_2d')).wkt}"
-
-        class DummyBuilding:
-            def __init__(self, data):
-                self.building_id = data.get('building_id')
-                self.parcel_id = data.get('parcel_id')
-                self.height_meters = data.get('height', data.get('height_meters', 0.0))
-                self.floor_count = data.get('floor_count')
-                self.total_units = len(data.get('units', []))
-                self.building_name = data.get('building_name')
-                self.address = data.get('address')
-                self.centroid_lat = data.get('latitude')
-                self.centroid_lon = data.get('longitude')
-                self.created_at = data.get('created_at')
-                self.validation = None  # handled via disk_result in endpoints.py
-                from shapely.geometry import shape
-                self.footprint = f"SRID=4326;{shape(data.get('footprint')).wkt}"
-                self.units = [DummyUnit(u) for u in data.get('units', [])]
-
         return DummyBuilding(cached)
 
     # Final fallback: scan ai/exports/ on disk
