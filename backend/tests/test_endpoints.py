@@ -123,6 +123,51 @@ async def test_get_buildings_by_id_endpoint():
 
 
 @pytest.mark.asyncio
+async def test_auto_detect_building_endpoint():
+    """POST /buildings/auto-detect returns Gemini lookup fields."""
+    sample = {
+        "building_name": "Taj Mahal",
+        "city": "Agra",
+        "latitude": 27.1751,
+        "longitude": 78.0421,
+        "height_meters": 73,
+        "floors": 7,
+        "confidence": 95,
+        "source": "gemini",
+    }
+    from backend.services import gemini_lookup
+    gemini_lookup.CACHE.clear()
+
+    with patch("backend.api.endpoints.call_gemini_api", new_callable=AsyncMock, return_value=sample):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            response = await ac.post(
+                "/api/v1/buildings/auto-detect",
+                json={"building_name": "Taj Mahal", "city": "Agra"},
+            )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["latitude"] == 27.1751
+    assert data["source"] == "gemini"
+
+
+@pytest.mark.asyncio
+async def test_auto_detect_building_not_found():
+    from backend.services import gemini_lookup
+    gemini_lookup.CACHE.clear()
+
+    with patch("backend.api.endpoints.call_gemini_api", new_callable=AsyncMock, return_value=None):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            response = await ac.post(
+                "/api/v1/buildings/auto-detect",
+                json={"building_name": "Random College", "city": "Random City"},
+            )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Building not found"
+
+
+@pytest.mark.asyncio
 async def test_get_validation_by_id_endpoint():
     """
     4. Verify GET /validation/{id} → returns Validation report

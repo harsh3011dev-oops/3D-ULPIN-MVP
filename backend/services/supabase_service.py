@@ -128,16 +128,10 @@ async def get_building_with_units(db: AsyncSession, building_id: str):
                 self.unit_id = data.get('unit_id')
                 self.ulpin = data.get('ulpin')
                 self.floor = data.get('floor')
+                self.floor_height_m = data.get('floor_height_m', 0.0)
                 self.centroid_lat = data.get('centroid', [0, 0])[0]
                 self.centroid_lon = data.get('centroid', [0, 0])[1]
-                self.area_sqft = data.get('area_sqm', 0) * 10.764
-                # Endpoints expects polygon_2d to be WKT or something that shapely can map
-                # But if it's already GeoJSON, endpoints will try to convert it.
-                # In endpoints.py it uses `to_shape(u.polygon_2d)`. 
-                # geoalchemy2 to_shape expects a WKBElement. 
-                # Let's create a WKT string so to_shape can parse it, OR we can just edit endpoints.py.
-                # A simpler way is to just keep polygon_2d as a string here and fix endpoints.py,
-                # or just use shapely.geometry.shape(data['polygon_2d']).wkt
+                self.area_sqft = data.get('area_sqft', data.get('area_sqm', 0) * 10.764)
                 from shapely.geometry import shape
                 self.polygon_2d = f"SRID=4326;{shape(data.get('polygon_2d')).wkt}"
 
@@ -145,10 +139,15 @@ async def get_building_with_units(db: AsyncSession, building_id: str):
             def __init__(self, data):
                 self.building_id = data.get('building_id')
                 self.parcel_id = data.get('parcel_id')
-                self.height_meters = data.get('height')
+                self.height_meters = data.get('height', data.get('height_meters', 0.0))
                 self.floor_count = data.get('floor_count')
                 self.total_units = len(data.get('units', []))
-                
+                self.building_name = data.get('building_name')
+                self.address = data.get('address')
+                self.centroid_lat = data.get('latitude')
+                self.centroid_lon = data.get('longitude')
+                self.created_at = data.get('created_at')
+                self.validation = None  # handled via disk_result in endpoints.py
                 from shapely.geometry import shape
                 self.footprint = f"SRID=4326;{shape(data.get('footprint')).wkt}"
                 self.units = [DummyUnit(u) for u in data.get('units', [])]
@@ -192,7 +191,7 @@ async def get_validation_log(db: AsyncSession, building_id: str):
                 self.is_valid = data.get('valid', True)
                 self.overlaps_detected = len(data.get('overlapping_units', []))
                 self.out_of_bounds = len(data.get('out_of_bounds', []))
-                self.confidence_score = 95.0
+                self.confidence_score = data.get('confidence_score', 0.0)
                 self.validation_report = data
                 self.checked_at = datetime.utcnow()
         return DummyValidation(cached)

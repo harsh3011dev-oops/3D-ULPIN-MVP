@@ -38,8 +38,11 @@ export interface ValidationError {
 }
 
 export interface SpatialValidation {
-  valid: boolean;
+  valid?: boolean;
+  is_valid?: boolean;
   overlaps_detected: boolean;
+  confidence_score?: number;
+  out_of_bounds_count?: number;
   overlapping_units?: [string, string][];
   out_of_bounds?: string[];
   errors?: (string | ValidationError)[];
@@ -61,6 +64,8 @@ export interface Building {
   aerial_image_url?: string;
   building_name?: string;
   address?: string;
+  latitude?: number;
+  longitude?: number;
   footprint?: GeoJSONPolygon | any;
   height_meters?: number;
   height?: number;
@@ -72,8 +77,25 @@ export interface Building {
   created_at?: string;
 }
 
+export interface AutoDetectBuildingPayload {
+  building_name: string;
+  city: string;
+}
+
+export interface AutoDetectBuildingResult {
+  building_name: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+  height_meters: number | null;
+  floors: number | null;
+  confidence: number;
+  source: string;
+}
+
 export interface CreateBuildingPayload {
   parcel_id: string;
+  building_name?: string;
   address?: string;
   latitude?: number;
   longitude?: number;

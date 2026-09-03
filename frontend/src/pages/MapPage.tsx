@@ -23,7 +23,7 @@ const SIDEBAR_NAV = [
 ];
 
 export default function MapPage() {
-  const { buildingId } = useParams<{ buildingId: string }>();
+  const { buildingId: building_id } = useParams<{ buildingId: string }>();
 
   const [building, setBuilding]           = useState<Building | null>(null);
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
@@ -36,7 +36,7 @@ export default function MapPage() {
 
   useEffect(() => {
     async function loadData() {
-      if (!buildingId) {
+      if (!building_id) {
         setIsLoading(false);
         setLoadError('No building ID provided.');
         return;
@@ -44,12 +44,15 @@ export default function MapPage() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const data = await getBuilding(buildingId);
+        // Use direct axios call as specified
+        const axios = (await import('axios')).default;
+        const response = await axios.get(`/api/v1/buildings/${building_id}`);
+        const data = response.data;
         if (data) {
           setBuilding(data);
           if (data.units?.length > 0) setSelectedUnit(data.units[0]);
         } else {
-          setLoadError(`Building "${buildingId}" not found.`);
+          setLoadError(`Building "${building_id}" not found.`);
         }
       } catch (err: any) {
         const msg = err?.response?.data?.detail || err?.message || 'Failed to load building data.';
@@ -60,13 +63,16 @@ export default function MapPage() {
       }
     }
     loadData();
-  }, [buildingId]);
+  }, [building_id]);
 
   const getCoordinates = () => {
     if (!building) return { lat: '—', lng: '—' };
+    if (building.latitude != null && building.longitude != null) {
+      return { lat: building.latitude.toFixed(5), lng: building.longitude.toFixed(5) };
+    }
     const { lat, lng } = getBuildingCenter(building);
     if (lat !== 0 || lng !== 0) {
-      return { lat: lat.toFixed(4), lng: lng.toFixed(4) };
+      return { lat: lat.toFixed(5), lng: lng.toFixed(5) };
     }
     return { lat: '—', lng: '—' };
   };
@@ -228,7 +234,19 @@ export default function MapPage() {
               <FloorSelector
                 totalFloors={building.floor_count}
                 selectedFloor={selectedFloor}
-                onSelectFloor={(floor) => setSelectedFloor(floor)}
+                onSelectFloor={(floor) => {
+                  setSelectedFloor(floor);
+                  // Auto-select first unit on the chosen floor
+                  if (floor === null) {
+                    // "All" selected — show first unit overall
+                    if (building.units?.length > 0) setSelectedUnit(building.units[0]);
+                  } else {
+                    const firstUnitOnFloor = building.units?.find(
+                      (u) => (u.floor_number ?? u.floor) === floor
+                    );
+                    if (firstUnitOnFloor) setSelectedUnit(firstUnitOnFloor);
+                  }
+                }}
               />
             </div>
           )}
@@ -252,7 +270,7 @@ export default function MapPage() {
                 </div>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem',
                   fontWeight: 800, color: 'var(--primary)' }}>
-                  98.4<span style={{ fontSize: '0.85rem', fontWeight: 400,
+                  {(building?.validation?.confidence_score ?? 0).toFixed(1)}<span style={{ fontSize: '0.85rem', fontWeight: 400,
                     color: 'var(--text-muted)' }}>%</span>
                 </div>
               </div>
@@ -261,7 +279,7 @@ export default function MapPage() {
                   stroke="var(--surface-container)" />
                 <circle cx="20" cy="20" r="16" strokeWidth="4" fill="none"
                   stroke="var(--accent-sage)" strokeDasharray="100.53"
-                  strokeDashoffset="1.6" strokeLinecap="round"
+                  strokeDashoffset={100.53 - ((building?.validation?.confidence_score ?? 0) / 100) * 100.53} strokeLinecap="round"
                   style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }} />
               </svg>
             </div>

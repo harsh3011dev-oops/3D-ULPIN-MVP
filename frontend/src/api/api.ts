@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Building, CreateBuildingPayload, JobStatus, JobStatusResponse, SpatialValidation, ValidationResult } from '../types';
+import { AutoDetectBuildingPayload, AutoDetectBuildingResult, Building, CreateBuildingPayload, JobStatus, JobStatusResponse, SpatialValidation, ValidationResult } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -8,6 +8,14 @@ const apiClient = axios.create({
   timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
 });
+
+/**
+ * Auto-fill coordinates / height / floors for a famous building.
+ */
+export async function autoDetectBuilding(payload: AutoDetectBuildingPayload): Promise<AutoDetectBuildingResult> {
+  const response = await apiClient.post('/buildings/auto-detect', payload);
+  return response.data;
+}
 
 /**
  * Submit a building for 3D ULPIN generation via Axios.

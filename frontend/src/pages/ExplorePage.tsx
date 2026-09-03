@@ -1,11 +1,12 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from '../components/Header/Header';
-import { createBuilding } from '../api/api';
+import { autoDetectBuilding, createBuilding } from '../api/api';
+import { AutoDetectBuildingResult } from '../types';
 import {
-  MapPin, Layers, ArrowRight, ArrowLeft,
-  Building2, Satellite, Ruler, CheckCircle, Loader2, ChevronRight
+  MapPin, Layers, ArrowRight, ArrowLeft, Search,
+  Building2, Satellite, Ruler, CheckCircle, Loader2, ChevronRight, PencilLine
 } from 'lucide-react';
 import './ExplorePage.css';
 
@@ -18,6 +19,8 @@ interface FormState {
   height: string;
   floors: string;
 }
+
+type EntryMode = 'pick' | 'search' | 'manual';
 
 const STEPS = [
   { id: 1, label: 'Location',  icon: MapPin },
@@ -32,40 +35,128 @@ const slide = {
   exit:   (dir: number) => ({ x: dir > 0 ? -60 : 60, opacity: 0, transition: { duration: 0.25 } }),
 };
 
-export default function ExplorePage() {
-  const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-  const [dir, setDir] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const [form, setForm] = useState<FormState>({
+function emptyForm(): FormState {
+  return {
     buildingName: '',
     location: '',
     latitude: '',
     longitude: '',
     height: '',
     floors: '',
-  });
+  };
+}
+
+export default function ExplorePage() {
+  const navigate = useNavigate();
+  const [entryMode, setEntryMode] = useState<EntryMode>('pick');
+  const [step, setStep] = useState(1);
+  const [dir, setDir] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const [buildingName, setBuildingName] = useState('');
+  const [city, setCity] = useState('');
+  const [building, setBuilding] = useState<AutoDetectBuildingResult | null>(null);
+
+  const [form, setForm] = useState<FormState>(emptyForm());
 
   const set = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setError('');
     setForm(f => ({ ...f, [key]: e.target.value }));
   };
 
-  /* satellite preview URL (OpenStreetMap static tile via a proxy-free approach) */
-  const satUrl = form.latitude && form.longitude
-    ? `https://maps.googleapis.com/maps/api/staticmap?center=${form.latitude},${form.longitude}&zoom=18&size=600x300&maptype=satellite`
-    : null;
-
-  // Use openstreetmap tile as fallback (no key needed)
-  const osmPreviewUrl = form.latitude && form.longitude
-    ? `https://staticmap.openstreetmap.de/staticmap.php?center=${form.latitude},${form.longitude}&zoom=17&size=600x280&markers=${form.latitude},${form.longitude},red`
-    : null;
-
   const go = (next: number) => {
     setDir(next > step ? 1 : -1);
     setStep(next);
+  };
+
+  const switchToManual = () => {
+    setError('');
+    if (building) {
+      setForm({
+        buildingName: building.building_name,
+        location: building.city,
+        latitude: String(building.latitude),
+        longitude: String(building.longitude),
+        height: building.height_meters != null ? String(building.height_meters) : '',
+        floors: building.floors != null ? String(building.floors) : '',
+      });
+    } else if (buildingName || city) {
+      setForm(f => ({
+        ...f,
+        buildingName: buildingName || f.buildingName,
+        location: city || f.location,
+      }));
+    }
+    setEntryMode('manual');
+    setStep(1);
+  };
+
+  const searchBuilding = async () => {
+    if (!buildingName.trim() || !city.trim()) {
+      setError('Enter both building name and city.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    setBuilding(null);
+    try {
+      const result = await autoDetectBuilding({
+        building_name: buildingName.trim(),
+        city: city.trim(),
+      });
+      setBuilding(result);
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      setError(typeof detail === 'string' ? detail : 'Building not found');
+      setBuilding(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditDetected = (field: keyof AutoDetectBuildingResult, value: string) => {
+    if (!building) return;
+    const numeric = field === 'floors' ? parseInt(value, 10) : parseFloat(value);
+    setBuilding({
+      ...building,
+      [field]: Number.isNaN(numeric) ? (value === '' ? null : building[field]) : numeric,
+    });
+  };
+
+  const submitDetectedBuilding = async () => {
+    if (!building) return;
+    if (building.latitude == null || building.longitude == null) {
+      setError('Latitude and longitude are required.');
+      return;
+    }
+    if (building.height_meters == null || building.height_meters <= 0) {
+      setError('Enter a valid height in metres.');
+      return;
+    }
+    if (building.floors == null || building.floors < 1) {
+      setError('Enter at least 1 floor.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const parcelId = `AUTO_${building.building_name.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 18)}_${Date.now().toString(36).toUpperCase()}`;
+      const res = await createBuilding({
+        parcel_id: parcelId,
+        building_name: building.building_name,
+        address: `${building.building_name}, ${building.city}`,
+        latitude: building.latitude,
+        longitude: building.longitude,
+        height_meters: building.height_meters,
+        floor_count: building.floors,
+      });
+      navigate(`/processing/${res.job_id || 'job-001'}`);
+    } catch {
+      setError('Could not start processing. Check if the backend is running.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const validateStep = (): boolean => {
@@ -99,6 +190,7 @@ export default function ExplorePage() {
       const parcelId = `PARCEL_${form.buildingName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 18)}_${Date.now().toString(36).toUpperCase()}`;
       const res = await createBuilding({
         parcel_id: parcelId,
+        building_name: form.buildingName.trim(),
         address: `${form.buildingName}, ${form.location}`,
         latitude: parseFloat(form.latitude),
         longitude: parseFloat(form.longitude),
@@ -120,13 +212,156 @@ export default function ExplorePage() {
       <Header />
 
       <main className="explore-container">
-        {/* ── Card ── */}
         <motion.div
           className="exp-card"
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
+          {entryMode === 'pick' && (
+            <>
+              <div className="exp-body">
+                <div className="exp-step-header">
+                  <div className="exp-step-icon-box"><Building2 size={22} /></div>
+                  <h2 className="exp-step-title">How do you want to start?</h2>
+                  <p className="exp-step-desc">Search a famous landmark to auto-fill coordinates and height, or enter everything yourself.</p>
+                </div>
+                <div className="exp-mode-grid">
+                  <button type="button" className="exp-mode-card" onClick={() => { setError(''); setEntryMode('search'); }}>
+                    <Search size={22} />
+                    <strong>Search Famous Building</strong>
+                    <span>Name + city → AI fills lat, lon, height, floors</span>
+                  </button>
+                  <button type="button" className="exp-mode-card" onClick={() => { setError(''); setEntryMode('manual'); }}>
+                    <PencilLine size={22} />
+                    <strong>Manual Entry</strong>
+                    <span>Type coordinates and dimensions yourself</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {entryMode === 'search' && (
+            <>
+              <div className="exp-body">
+                <div className="exp-step-header">
+                  <div className="exp-step-icon-box"><Search size={22} /></div>
+                  <h2 className="exp-step-title">Search Famous Building</h2>
+                  <p className="exp-step-desc">Enter the landmark name and city. Gemini will auto-fill coordinates, height, and floors — you can still edit them.</p>
+                </div>
+
+                <div className="exp-field">
+                  <label className="exp-label">Building Name</label>
+                  <input
+                    className="exp-input"
+                    type="text"
+                    placeholder="e.g. Taj Mahal"
+                    value={buildingName}
+                    onChange={(e) => { setError(''); setBuildingName(e.target.value); }}
+                    autoFocus
+                  />
+                </div>
+                <div className="exp-field">
+                  <label className="exp-label">City</label>
+                  <input
+                    className="exp-input"
+                    type="text"
+                    placeholder="e.g. Agra"
+                    value={city}
+                    onChange={(e) => { setError(''); setCity(e.target.value); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') searchBuilding(); }}
+                  />
+                </div>
+
+                {building && (
+                  <div className="exp-found-card">
+                    <h3 className="exp-found-title">
+                      <CheckCircle size={16} /> {building.building_name} found
+                    </h3>
+                    <p className="exp-found-meta">
+                      Source: {building.source} · Confidence: {building.confidence}% · {building.city}
+                    </p>
+                    <div className="exp-row">
+                      <div className="exp-field">
+                        <label className="exp-label">Latitude</label>
+                        <input
+                          className="exp-input"
+                          type="number"
+                          step="0.0001"
+                          value={building.latitude}
+                          onChange={(e) => handleEditDetected('latitude', e.target.value)}
+                        />
+                      </div>
+                      <div className="exp-field">
+                        <label className="exp-label">Longitude</label>
+                        <input
+                          className="exp-input"
+                          type="number"
+                          step="0.0001"
+                          value={building.longitude}
+                          onChange={(e) => handleEditDetected('longitude', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="exp-row">
+                      <div className="exp-field">
+                        <label className="exp-label">Height (m)</label>
+                        <input
+                          className="exp-input"
+                          type="number"
+                          placeholder="Height (m)"
+                          value={building.height_meters ?? ''}
+                          onChange={(e) => handleEditDetected('height_meters', e.target.value)}
+                        />
+                      </div>
+                      <div className="exp-field">
+                        <label className="exp-label">Floors</label>
+                        <input
+                          className="exp-input"
+                          type="number"
+                          placeholder="Floors"
+                          value={building.floors ?? ''}
+                          onChange={(e) => handleEditDetected('floors', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {error && (
+                <motion.p className="exp-error" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  ⚠ {error}
+                </motion.p>
+              )}
+
+              <div className="exp-nav">
+                <button className="exp-btn-back" onClick={() => { setError(''); setEntryMode('pick'); }} disabled={loading}>
+                  <ArrowLeft size={16} /> Back
+                </button>
+                <button className="exp-btn-back" onClick={switchToManual} disabled={loading} style={{ marginRight: 0 }}>
+                  Manual Entry Instead
+                </button>
+                {!building && (
+                  <button className="exp-btn-next" onClick={searchBuilding} disabled={loading}>
+                    {loading ? <><Loader2 size={16} className="spin" /> Searching…</> : <><Search size={16} /> Search</>}
+                  </button>
+                )}
+                {building && (
+                  <button className="exp-btn-generate" onClick={submitDetectedBuilding} disabled={loading}>
+                    {loading
+                      ? <><Loader2 size={16} className="spin" /> Starting…</>
+                      : <><ArrowRight size={16} /> Generate 3D ULPIN</>
+                    }
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          {entryMode === 'manual' && (
+            <>
           {/* Progress bar */}
           <div className="exp-progress-track">
             <motion.div
@@ -353,11 +588,9 @@ export default function ExplorePage() {
 
           {/* Navigation buttons */}
           <div className="exp-nav">
-            {step > 1 && (
-              <button className="exp-btn-back" onClick={back} disabled={loading}>
-                <ArrowLeft size={16} /> Back
-              </button>
-            )}
+            <button className="exp-btn-back" onClick={() => { if (step === 1) { setError(''); setEntryMode('pick'); } else { back(); } }} disabled={loading}>
+              <ArrowLeft size={16} /> Back
+            </button>
             {step < 4 && (
               <button className="exp-btn-next" onClick={next}>
                 Continue <ChevronRight size={16} />
@@ -372,6 +605,8 @@ export default function ExplorePage() {
               </button>
             )}
           </div>
+            </>
+          )}
         </motion.div>
       </main>
     </div>

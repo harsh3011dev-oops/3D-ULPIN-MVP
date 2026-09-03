@@ -5,13 +5,17 @@ from shapely.geometry import shape
 
 from backend.database import get_db
 from backend.schemas import (
-    BuildingCreateRequest, 
+    BuildingCreateRequest,
+    BuildingAutoDetectRequest,
+    BuildingAutoDetectResponse,
     JobStatusResponse, 
     BuildingResponse, 
     UnitResponse, 
     ValidationResponse,
-    GenericResponse
+    GenericResponse,
+    BuildingValidationSummary
 )
+from backend.services.gemini_lookup import CACHE, cache_key, call_gemini_api
 from backend.services.supabase_service import (
     create_job, 
     get_job, 
@@ -21,6 +25,32 @@ from backend.services.supabase_service import (
 from backend.services.ai_runner import execute_ai_pipeline_job
 
 router = APIRouter(tags=["3D ULPIN MVP"])
+
+# ── In-memory cache for auto-detect results ──────────────────────────────────
+_AUTODETECT_CACHE: dict = {}
+
+@router.post("/buildings/auto-detect")
+async def auto_detect_building(request: dict):
+    """
+    Accepts {"building_name": "Taj Mahal", "city": "Agra"}
+    Returns auto-filled lat/lon/height/floors via Gemini AI.
+    """
+    building_name = str(request.get("building_name", "")).strip()
+    city = str(request.get("city", "")).strip()
+
+    if not building_name or not city:
+        raise HTTPException(status_code=400, detail="Both building_name and city are required.")
+
+    cache_key = f"{building_name}|{city}".lower()
+    if cache_key in _AUTODETECT_CACHE:
+        return _AUTODETECT_CACHE[cache_key]
+
+    result = await _call_gemini_api(building_name, city)
+    if not result:
+        raise HTTPException(status_code=404, detail="Building not found or confidence too low. Try Manual Entry.")
+
+    _AUTODETECT_CACHE[cache_key] = result
+    return result
 
 @router.post("/buildings/create", response_model=GenericResponse, status_code=202)
 async def create_building_request(
@@ -46,6 +76,7 @@ async def create_building_request(
         execute_ai_pipeline_job,
         job_id=job.job_id,
         parcel_id=request.parcel_id,
+        building_name=request.building_name,
         address=request.address,
         latitude=request.latitude,
         longitude=request.longitude,
@@ -110,27 +141,48 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
     building = await get_building_with_units(db, building_id)
 
     if building:
-        units_response = []
-        for u in building.units:
-            units_response.append(
-                UnitResponse(
-                    unit_id=u.unit_id,
-                    ulpin=u.ulpin,
-                    floor=u.floor,
-                    centroid=[u.centroid_lat, u.centroid_lon],
-                    polygon_2d=_to_geojson(u.polygon_2d),
-                    area_sqft=u.area_sqft or 0.0
+        try:
+            disk_result = None
+            try:
+                from backend.services.ai_runner import _load_result_by_building_id
+                disk_result = _load_result_by_building_id(building_id)
+            except Exception:
+                pass
+            result_validation = (disk_result or {}).get("validation", {})
+            validation = getattr(building, "validation", None)
+            units_response = []
+            for u in building.units:
+                floor_num = getattr(u, "floor", None) or 1
+                floor_height = getattr(u, "floor_height_m", None) or 0.0
+                units_response.append(UnitResponse(
+                    unit_id=u.unit_id, ulpin=u.ulpin, floor=floor_num,
+                    centroid=[getattr(u, 'centroid_lat', 0.0), getattr(u, 'centroid_lon', 0.0)],
+                    polygon_2d=_to_geojson(u.polygon_2d), area_sqft=getattr(u, 'area_sqft', 0.0) or 0.0,
+                    z_min=(floor_num - 1) * floor_height, z_max=floor_num * floor_height,
+                    floor_height_m=floor_height
+                ))
+            return BuildingResponse(
+                building_id=building.building_id,
+                parcel_id=str(building.parcel_id) if building.parcel_id else (disk_result or {}).get("parcel_id", "unknown"),
+                footprint=_to_geojson(building.footprint), height_meters=building.height_meters or 0.0,
+                floor_count=building.floor_count or 1, total_units=building.total_units or len(units_response), units=units_response,
+                building_name=(disk_result or {}).get("building_name") or getattr(building, "building_name", None),
+                address=(disk_result or {}).get("address") or getattr(building, "address", None),
+                latitude=(disk_result or {}).get("latitude") or getattr(building, "centroid_lat", None),
+                longitude=(disk_result or {}).get("longitude") or getattr(building, "centroid_lon", None),
+                created_at=getattr(building, "created_at", None),
+                validation=BuildingValidationSummary(
+                    is_valid=getattr(validation, "is_valid", result_validation.get("valid", True)),
+                    overlaps_detected=getattr(validation, "overlaps_detected", len(result_validation.get("overlapping_units", []))),
+                    out_of_bounds=getattr(validation, "out_of_bounds", len(result_validation.get("out_of_bounds", []))),
+                    confidence_score=getattr(validation, "confidence_score", result_validation.get("confidence_score", 0.0)),
+                    errors=result_validation.get("errors", [])
                 )
             )
-        return BuildingResponse(
-            building_id=building.building_id,
-            parcel_id=str(building.parcel_id) if building.parcel_id else "unknown",
-            footprint=_to_geojson(building.footprint),
-            height_meters=building.height_meters,
-            floor_count=building.floor_count,
-            total_units=building.total_units,
-            units=units_response
-        )
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(f"Building cache hit but response build failed: {exc}. Falling through to disk scan.")
+            # fall through to disk-scan below
 
     # ── Fallback: scan disk exports by building_id OR job_id ────────────────
     exports_dir = os.path.abspath(
@@ -178,7 +230,9 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
                 floor=floor_num,
                 centroid=centroid if isinstance(centroid, list) else [0.0, 0.0],
                 polygon_2d=_to_geojson(u.get("polygon_2d", {})),
-                area_sqft=float(area_sqft or 0.0)
+                area_sqft=float(area_sqft or 0.0),
+                z_min=u.get("z_min"), z_max=u.get("z_max"),
+                floor_height_m=u.get("floor_height_m")
             )
         )
 
@@ -188,11 +242,106 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
         footprint=_to_geojson(result.get("footprint", {})),
         height_meters=float(height),
         floor_count=int(floor_count),
-        total_units=len(units_response),
-        units=units_response
+        total_units=len(units_response), units=units_response,
+        building_name=result.get("building_name"), address=result.get("address"),
+        latitude=result.get("latitude"), longitude=result.get("longitude"),
+        created_at=result.get("created_at"),
+        validation=BuildingValidationSummary(
+            is_valid=result.get("validation", {}).get("valid", True),
+            overlaps_detected=len(result.get("validation", {}).get("overlapping_units", [])),
+            out_of_bounds=len(result.get("validation", {}).get("out_of_bounds", [])),
+            confidence_score=result.get("validation", {}).get("confidence_score", 0.0),
+            errors=result.get("validation", {}).get("errors", [])
+        )
     )
 
-@router.get("/validation/{building_id}", response_model=ValidationResponse)
+@router.post("/buildings/auto-detect")
+async def auto_detect_building(request: dict):
+    """
+    Accepts {"building_name": "Taj Mahal", "city": "Agra"}
+    Returns auto-filled lat/lon/height/floors via Gemini AI.
+    """
+    building_name = str(request.get("building_name", "")).strip()
+    city = str(request.get("city", "")).strip()
+
+    if not building_name or not city:
+        raise HTTPException(status_code=400, detail="Both building_name and city are required.")
+
+    cache_key = f"{building_name}|{city}".lower()
+    if cache_key in _AUTODETECT_CACHE:
+        return _AUTODETECT_CACHE[cache_key]
+
+    result = await _call_gemini_api(building_name, city)
+    if not result:
+        raise HTTPException(status_code=404, detail="Building not found or confidence too low. Try Manual Entry.")
+
+    _AUTODETECT_CACHE[cache_key] = result
+    return result
+
+
+async def _call_gemini_api(building_name: str, city: str) -> dict | None:
+    """Call Gemini 1.5 Flash to get building geo-details."""
+    import httpx, json, re, os
+
+    api_key = os.getenv("GEMINI_API_KEY", "")
+    if not api_key:
+        return None
+
+    prompt = f"""You are a geospatial database. Return ONLY valid JSON (no markdown, no explanation).
+
+Give the building details for: \"{building_name}\" in \"{city}\".
+
+JSON schema:
+{{
+  "building_name": "<official name>",
+  "city": "{city}",
+  "latitude": <decimal degrees, float>,
+  "longitude": <decimal degrees, float>,
+  "height_meters": <total height in metres, integer>,
+  "floors": <number of floors above ground, integer>,
+  "confidence": <0-100, how certain you are>
+}}
+
+If the building is unknown or confidence < 70, return exactly: null"""
+
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    payload = {"contents": [{"parts": [{"text": prompt}]}],
+               "generationConfig": {"temperature": 0.1, "maxOutputTokens": 512}}
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.post(f"{url}?key={api_key}", json=payload)
+        if resp.status_code != 200:
+            import logging
+            logging.getLogger(__name__).warning(f"Gemini API error {resp.status_code}: {resp.text[:300]}")
+            return None
+
+        text = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        if text.lower() == "null":
+            return None
+
+        # Strip markdown code fences if present
+        text = re.sub(r"^```[a-z]*\n?", "", text, flags=re.MULTILINE)
+        text = re.sub(r"```$", "", text, flags=re.MULTILINE).strip()
+
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if not match:
+            return None
+
+        data = json.loads(match.group())
+        if data is None or data.get("confidence", 0) < 70:
+            return None
+
+        data["source"] = "gemini"
+        return data
+
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning(f"Gemini call failed: {exc}")
+        return None
+
+
+
 async def get_validation(building_id: str, db: AsyncSession = Depends(get_db)):
     """
     Endpoint 4: Provide validation reports

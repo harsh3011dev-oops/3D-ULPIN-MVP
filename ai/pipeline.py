@@ -53,6 +53,7 @@ def process_building(*args, **kwargs) -> dict:
 
     try:
         parcel_id = input_data.get("parcel_id", "UNKNOWN_PARCEL")
+        building_name = input_data.get("building_name")
         building_id = input_data.get("building_id", str(uuid.uuid4()))
         parcel_boundary = input_data.get("parcel_boundary")
         address = input_data.get("address")
@@ -145,10 +146,26 @@ def process_building(*args, **kwargs) -> dict:
             unit["ulpin"] = ulpin
 
         validation_report = validate_spatial_data(all_units, footprint_geojson)
+        try:
+            from ai.confidence_scorer import ConfidenceScorer
+            confidence = ConfidenceScorer().get_confidence_breakdown(
+                image=image_path, footprint=footprint_geojson,
+                parcel_boundary=parcel_boundary, floors=floors, units=all_units,
+                ulpins=[u["ulpin"] for u in all_units]
+            )
+            validation_report["confidence_score"] = confidence["overall_pipeline_confidence"]
+            validation_report["confidence_breakdown"] = confidence
+        except Exception:
+            validation_report["confidence_score"] = 100.0 if validation_report.get("valid") else 0.0
 
         return {
             "status": "success",
             "building_id": building_id,
+            "building_name": building_name,
+            "address": address,
+            "latitude": lat,
+            "longitude": lon,
+            "parcel_id": parcel_id,
             "footprint": footprint_geojson,
             "height": height_meters,
             "floor_count": floor_count,
