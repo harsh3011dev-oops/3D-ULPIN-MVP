@@ -45,7 +45,7 @@ async def auto_detect_building(request: dict):
     if cache_key in _AUTODETECT_CACHE:
         return _AUTODETECT_CACHE[cache_key]
 
-    result = await _call_gemini_api(building_name, city)
+    result = await call_gemini_api(building_name, city)
     if not result:
         raise HTTPException(status_code=404, detail="Building not found or confidence too low. Try Manual Entry.")
 
@@ -254,93 +254,6 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
             errors=result.get("validation", {}).get("errors", [])
         )
     )
-
-@router.post("/buildings/auto-detect")
-async def auto_detect_building(request: dict):
-    """
-    Accepts {"building_name": "Taj Mahal", "city": "Agra"}
-    Returns auto-filled lat/lon/height/floors via Gemini AI.
-    """
-    building_name = str(request.get("building_name", "")).strip()
-    city = str(request.get("city", "")).strip()
-
-    if not building_name or not city:
-        raise HTTPException(status_code=400, detail="Both building_name and city are required.")
-
-    cache_key = f"{building_name}|{city}".lower()
-    if cache_key in _AUTODETECT_CACHE:
-        return _AUTODETECT_CACHE[cache_key]
-
-    result = await _call_gemini_api(building_name, city)
-    if not result:
-        raise HTTPException(status_code=404, detail="Building not found or confidence too low. Try Manual Entry.")
-
-    _AUTODETECT_CACHE[cache_key] = result
-    return result
-
-
-async def _call_gemini_api(building_name: str, city: str) -> dict | None:
-    """Call Gemini 1.5 Flash to get building geo-details."""
-    import httpx, json, re, os
-
-    api_key = os.getenv("GEMINI_API_KEY", "")
-    if not api_key:
-        return None
-
-    prompt = f"""You are a geospatial database. Return ONLY valid JSON (no markdown, no explanation).
-
-Give the building details for: \"{building_name}\" in \"{city}\".
-
-JSON schema:
-{{
-  "building_name": "<official name>",
-  "city": "{city}",
-  "latitude": <decimal degrees, float>,
-  "longitude": <decimal degrees, float>,
-  "height_meters": <total height in metres, integer>,
-  "floors": <number of floors above ground, integer>,
-  "confidence": <0-100, how certain you are>
-}}
-
-If the building is unknown or confidence < 70, return exactly: null"""
-
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
-    payload = {"contents": [{"parts": [{"text": prompt}]}],
-               "generationConfig": {"temperature": 0.1, "maxOutputTokens": 512}}
-
-    try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            resp = await client.post(f"{url}?key={api_key}", json=payload)
-        if resp.status_code != 200:
-            import logging
-            logging.getLogger(__name__).warning(f"Gemini API error {resp.status_code}: {resp.text[:300]}")
-            return None
-
-        text = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-        if text.lower() == "null":
-            return None
-
-        # Strip markdown code fences if present
-        text = re.sub(r"^```[a-z]*\n?", "", text, flags=re.MULTILINE)
-        text = re.sub(r"```$", "", text, flags=re.MULTILINE).strip()
-
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if not match:
-            return None
-
-        data = json.loads(match.group())
-        if data is None or data.get("confidence", 0) < 70:
-            return None
-
-        data["source"] = "gemini"
-        return data
-
-    except Exception as exc:
-        import logging
-        logging.getLogger(__name__).warning(f"Gemini call failed: {exc}")
-        return None
-
-
 
 async def get_validation(building_id: str, db: AsyncSession = Depends(get_db)):
     """

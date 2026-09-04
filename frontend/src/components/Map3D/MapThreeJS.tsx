@@ -30,16 +30,80 @@ const FLOOR_HEX_COLORS = [
   0x8b5cf6,
 ];
 
+function generateBuildingTexture(floors: number) {
+  const canvas = document.createElement('canvas');
+  const COLS = 4;
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    // Dark concrete base
+    ctx.fillStyle = '#0d1b2e';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Horizontal floor band lines (concrete slab edges)
+    const rowH = 512 / Math.min(floors, 20);
+    ctx.strokeStyle = '#1e2d42';
+    ctx.lineWidth = 2;
+    for (let j = 0; j < 20; j++) {
+      ctx.beginPath();
+      ctx.moveTo(0, j * rowH);
+      ctx.lineTo(512, j * rowH);
+      ctx.stroke();
+    }
+
+    // Window columns
+    const winW = (512 / COLS) * 0.6;
+    const winMarginX = (512 / COLS) * 0.2;
+    for (let i = 0; i < COLS; i++) {
+      for (let j = 0; j < 20; j++) {
+        const rx = i * (512 / COLS) + winMarginX;
+        const ry = j * rowH + rowH * 0.15;
+        const rh = rowH * 0.65;
+        const rnd = Math.random();
+        if (rnd > 0.88) {
+          ctx.fillStyle = '#fef9c3'; // warm light on
+        } else if (rnd > 0.12) {
+          ctx.fillStyle = '#1d4ed8'; // standard blue glass
+        } else {
+          ctx.fillStyle = '#0f172a'; // dark/off
+        }
+        ctx.fillRect(rx, ry, winW, rh);
+        // Reflection glint
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.fillRect(rx, ry, winW * 0.25, rh);
+      }
+    }
+
+    // Vertical pillar lines between windows
+    ctx.strokeStyle = '#1e2d42';
+    ctx.lineWidth = 3;
+    for (let i = 1; i < COLS; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * (512 / COLS), 0);
+      ctx.lineTo(i * (512 / COLS), 512);
+      ctx.stroke();
+    }
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1, Math.ceil(floors / 8));
+  return tex;
+}
+
 function buildExtrudedBuilding(
   scene: THREE.Scene,
   building: Building,
-  glassMaterial: THREE.MeshPhysicalMaterial,
+  _glassMaterial: THREE.MeshPhysicalMaterial,
   steelMaterial: THREE.MeshStandardMaterial,
 ): { width: number; depth: number; height: number } {
   const dims = getFootprintDimensions(building.footprint);
   const heightM = getBuildingHeight(building);
-  const podiumHeight = Math.min(3, heightM * 0.05);
+  const floorCount = building?.floor_count || 4;
+  const podiumHeight = Math.min(4, heightM * 0.08);
 
+  // Podium/base
   const podiumMesh = new THREE.Mesh(
     new THREE.BoxGeometry(dims.width * 1.05, podiumHeight, dims.depth * 1.05),
     steelMaterial,
@@ -49,6 +113,17 @@ function buildExtrudedBuilding(
   podiumMesh.receiveShadow = true;
   scene.add(podiumMesh);
 
+  const tex = generateBuildingTexture(floorCount);
+
+  // Single clean facade material — no multi-material, no custom UV
+  const facadeMaterial = new THREE.MeshPhysicalMaterial({
+    map: tex,
+    metalness: 0.25,
+    roughness: 0.35,
+    clearcoat: 0.5,
+    clearcoatRoughness: 0.3,
+  });
+
   const shape = building.footprint ? footprintToShape(building.footprint) : null;
 
   if (shape) {
@@ -57,15 +132,26 @@ function buildExtrudedBuilding(
       bevelEnabled: false,
     });
     bodyGeo.rotateX(-Math.PI / 2);
-    const bodyMesh = new THREE.Mesh(bodyGeo, glassMaterial);
+
+    const bodyMesh = new THREE.Mesh(bodyGeo, facadeMaterial);
     bodyMesh.position.y = podiumHeight;
     bodyMesh.castShadow = true;
     bodyMesh.receiveShadow = true;
     scene.add(bodyMesh);
+
+    // Parapet / Roof edge
+    const parapetGeo = new THREE.ExtrudeGeometry(shape, { depth: Math.max(1, heightM * 0.012), bevelEnabled: false });
+    parapetGeo.rotateX(-Math.PI / 2);
+    const parapetMesh = new THREE.Mesh(parapetGeo, steelMaterial);
+    parapetMesh.position.y = podiumHeight + heightM;
+    parapetMesh.castShadow = true;
+    scene.add(parapetMesh);
   } else {
+    // Fallback: simple box with facade texture on sides
+    const sides = [facadeMaterial, facadeMaterial, steelMaterial, steelMaterial, facadeMaterial, facadeMaterial];
     const bodyMesh = new THREE.Mesh(
       new THREE.BoxGeometry(dims.width, heightM, dims.depth),
-      glassMaterial,
+      sides,
     );
     bodyMesh.position.y = podiumHeight + heightM / 2;
     bodyMesh.castShadow = true;
@@ -73,16 +159,18 @@ function buildExtrudedBuilding(
     scene.add(bodyMesh);
   }
 
-  const hvacSize = Math.min(dims.width, dims.depth) * 0.25;
+  // HVAC rooftop unit
+  const hvacSize = Math.min(dims.width, dims.depth) * 0.22;
   const hvacMesh = new THREE.Mesh(
-    new THREE.BoxGeometry(hvacSize, Math.min(2, heightM * 0.02), hvacSize),
+    new THREE.BoxGeometry(hvacSize, Math.max(1.5, heightM * 0.015), hvacSize),
     steelMaterial,
   );
-  hvacMesh.position.y = podiumHeight + heightM + 1;
+  hvacMesh.position.y = podiumHeight + heightM + Math.max(1.5, heightM * 0.015) / 2;
   scene.add(hvacMesh);
 
   return { width: dims.width, depth: dims.depth, height: heightM + podiumHeight };
 }
+
 
 export default function MapThreeJS({ building, selectedUnit, onUnitClick, selectedFloor }: MapThreeJSProps) {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -214,6 +302,10 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
     const unitMap = new Map<string, THREE.Mesh>();
     const units = building?.units || [];
 
+    // Group units by floor to avoid 652 stacked colored boxes (rainbow bug)
+    const floorSet = new Set<number>();
+    units.forEach((unit) => floorSet.add(getUnitFloor(unit)));
+
     units.forEach((unit) => {
       const floorNum = getUnitFloor(unit);
       const levelY = (floorNum - 1) * floorHeight + floorHeight / 2;
@@ -222,13 +314,15 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
       const levelMat = new THREE.MeshStandardMaterial({
         color: baseColor,
         transparent: true,
-        opacity: 0.4,
+        opacity: 0,        // hidden by default — only shown when selected
+        depthWrite: false,
         wireframe: wireframeMode,
       });
 
-      const levelMesh = new THREE.Mesh(new THREE.BoxGeometry(slabW, floorHeight * 0.12, slabD), levelMat);
+      const levelMesh = new THREE.Mesh(new THREE.BoxGeometry(slabW, floorHeight * 0.9, slabD), levelMat);
       levelMesh.position.y = levelY;
       levelMesh.userData = { unit, baseColor };
+      levelMesh.visible = false; // start hidden
       scene.add(levelMesh);
       unitMap.set(unit.unit_id, levelMesh);
 
@@ -322,24 +416,31 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
     unitMeshesRef.current.forEach((mesh) => {
       const u = mesh.userData.unit as Unit;
       const isSelected = selectedUnit?.unit_id === u.unit_id;
-      const isFloorVisible = selectedFloor === null || selectedFloor === getUnitFloor(u);
-
-      mesh.visible = isFloorVisible;
+      const isFloorActive = selectedFloor !== null && selectedFloor === getUnitFloor(u);
       const mat = mesh.material as THREE.MeshStandardMaterial;
 
       if (isSelected) {
+        // Selected unit: bright highlight
+        mesh.visible = true;
         mat.color.setHex(0x7c6fe0);
         mat.emissive.setHex(0x7c6fe0);
-        mat.emissiveIntensity = 0.9;
-        mat.opacity = 0.95;
-      } else {
+        mat.emissiveIntensity = 1.0;
+        mat.opacity = 0.9;
+      } else if (isFloorActive) {
+        // Floor is isolated via Floor Isolator — show this floor lightly
+        mesh.visible = true;
         mat.color.setHex(mesh.userData.baseColor);
         mat.emissive.setHex(0x000000);
         mat.emissiveIntensity = 0.0;
-        mat.opacity = 0.4;
+        mat.opacity = 0.35;
+      } else {
+        // Default: completely hidden, building body is what shows
+        mesh.visible = false;
+        mat.opacity = 0;
       }
     });
   }, [selectedUnit, selectedFloor]);
+
 
   const handleZoomIn = () => {
     if (cameraRef.current && controlsRef.current) {

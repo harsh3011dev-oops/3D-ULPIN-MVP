@@ -62,13 +62,16 @@ def detect_building_footprint(
     largest_contour = max(valid_contours, key=cv2.contourArea)
 
     # Step 5: Approximate polygon to reduce noise
-    epsilon = 0.02 * cv2.arcLength(largest_contour, True)
+    epsilon = 0.008 * cv2.arcLength(largest_contour, True)
     approx = cv2.approxPolyDP(largest_contour, epsilon, True)
 
-    # If approximation resulted in degenerate shape (< 3 points), use bounding box
-    if len(approx) < 3:
-        x, y, w, h = cv2.boundingRect(largest_contour)
-        approx = np.array([[[x, y]], [[x + w, y]], [[x + w, y + h]], [[x, y + h]]])
+    # If approximation resulted in degenerate shape (< 4 points), use convex hull
+    if len(approx) < 4:
+        hull = cv2.convexHull(largest_contour)
+        approx = cv2.approxPolyDP(hull, epsilon, True)
+        if len(approx) < 3:
+            x, y, w, h = cv2.boundingRect(largest_contour)
+            approx = np.array([[[x, y]], [[x + w, y]], [[x + w, y + h]], [[x, y + h]]])
 
     if debug:
         debug_img = image.copy()
@@ -166,12 +169,15 @@ def detect_multi_building_footprints(
     from shapely.geometry import Polygon, mapping
 
     for cnt in valid_contours:
-        epsilon = 0.02 * cv2.arcLength(cnt, True)
+        epsilon = 0.008 * cv2.arcLength(cnt, True)
         approx = cv2.approxPolyDP(cnt, epsilon, True)
 
-        if len(approx) < 3:
-            x, y, w, h = cv2.boundingRect(cnt)
-            approx = np.array([[[x, y]], [[x + w, y]], [[x + w, y + h]], [[x, y + h]]])
+        if len(approx) < 4:
+            hull = cv2.convexHull(cnt)
+            approx = cv2.approxPolyDP(hull, epsilon, True)
+            if len(approx) < 3:
+                x, y, w, h = cv2.boundingRect(cnt)
+                approx = np.array([[[x, y]], [[x + w, y]], [[x + w, y + h]], [[x, y + h]]])
 
         pixel_coords = approx.reshape(-1, 2).tolist()
         geo_coords = _pixels_to_geo(pixel_coords, image_path)
