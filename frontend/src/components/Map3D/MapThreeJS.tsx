@@ -11,7 +11,7 @@ import {
   footprintToShape,
 } from '../../utils/footprintUtils';
 import { fetchTerrainHeight } from '../../utils/reearth';
-import { RotateCw, Layers, MapPin, ZoomIn, ZoomOut } from 'lucide-react';
+import { RotateCw, Layers, MapPin, ZoomIn, ZoomOut, PanelLeft, PanelRight } from 'lucide-react';
 import './Map3D.css';
 
 interface MapThreeJSProps {
@@ -19,6 +19,10 @@ interface MapThreeJSProps {
   selectedUnit: Unit | null;
   onUnitClick: (unit: Unit) => void;
   selectedFloor: number | null;
+  isLeftOpen?: boolean;
+  isRightOpen?: boolean;
+  onToggleLeft?: () => void;
+  onToggleRight?: () => void;
 }
 
 const FLOOR_HEX_COLORS = [
@@ -172,7 +176,7 @@ function buildExtrudedBuilding(
 }
 
 
-export default function MapThreeJS({ building, selectedUnit, onUnitClick, selectedFloor }: MapThreeJSProps) {
+export default function MapThreeJS({ building, selectedUnit, onUnitClick, selectedFloor, isLeftOpen, isRightOpen, onToggleLeft, onToggleRight }: MapThreeJSProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -216,10 +220,10 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x080c14);
-    scene.fog = new THREE.FogExp2(0x080c14, 0.5 / sceneExtent);
+    // Remove FogExp2 to prevent building model fading/blackening when zoomed out
     sceneRef.current = scene;
 
-    const camera = new THREE.PerspectiveCamera(40, width / height, 0.5, Math.max(5000, buildingHeight * 6));
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.5, 50000);
     const camDist = Math.max(maxDim * 1.8, buildingHeight * 0.9, 30);
     camera.position.set(camDist, buildingHeight * 0.45 + maxDim * 0.3, camDist);
     cameraRef.current = camera;
@@ -243,7 +247,7 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
     controls.target.set(0, targetY, 0);
     controls.maxPolarAngle = Math.PI / 2 - 0.02;
     controls.minDistance = Math.max(6, maxDim * 0.4);
-    controls.maxDistance = Math.max(200, buildingHeight * 4, maxDim * 6);
+    controls.maxDistance = 10000;
     controlsRef.current = controls;
 
     scene.add(new THREE.AmbientLight(0xfff8f0, 1.4));
@@ -401,8 +405,16 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
     };
     window.addEventListener('resize', handleResize);
 
+    const resizeObserver = new ResizeObserver(() => {
+      handleResize();
+    });
+    if (mountRef.current) {
+      resizeObserver.observe(mountRef.current);
+    }
+
     return () => {
       cancelAnimationFrame(animId);
+      resizeObserver.disconnect();
       window.removeEventListener('resize', handleResize);
       domElem.removeEventListener('pointermove', handlePointerMove);
       domElem.removeEventListener('click', handleClick);
@@ -485,6 +497,27 @@ export default function MapThreeJS({ building, selectedUnit, onUnitClick, select
           <button className="zoom-btn" onClick={handleZoomIn} title="Zoom In"><ZoomIn size={14} /></button>
           <button className="zoom-btn" onClick={handleZoomOut} title="Zoom Out"><ZoomOut size={14} /></button>
         </div>
+
+        {onToggleLeft && (
+          <button
+            className={`toolbar-btn ${isLeftOpen ? 'active' : ''}`}
+            onClick={onToggleLeft}
+            title="Toggle Spatial Toolkit"
+          >
+            <PanelLeft size={15} />
+            <span>Toolkit</span>
+          </button>
+        )}
+        {onToggleRight && (
+          <button
+            className={`toolbar-btn ${isRightOpen ? 'active' : ''}`}
+            onClick={onToggleRight}
+            title="Toggle Record & Floors"
+          >
+            <PanelRight size={15} />
+            <span>Record</span>
+          </button>
+        )}
       </div>
 
       <div className="location-banner-header absolute top-4 left-4 p-2.5 z-10 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur rounded-lg border border-indigo-500/40 shadow-xl">

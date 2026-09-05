@@ -10,7 +10,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { Building, Unit } from '../../types';
 import { getBuildingCenter } from '../../utils/footprintUtils';
 import { REEARTH, setupReearthTerrain } from '../../utils/reearth';
-import { RotateCw, Layers, MapPin, Map as MapIcon, Maximize2, Building2 } from 'lucide-react';
+import { RotateCw, Layers, MapPin, Map as MapIcon, Maximize2, Building2, PanelLeft, PanelRight } from 'lucide-react';
 import './Map3D.css';
 
 interface MapDeckGLProps {
@@ -18,6 +18,10 @@ interface MapDeckGLProps {
   selectedUnit: Unit | null;
   onUnitClick: (unit: Unit) => void;
   selectedFloor: number | null;
+  isLeftOpen?: boolean;
+  isRightOpen?: boolean;
+  onToggleLeft?: () => void;
+  onToggleRight?: () => void;
 }
 
 const MAP_STYLES = [
@@ -44,7 +48,7 @@ const ARCHITECTURAL_FLOOR_COLORS_LIGHT: [number, number, number][] = [
   [71, 85, 105],
 ];
 
-export default function MapDeckGL({ building, selectedUnit, onUnitClick, selectedFloor }: MapDeckGLProps) {
+export default function MapDeckGL({ building, selectedUnit, onUnitClick, selectedFloor, isLeftOpen, isRightOpen, onToggleLeft, onToggleRight }: MapDeckGLProps) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [selectedStyleUrl, setSelectedStyleUrl] = useState(MAP_STYLES[0].url);
   const [hoveredUnitId, setHoveredUnitId] = useState<string | null>(null);
@@ -370,6 +374,26 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
         >
           <Building2 size={17} />
         </button>
+        {onToggleLeft && (
+          <button
+            type="button"
+            className={`map-control-btn ${isLeftOpen ? 'active' : ''}`}
+            onClick={onToggleLeft}
+            title="Toggle Spatial Toolkit"
+          >
+            <PanelLeft size={17} />
+          </button>
+        )}
+        {onToggleRight && (
+          <button
+            type="button"
+            className={`map-control-btn ${isRightOpen ? 'active' : ''}`}
+            onClick={onToggleRight}
+            title="Toggle Record & Floors"
+          >
+            <PanelRight size={17} />
+          </button>
+        )}
       </div>
 
       <div className="basemap-selector-box">

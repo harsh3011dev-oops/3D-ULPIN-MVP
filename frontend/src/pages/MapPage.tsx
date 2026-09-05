@@ -79,6 +79,21 @@ export default function MapPage() {
 
   const { lat: currentLat, lng: currentLng } = getCoordinates();
 
+  const [isLeftOpen, setIsLeftOpen]   = useState(() => typeof window !== 'undefined' && window.innerWidth > 900);
+  const [isRightOpen, setIsRightOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 900);
+
+  // Auto handle window resize for desktop site toggle on mobile
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 900) {
+        setIsLeftOpen(true);
+        setIsRightOpen(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div className="map-page">
       <Header />
@@ -102,22 +117,36 @@ export default function MapPage() {
       )}
 
       {!isLoading && !loadError && (
-      <div className="map-content-area">
+      <div className={`map-content-area ${!isLeftOpen ? 'left-closed' : ''} ${!isRightOpen ? 'right-closed' : ''}`}>
+
+        {/* ── Mobile/Desktop Backdrop Overlay when drawers are open ── */}
+        {(isLeftOpen || isRightOpen) && (
+          <div
+            className="sidebar-backdrop-overlay"
+            onClick={() => { setIsLeftOpen(false); setIsRightOpen(false); }}
+          />
+        )}
 
         {/* ── Left Sidebar ── */}
-        <motion.aside
-          className="map-left-sidebar"
-          initial={{ x: -20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.4, ease: 'easeOut' }}
-        >
-          <div className="sidebar-section-label">Spatial Toolkit</div>
+        <aside className={`map-left-sidebar ${isLeftOpen ? 'is-open' : ''}`}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 6 }}>
+            <div className="sidebar-section-label">Spatial Toolkit</div>
+            <button
+              type="button"
+              className="drawer-close-btn"
+              onClick={() => setIsLeftOpen(false)}
+              aria-label="Close Toolkit"
+            >✕</button>
+          </div>
 
           {SIDEBAR_NAV.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               className={`sidebar-nav-item ${activeTab === id ? 'active' : ''}`}
-              onClick={() => setActiveTab(id)}
+              onClick={() => {
+                setActiveTab(id);
+                if (window.innerWidth <= 900) setIsLeftOpen(false);
+              }}
             >
               <Icon size={15} />
               {label}
@@ -135,7 +164,7 @@ export default function MapPage() {
             <div>LAT: {currentLat}° N</div>
             <div>LON: {currentLng}° E</div>
           </div>
-        </motion.aside>
+        </aside>
 
         {/* ── 3D Viewport ── */}
         <div className="map-viewport">
@@ -150,40 +179,47 @@ export default function MapPage() {
                 setSelectedFloor(fn);
               }
             }}
+            isLeftOpen={isLeftOpen}
+            isRightOpen={isRightOpen}
+            onToggleLeft={() => setIsLeftOpen(!isLeftOpen)}
+            onToggleRight={() => setIsRightOpen(!isRightOpen)}
           />
         </div>
 
         {/* ── Right Sidebar ── */}
-        <motion.aside
-          className="map-right-sidebar"
-          initial={{ x: 20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.4, ease: 'easeOut', delay: 0.05 }}
-        >
+        <aside className={`map-right-sidebar ${isRightOpen ? 'is-open' : ''}`}>
           {/* Header Action */}
           <div className="location-target-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 6px' }}>
             <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
               3D Cadastral Record
             </div>
-            <button
-              type="button"
-              onClick={() => navigate('/explore')}
-              style={{
-                background: 'var(--accent-lavender-soft)',
-                border: '1px solid rgba(124,111,224,0.25)',
-                borderRadius: 'var(--radius-full)',
-                color: '#7c6fe0',
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                padding: '4px 10px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4
-              }}
-            >
-              + New Model
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                type="button"
+                onClick={() => navigate('/explore')}
+                style={{
+                  background: 'var(--accent-lavender-soft)',
+                  border: '1px solid rgba(124,111,224,0.25)',
+                  borderRadius: 'var(--radius-full)',
+                  color: '#7c6fe0',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  padding: '4px 10px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4
+                }}
+              >
+                + New Model
+              </button>
+              <button
+                type="button"
+                className="drawer-close-btn"
+                onClick={() => setIsRightOpen(false)}
+                aria-label="Close Record"
+              >✕</button>
+            </div>
           </div>
 
           {/* Building Meta */}
@@ -236,9 +272,7 @@ export default function MapPage() {
                 selectedFloor={selectedFloor}
                 onSelectFloor={(floor) => {
                   setSelectedFloor(floor);
-                  // Auto-select first unit on the chosen floor
                   if (floor === null) {
-                    // "All" selected — show first unit overall
                     if (building.units?.length > 0) setSelectedUnit(building.units[0]);
                   } else {
                     const firstUnitOnFloor = building.units?.find(
@@ -284,7 +318,7 @@ export default function MapPage() {
               </svg>
             </div>
           </div>
-        </motion.aside>
+        </aside>
 
       </div>
       )}

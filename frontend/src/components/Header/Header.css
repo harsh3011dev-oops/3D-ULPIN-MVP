@@ -172,8 +172,32 @@
 }
 
 @media (max-width: 768px) {
-  .app-header { padding: 0 16px; }
-  .brand-tagline { display: none; }
-  .gooey-nav-label { display: none; }
-  .header-actions { display: none; }
+  .app-header {
+    padding: 0 12px;
+    height: 56px;
+  }
+  .header-brand {
+    min-width: auto;
+    gap: 6px;
+  }
+  .brand-title {
+    font-size: 1rem;
+  }
+  .brand-tagline {
+    display: none;
+  }
+  .gooey-nav-label {
+    display: none;
+  }
+  .gooey-nav-item {
+    padding: 6px 12px;
+  }
+  .header-actions {
+    min-width: auto;
+    gap: 4px;
+  }
+  .badge-mvp {
+    display: none;
+  }
 }
+

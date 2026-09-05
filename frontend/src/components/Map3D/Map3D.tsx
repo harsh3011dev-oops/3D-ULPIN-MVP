@@ -10,9 +10,22 @@ interface Map3DProps {
   selectedUnit: Unit | null;
   onUnitClick: (unit: Unit) => void;
   selectedFloor: number | null;
+  isLeftOpen?: boolean;
+  isRightOpen?: boolean;
+  onToggleLeft?: () => void;
+  onToggleRight?: () => void;
 }
 
-export default function Map3D({ building, selectedUnit, onUnitClick, selectedFloor }: Map3DProps) {
+export default function Map3D({
+  building,
+  selectedUnit,
+  onUnitClick,
+  selectedFloor,
+  isLeftOpen,
+  isRightOpen,
+  onToggleLeft,
+  onToggleRight,
+}: Map3DProps) {
   const [viewMode, setViewMode] = useState<'deck' | 'three'>('deck');
 
   if (!building) {
@@ -53,6 +66,10 @@ export default function Map3D({ building, selectedUnit, onUnitClick, selectedFlo
           selectedUnit={selectedUnit}
           onUnitClick={onUnitClick}
           selectedFloor={selectedFloor}
+          isLeftOpen={isLeftOpen}
+          isRightOpen={isRightOpen}
+          onToggleLeft={onToggleLeft}
+          onToggleRight={onToggleRight}
         />
       ) : (
         <MapThreeJS
@@ -60,6 +77,10 @@ export default function Map3D({ building, selectedUnit, onUnitClick, selectedFlo
           selectedUnit={selectedUnit}
           onUnitClick={onUnitClick}
           selectedFloor={selectedFloor}
+          isLeftOpen={isLeftOpen}
+          isRightOpen={isRightOpen}
+          onToggleLeft={onToggleLeft}
+          onToggleRight={onToggleRight}
         />
       )}
     </div>
