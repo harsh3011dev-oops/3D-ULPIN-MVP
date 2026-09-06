@@ -44,12 +44,13 @@ export default function ProcessingPage() {
   useEffect(() => {
     if (!jobId) return;
     let isMounted = true;
-    let redirectTimer: ReturnType<typeof setTimeout> | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
-    const interval = setInterval(async () => {
+    const pollStatus = async () => {
       try {
         const data = await getJobStatus(jobId);
         if (!isMounted) return;
+        
         setProgress(data.progress_pct);
         const currentStep = data.progress_step || data.step || 'Processing...';
         setStepText(currentStep);
@@ -66,22 +67,29 @@ export default function ProcessingPage() {
         if ((data.status === 'done' || data.status === 'completed') && effectiveBuildingId) {
           setStatus('done');
           setBuildingId(effectiveBuildingId);
-          clearInterval(interval);
-          redirectTimer = setTimeout(() => { if (isMounted) navigate(`/map/${effectiveBuildingId}`); }, 1500);
+          setTimeout(() => { if (isMounted) navigate(`/map/${effectiveBuildingId}`); }, 1200);
+          return;
         } else if (data.status === 'failed') {
           setStatus('failed');
           setError(data.error_message || 'AI Pipeline processing failed');
-          clearInterval(interval);
+          return;
         }
-      } catch (err) {
-        console.error('Error polling job status:', err);
+      } catch (err: any) {
+        if (err?.code !== 'ECONNABORTED') {
+          console.warn('Job status poll retry:', err?.message || err);
+        }
       }
-    }, 1000);
+
+      if (isMounted) {
+        timer = setTimeout(pollStatus, 1500);
+      }
+    };
+
+    pollStatus();
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
-      if (redirectTimer) clearTimeout(redirectTimer);
+      if (timer) clearTimeout(timer);
     };
   }, [jobId, navigate]);
 

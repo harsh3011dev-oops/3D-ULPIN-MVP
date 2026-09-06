@@ -29,7 +29,7 @@ export async function createBuilding(buildingData: CreateBuildingPayload): Promi
  * Poll job status via Axios.
  */
 export async function getJobStatus(jobId: string): Promise<JobStatusResponse> {
-  const response = await apiClient.get(`/jobs/${jobId}/status`);
+  const response = await apiClient.get(`/jobs/${jobId}/status`, { timeout: 10000 });
   return response.data;
 }
 

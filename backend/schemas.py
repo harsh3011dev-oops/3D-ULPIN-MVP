@@ -78,6 +78,7 @@ class BuildingResponse(BaseModel):
     longitude: Optional[float] = None
     created_at: Optional[datetime] = None
     validation: Optional[BuildingValidationSummary] = None
+    underground: Optional[Dict[str, Any]] = None  # Underground infrastructure data
 
 class ValidationResponse(BaseModel):
     building_id: str

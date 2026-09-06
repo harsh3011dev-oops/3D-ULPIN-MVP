@@ -57,6 +57,41 @@ export interface ValidationResult {
   errors: string[];
 }
 
+export interface UndergroundUnit {
+  ulpin: string;
+  type: 'basement' | 'parking' | 'utility' | 'metro' | string;
+  title?: string;
+  subsurface_zone?: string;
+  level: number; // negative: -1, -2, ...
+  volume_m3: number;
+  depth_range: [number, number];
+  coordinates: [number, number]; // [lat, lon]
+}
+
+export interface UtilityInfo {
+  ulpin?: string;
+  type: 'water' | 'sewage' | 'power' | 'telecom' | 'gas' | string;
+  title?: string;
+  depth_m: number;
+  diameter_mm: number;
+  capacity: number;
+  conflicts: number;
+  path?: [number, number, number][]; // [(lat, lon, depth), ...]
+}
+
+export interface UndergroundData {
+  basement_levels: number;
+  parking_spaces: number;
+  total_volume_m3: number;
+  max_depth_m: number;
+  utilities_mapped: number;
+  underground_ulpins: number;
+  validation_score: number;
+  ulpin_details: UndergroundUnit[];
+  utilities: UtilityInfo[];
+  validation_issues: any[];
+}
+
 export interface Building {
   status?: string;
   building_id: string;
@@ -75,6 +110,7 @@ export interface Building {
   units: Unit[];
   validation?: SpatialValidation;
   created_at?: string;
+  underground?: UndergroundData;
 }
 
 export interface AutoDetectBuildingPayload {

@@ -177,7 +177,8 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
                     out_of_bounds=getattr(validation, "out_of_bounds", len(result_validation.get("out_of_bounds", []))),
                     confidence_score=getattr(validation, "confidence_score", result_validation.get("confidence_score", 0.0)),
                     errors=result_validation.get("errors", [])
-                )
+                ),
+                underground=(disk_result or {}).get("underground", None)
             )
         except Exception as exc:
             import logging
@@ -195,7 +196,7 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
                 continue
             fpath = os.path.join(exports_dir, fname)
             try:
-                with open(fpath) as f:
+                with open(fpath, encoding='utf-8') as f:
                     data = json.load(f)
                 r = data.get("result", data)
                 # Match by building_id OR by the file's job_id (= filename stem)
@@ -252,7 +253,8 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
             out_of_bounds=len(result.get("validation", {}).get("out_of_bounds", [])),
             confidence_score=result.get("validation", {}).get("confidence_score", 0.0),
             errors=result.get("validation", {}).get("errors", [])
-        )
+        ),
+        underground=result.get("underground", None)
     )
 
 async def get_validation(building_id: str, db: AsyncSession = Depends(get_db)):

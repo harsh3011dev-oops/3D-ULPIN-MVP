@@ -23,8 +23,8 @@ def _save_result_to_disk(job_id: str, result: dict):
     """Persist pipeline result so it survives server restarts."""
     try:
         path = os.path.join(_EXPORTS_DIR, f"{job_id}.json")
-        with open(path, 'w') as f:
-            json.dump({'job_id': job_id, 'result': result}, f, indent=2)
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump({'job_id': job_id, 'result': result}, f, indent=2, ensure_ascii=False)
         logger.info(f"Pipeline result saved to {path}")
     except Exception as e:
         logger.warning(f"Could not save result to disk: {e}")
@@ -35,7 +35,7 @@ def _load_result_from_disk(job_id: str) -> dict | None:
     try:
         path = os.path.join(_EXPORTS_DIR, f"{job_id}.json")
         if os.path.exists(path):
-            with open(path) as f:
+            with open(path, encoding='utf-8') as f:
                 data = json.load(f)
             return data.get('result')
     except Exception:
@@ -75,12 +75,14 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
 
             # 2. Call AI pipeline
             try:
+                import asyncio
                 from ai.pipeline import process_building
                 # Wait for 50% progress
                 await supabase_service.update_job_status(db, job_id, "processing", 50, "Running AI Inference")
                 
-                # Mock or real call depending on if process_building is async
-                result = process_building(
+                # Execute CPU & network heavy process_building in a thread pool so event loop remains unblocked
+                result = await asyncio.to_thread(
+                    process_building,
                     parcel_id=parcel_id,
                     building_name=building_name,
                     address=address,

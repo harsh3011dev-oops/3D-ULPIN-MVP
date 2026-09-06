@@ -8,6 +8,10 @@ try:
     from ai.spatial_validation import validate_spatial_data, _normalize_geojson
     from ai.utils.image_utils import download_satellite_image
     from ai.utils.geo_utils import fetch_osm_building_metadata
+    from ai.underground_detection import UndergroundDetector
+    from ai.utility_mapper import UtilityMapper
+    from ai.underground_ulpin import UndergroundULPINGenerator
+    from ai.subsurface_validation import SubsurfaceValidator
 except ModuleNotFoundError:
     from footprint_detection import detect_multi_building_footprints
     from footprint_detection_v2 import detect_building_footprint_hybrid
@@ -18,6 +22,10 @@ except ModuleNotFoundError:
     from spatial_validation import validate_spatial_data, _normalize_geojson
     from utils.image_utils import download_satellite_image
     from utils.geo_utils import fetch_osm_building_metadata
+    from underground_detection import UndergroundDetector
+    from utility_mapper import UtilityMapper
+    from underground_ulpin import UndergroundULPINGenerator
+    from subsurface_validation import SubsurfaceValidator
 
 import uuid
 from shapely.geometry import shape
@@ -158,6 +166,77 @@ def process_building(*args, **kwargs) -> dict:
         except Exception:
             validation_report["confidence_score"] = 100.0 if validation_report.get("valid") else 0.0
 
+        # STEP 9: Underground Infrastructure Mapping
+        print("\\n[STEP 9] Underground Infrastructure Mapping...")
+        
+        # Initialize detectors
+        detector = UndergroundDetector(lat=lat, lon=lon, building_height=height_meters, building_name=building_name)
+        
+        # Detect underground structure
+        underground = detector.get_underground_structure()
+        
+        # Map utilities
+        mapper = UtilityMapper(lat=lat, lon=lon, building_coords=(lat, lon))
+        utilities = mapper.map_utilities()
+        
+        import pygeohash
+        geohash = pygeohash.encode(lat, lon, precision=7)
+        
+        # Generate underground ULPINs
+        ulpin_gen = UndergroundULPINGenerator(parcel_id=parcel_id, building_id=building_id)
+        basement_ulpins = ulpin_gen.generate_basement_ulpins(underground, geohash)
+        utility_ulpins = ulpin_gen.generate_utility_ulpins(utilities, geohash)
+        all_underground_ulpins = basement_ulpins + utility_ulpins
+        
+        # Validate underground infrastructure
+        validator = SubsurfaceValidator()
+        issues, ug_confidence = validator.validate_underground_ulpins(basement_ulpins, utilities)
+        
+        underground_data = {
+            'basement_levels': len(underground.basement_levels),
+            'parking_spaces': underground.parking_spaces,
+            'total_volume_m3': underground.total_subsurface_volume,
+            'max_depth_m': underground.depth_to_lowest_point,
+            'utilities_mapped': len(utilities),
+            'underground_ulpins': len(all_underground_ulpins),
+            'validation_score': ug_confidence,
+            'ulpin_details': [
+                {
+                    'ulpin': u.ulpin,
+                    'type': u.ownership_type,
+                    'title': getattr(u, 'title', f"Underground Structure ({u.subsurface_zone})"),
+                    'subsurface_zone': u.subsurface_zone,
+                    'level': u.level_number,
+                    'volume_m3': u.volume_cubic_meters,
+                    'depth_range': u.depth_range,
+                    'coordinates': u.coordinates
+                }
+                for u in all_underground_ulpins
+            ],
+            'utilities': [
+                {
+                    'ulpin': f"{parcel_id}-{building_id}-U{u.utility_type[0].upper()}-001-{geohash}",
+                    'type': u.utility_type,
+                    'title': f"Underground {u.utility_type.capitalize()} Main Line (DN{u.diameter_mm}mm)",
+                    'depth_m': u.depth_meters,
+                    'diameter_mm': u.diameter_mm,
+                    'capacity': u.capacity,
+                    'conflicts': len(u.conflict_zones),
+                    'path': getattr(u, 'path', [])
+                }
+                for u in utilities
+            ],
+            'validation_issues': [
+                {
+                    'type': issue.issue_type,
+                    'severity': issue.severity,
+                    'description': issue.description,
+                    'location': issue.location
+                }
+                for issue in issues
+            ]
+        }
+
         return {
             "status": "success",
             "building_id": building_id,
@@ -177,7 +256,8 @@ def process_building(*args, **kwargs) -> dict:
             },
             "units": all_units,
             "validation": validation_report,
-            "osm_source": osm_data.get("osm_id") is not None
+            "osm_source": osm_data.get("osm_id") is not None,
+            "underground": underground_data
         }
 
     except Exception as e:
