@@ -261,4 +261,27 @@ export function getShapeMetrics(footprint: GeoJSONPolygon | any, centerLng?: num
   };
 }
 
+export function getPartCenterOffset(
+  partFootprint: GeoJSONPolygon | any,
+  originLng: number,
+  originLat: number,
+): { x: number; z: number } {
+  if (!partFootprint) return { x: 0, z: 0 };
+  let ring: number[][] = [];
+  if (partFootprint.type === 'MultiPolygon' && partFootprint.coordinates?.[0]?.[0]) {
+    ring = partFootprint.coordinates[0][0];
+  } else if (partFootprint.coordinates?.[0]) {
+    ring = partFootprint.coordinates[0];
+  }
+  if (!ring.length) return { x: 0, z: 0 };
+
+  const pLng = ring.map((p) => p[0]).reduce((a, b) => a + b, 0) / ring.length;
+  const pLat = ring.map((p) => p[1]).reduce((a, b) => a + b, 0) / ring.length;
+  const mLng = metersPerDegLng(originLat);
+
+  const x = (pLng - originLng) * mLng;
+  const z = -(pLat - originLat) * METERS_PER_DEG_LAT;
+  return { x, z };
+}
+
 

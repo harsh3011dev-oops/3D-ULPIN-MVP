@@ -116,8 +116,8 @@ def process_building(*args, **kwargs) -> dict:
         centroid = boundary_shape.centroid
         lon, lat = centroid.x, centroid.y
 
-        print(f"[STEP 2] Fetching comprehensive geographic & building metadata for {lat}, {lon}")
-        osm_comp = fetch_osm_building_comprehensive(lat, lon) or {}
+        print(f"[STEP 2] Fetching comprehensive geographic & building metadata for {lat}, {lon} (name: {building_name})")
+        osm_comp = fetch_osm_building_comprehensive(lat, lon, building_name=building_name) or {}
         osm_geom = osm_comp.get("footprint")
 
         # Determine generic floor count and source

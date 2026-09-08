@@ -13,6 +13,7 @@ import {
   getFloorCountInfo,
   getFootprintVertexCount,
   getShapeMetrics,
+  getPartCenterOffset,
   ShapeMetrics,
   FootprintDimensions,
 } from '../../utils/footprintUtils';
@@ -495,6 +496,7 @@ function constructMultiMeshBuilding(
 
       const metrics = getShapeMetrics(part.footprint, centerLng, centerLat);
       const classification = classifyBuildingPart(part, metrics);
+      const partOffset = getPartCenterOffset(part.footprint, centerLng, centerLat);
 
       const baseLevel = part.min_levels || 0;
       const partLevels = part.levels || Math.max((building.floor_count || 3) - baseLevel, 1);
@@ -506,7 +508,7 @@ function constructMultiMeshBuilding(
         const radius = Math.min(metrics.width, metrics.depth) / 2;
         const cylGeo = new THREE.CylinderGeometry(radius * 0.9, radius * 1.05, partH, 24);
         const cylMesh = new THREE.Mesh(cylGeo, facadeMat);
-        cylMesh.position.set(0, baseElev + partH / 2, 0);
+        cylMesh.position.set(partOffset.x, baseElev + partH / 2, partOffset.z);
         cylMesh.castShadow = true;
         cylMesh.receiveShadow = true;
         visualGroup.add(cylMesh);
@@ -515,7 +517,7 @@ function constructMultiMeshBuilding(
         // Balcony / Tier rings
         [0.35, 0.7, 0.95].forEach((pct) => {
           const ringMesh = new THREE.Mesh(new THREE.CylinderGeometry(radius * 1.15, radius * 1.05, 0.6, 24), facadeMat);
-          ringMesh.position.set(0, baseElev + partH * pct, 0);
+          ringMesh.position.set(partOffset.x, baseElev + partH * pct, partOffset.z);
           visualGroup.add(ringMesh);
           exteriorMeshes.push(ringMesh);
         });
@@ -523,12 +525,12 @@ function constructMultiMeshBuilding(
         // Cupola at apex
         const cupolaGeo = new THREE.SphereGeometry(radius * 0.9, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
         const cupolaMesh = new THREE.Mesh(cupolaGeo, facadeMat);
-        cupolaMesh.position.set(0, baseElev + partH, 0);
+        cupolaMesh.position.set(partOffset.x, baseElev + partH, partOffset.z);
         visualGroup.add(cupolaMesh);
         exteriorMeshes.push(cupolaMesh);
 
         const finial = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.2, 2.5, 8), isHistoricOrStone ? goldAccentMat : steelMaterial);
-        finial.position.set(0, baseElev + partH + radius * 0.9 + 1.25, 0);
+        finial.position.set(partOffset.x, baseElev + partH + radius * 0.9 + 1.25, partOffset.z);
         visualGroup.add(finial);
       }
       // 2. Bulbous Onion or Hemisphere Domes
@@ -542,9 +544,24 @@ function constructMultiMeshBuilding(
           metrics,
           facadeMat,
           isHistoricOrStone ? goldAccentMat : steelMaterial,
+          partOffset,
         );
       }
-      // 3. Generic Extrusion / Wings / Courtyards / Towers (Preserves exact polygon corners, holes & curves)
+      // 3. Cones or Pyramidal roofs
+      else if (classification === 'cone' || classification === 'pyramidal') {
+        generateRoof(
+          visualGroup,
+          partShapes,
+          classification,
+          baseElev,
+          part.roof_height || partH,
+          metrics,
+          facadeMat,
+          isHistoricOrStone ? goldAccentMat : steelMaterial,
+          partOffset,
+        );
+      }
+      // 4. Generic Extrusion / Wings / Courtyards / Towers (Preserves exact polygon corners, holes & curves)
       else {
         partShapes.forEach((shape) => {
           const extrudeGeo = new THREE.ExtrudeGeometry(shape, {
@@ -573,6 +590,7 @@ function constructMultiMeshBuilding(
           metrics,
           facadeMat,
           isHistoricOrStone ? goldAccentMat : steelMaterial,
+          partOffset,
         );
       }
     });
@@ -790,15 +808,19 @@ export default function MapThreeJS({
     setDetectedGeometrySource(geometrySource);
 
     // 10. DEBUGGING CONSOLE LOG
-    console.log({
-      buildingName: building.building_name || building.address || 'Cadastral Structure',
-      footprintCount: building.footprint ? (building.footprint.type === 'MultiPolygon' ? building.footprint.coordinates.length : 1) : 0,
-      buildingPartCount: building.building_parts?.length || 0,
-      geometrySource,
-      footprintVertices: getFootprintVertexCount(building.footprint),
-      height: buildingHeight,
-      levels: building.floor_count,
-      roofShape: building.roof?.shape || 'flat',
+    const footprintCount = building.footprint ? (building.footprint.type === 'MultiPolygon' ? building.footprint.coordinates.length : 1) : 0;
+    const buildingPartCount = building.building_parts?.length || 0;
+    const vertexCount = getFootprintVertexCount(building.footprint);
+    const fallbackUsed = geometrySource === 'fallback' ? 'YES' : 'NO';
+
+    console.log('[3D Building Pipeline Debug]', {
+      'building name': building.building_name || building.address || 'Cadastral Structure',
+      'geometry source': geometrySource,
+      'footprint count': footprintCount,
+      'building-part count': buildingPartCount,
+      'vertex count': vertexCount,
+      'generated mesh count': exteriorMeshes.length,
+      'fallback used': fallbackUsed,
     });
 
     // Construct Cadastral ULPIN Floor Layers

@@ -45,82 +45,106 @@ def geocode_address(address: str) -> dict:
         return None
 
 
+OSM_OVERPASS_ENDPOINTS = [
+    "https://lz4.overpass-api.de/api/interpreter",
+    "https://z.overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass-api.de/api/interpreter"
+]
+OSM_HEADERS = {
+    "User-Agent": "3D-ULPIN-Cadastral-Engine/2.0 (research@cadastral3d.gov.in)"
+}
+
+_OSM_CACHE = {}
+
+def fetch_nominatim_building_polygon(name_or_query: str, lat: float = None, lon: float = None) -> dict | None:
+    """
+    Fetch exact vector polygon boundary from OpenStreetMap Nominatim API.
+    """
+    try:
+        query = name_or_query
+        if lat is not None and lon is not None and not name_or_query:
+            query = f"{lat},{lon}"
+        if not query:
+            return None
+        url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(query)}&format=geojson&polygon_geojson=1&limit=3"
+        res = requests.get(url, headers=OSM_HEADERS, timeout=8)
+        if res.status_code == 200:
+            data = res.json()
+            for f in data.get("features", []):
+                geom = f.get("geometry", {})
+                if geom.get("type") in ["Polygon", "MultiPolygon"]:
+                    print(f"[OK] Found authoritative vector polygon from Nominatim for '{query}' ({geom.get('type')})")
+                    return geom
+    except Exception as e:
+        print(f"Nominatim vector polygon lookup error: {e}")
+    return None
+
 def fetch_osm_building_metadata(lat: float, lon: float, radius: int = 300) -> dict:
     """
     Query OpenStreetMap (Overpass API) to fetch height and floor count for any building
     within `radius` meters of the given lat/lon coordinates.
-
-    Args:
-        lat (float): Latitude of center.
-        lon (float): Longitude of center.
-        radius (int): Search radius in meters (default 300m).
-
-    Returns:
-        dict: Fetched metadata containing floor_count, height_meters, osm_id.
     """
-    url = "https://overpass-api.de/api/interpreter"
+    cache_key = f"{round(lat, 4)}_{round(lon, 4)}_meta"
+    if cache_key in _OSM_CACHE:
+        return _OSM_CACHE[cache_key]
 
     query = f"""
-    [out:json][timeout:15];
-    nwr(around:{radius},{lat},{lon});
+    [out:json][timeout:12];
+    (
+      way["building"](around:{radius},{lat},{lon});
+      relation["building"](around:{radius},{lat},{lon});
+      way["building:part"](around:{radius},{lat},{lon});
+      relation["building:part"](around:{radius},{lat},{lon});
+    );
     out tags;
     """
 
-    try:
-        print(f"Querying OpenStreetMap Overpass API for building metadata near [{lat}, {lon}]...")
-        response = requests.post(url, data={"data": query}, timeout=15)
-        
-        if response.status_code == 200:
-            data = response.json()
-            elements = data.get("elements", [])
-            
-            for element in elements:
-                tags = element.get("tags", {})
-                levels = tags.get("building:levels") or tags.get("levels") or tags.get("building:floors")
-                height = tags.get("height") or tags.get("building:height") or tags.get("height:m")
-                
-                floor_count = None
-                if levels:
-                    clean_lvl = str(levels).split(";")[0].split("-")[0].strip()
-                    if clean_lvl.isdigit():
-                        floor_count = int(clean_lvl)
+    for endpoint in OSM_OVERPASS_ENDPOINTS:
+        try:
+            response = requests.post(endpoint, data={"data": query}, headers=OSM_HEADERS, timeout=8)
+            if response.status_code == 200:
+                data = response.json()
+                elements = data.get("elements", [])
+                for element in elements:
+                    tags = element.get("tags", {})
+                    levels = tags.get("building:levels") or tags.get("levels") or tags.get("building:floors")
+                    height = tags.get("height") or tags.get("building:height") or tags.get("height:m")
+                    
+                    floor_count = None
+                    if levels:
+                        clean_lvl = str(levels).split(";")[0].split("-")[0].strip()
+                        if clean_lvl.isdigit():
+                            floor_count = int(clean_lvl)
 
-                height_meters = None
-                if height:
-                    clean_h = str(height).replace("m", "").replace("meters", "").strip()
-                    try:
-                        height_meters = float(clean_h)
-                    except ValueError:
-                        pass
+                    height_meters = None
+                    if height:
+                        clean_h = str(height).replace("m", "").replace("meters", "").strip()
+                        try:
+                            height_meters = float(clean_h)
+                        except ValueError:
+                            pass
 
-                if floor_count or height_meters:
-                    metadata = {
-                        "floor_count": floor_count,
-                        "height_meters": height_meters,
-                        "osm_id": f"{element.get('type')}/{element.get('id')}"
-                    }
-                    print(f"FOUND OSM building metadata: {metadata}")
-                    return metadata
+                    if floor_count or height_meters:
+                        metadata = {
+                            "floor_count": floor_count,
+                            "height_meters": height_meters,
+                            "osm_id": f"{element.get('type')}/{element.get('id')}"
+                        }
+                        _OSM_CACHE[cache_key] = metadata
+                        return metadata
+                break
+        except Exception:
+            continue
 
-        print("No building height/floor metadata found on OpenStreetMap.")
-        return {"floor_count": None, "height_meters": None, "osm_id": None}
-
-    except Exception as e:
-        print(f"Failed to query OpenStreetMap API: {e}")
-        return {"floor_count": None, "height_meters": None, "osm_id": None}
+    fallback = {"floor_count": None, "height_meters": None, "osm_id": None}
+    _OSM_CACHE[cache_key] = fallback
+    return fallback
 
 
 def fetch_osm_building_geometry(lat: float, lon: float, radius: int = 150) -> dict | None:
     """
     Fetch exact building vector polygon footprint from OpenStreetMap Overpass API.
-    
-    Args:
-        lat (float): Latitude
-        lon (float): Longitude
-        radius (int): Search radius in meters (default 150m)
-
-    Returns:
-        dict: GeoJSON Polygon or None
     """
     data = fetch_osm_building_comprehensive(lat, lon, radius=radius)
     if data and data.get("footprint"):
@@ -128,31 +152,53 @@ def fetch_osm_building_geometry(lat: float, lon: float, radius: int = 150) -> di
     return None
 
 
-def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 200) -> dict | None:
+def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 350, building_name: str = None) -> dict | None:
     """
-    Query OpenStreetMap (Overpass API) to fetch complete architectural and cadastral
+    Query OpenStreetMap (Overpass API + Nominatim) to fetch complete architectural and cadastral
     building information: footprint polygon, building parts, levels, underground levels,
     heights, roof shapes, materials, landuse, and metadata.
     """
-    url = "https://overpass-api.de/api/interpreter"
+    cache_key = f"{round(lat, 4)}_{round(lon, 4)}_comp_{building_name or ''}"
+    if cache_key in _OSM_CACHE:
+        return _OSM_CACHE[cache_key]
+
     query = f"""
-    [out:json][timeout:20];
+    [out:json][timeout:15];
     (
       way["building"](around:{radius},{lat},{lon});
       relation["building"](around:{radius},{lat},{lon});
       way["building:part"](around:{radius},{lat},{lon});
       relation["building:part"](around:{radius},{lat},{lon});
+      way["historic"](around:{radius},{lat},{lon});
+      relation["historic"](around:{radius},{lat},{lon});
+      way["tourism"](around:{radius},{lat},{lon});
+      relation["tourism"](around:{radius},{lat},{lon});
+      way["man_made"](around:{radius},{lat},{lon});
+      relation["man_made"](around:{radius},{lat},{lon});
     );
     out body geom;
     """
-    try:
-        print(f"Fetching comprehensive OSM building data near [{lat}, {lon}]...")
-        response = requests.post(url, data={"data": query}, timeout=15)
-        if response.status_code != 200:
-            return None
+    payload = None
+    for endpoint in OSM_OVERPASS_ENDPOINTS:
+        try:
+            print(f"Fetching comprehensive OSM data from {endpoint} near [{lat}, {lon}]...")
+            response = requests.post(endpoint, data={"data": query}, headers=OSM_HEADERS, timeout=9)
+            if response.status_code == 200:
+                payload = response.json()
+                break
+        except Exception as e:
+            print(f"Endpoint {endpoint} failed: {e}")
 
-        payload = response.json()
-        elements = payload.get("elements", [])
+    # Fallback to Nominatim vector polygon if Overpass was slow or returned empty
+    nom_geom = None
+    if building_name:
+        nom_geom = fetch_nominatim_building_polygon(building_name, lat, lon)
+
+    if not payload and not nom_geom:
+        return None
+
+    try:
+        elements = (payload or {}).get("elements", [])
         if not elements:
             return None
 
@@ -207,21 +253,24 @@ def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 200) 
                     best_dist = d
                     main_elem = el
 
-        if not main_elem and part_elements:
-            main_elem = part_elements[0]
+        main_footprint = None
+        tags = main_elem.get("tags", {}) if main_elem else {}
+        main_coords = _elem_to_coords(main_elem) if main_elem else None
+        
+        if main_coords:
+            main_footprint = {
+                "type": "Polygon",
+                "coordinates": [main_coords]
+            }
 
-        if not main_elem:
+        if nom_geom:
+            nom_vcount = len(nom_geom.get("coordinates", [[]])[0]) if nom_geom.get("type") == "Polygon" else sum(len(p[0]) for p in nom_geom.get("coordinates", []))
+            curr_vcount = len(main_coords) if main_coords else 0
+            if curr_vcount < 5 or nom_vcount > curr_vcount:
+                main_footprint = nom_geom
+
+        if not main_footprint:
             return None
-
-        tags = main_elem.get("tags", {})
-        main_coords = _elem_to_coords(main_elem)
-        if not main_coords:
-            return None
-
-        main_footprint = {
-            "type": "Polygon",
-            "coordinates": [main_coords]
-        }
 
         # Extract levels & heights
         raw_levels = tags.get("building:levels") or tags.get("levels") or tags.get("building:floors")
@@ -328,10 +377,10 @@ def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 200) 
                 "tags": p_tags
             })
 
-        print(f"✅ Extracted OSM Building: '{building_name or 'Unnamed'}' | Floors: {floor_count} ({floor_source}) | Parts: {len(parsed_parts)}")
+        print(f"[OK] Extracted OSM Building: '{building_name or 'Unnamed'}' | Floors: {floor_count} ({floor_source}) | Parts: {len(parsed_parts)}")
 
-        return {
-            "osm_id": f"{main_elem.get('type')}/{main_elem.get('id')}",
+        result_dict = {
+            "osm_id": f"{main_elem.get('type')}/{main_elem.get('id')}" if main_elem else "osm/custom",
             "building_name": building_name,
             "footprint": main_footprint,
             "height_meters": float(height),
@@ -352,6 +401,8 @@ def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 200) 
             "building_parts": parsed_parts,
             "tags": tags
         }
+        _OSM_CACHE[cache_key] = result_dict
+        return result_dict
 
     except Exception as e:
         print(f"Error fetching comprehensive OSM data: {e}")
