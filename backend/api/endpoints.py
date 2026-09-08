@@ -187,7 +187,14 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
                     confidence_score=float(getattr(validation, "confidence_score", result_validation.get("confidence_score", 0.0))),
                     errors=result_validation.get("errors", [])
                 ),
-                underground=(disk_result or {}).get("underground", None)
+                underground=(disk_result or {}).get("underground", None),
+                building_parts=(disk_result or {}).get("building_parts", None),
+                roof=(disk_result or {}).get("roof", None),
+                assessment=(disk_result or {}).get("assessment", None),
+                floor_source=(disk_result or {}).get("floor_source", None),
+                is_floor_estimated=(disk_result or {}).get("is_floor_estimated", None),
+                underground_floors=(disk_result or {}).get("underground_floors", None),
+                built_up_area_sqm=(disk_result or {}).get("built_up_area_sqm", None)
             )
         except Exception as exc:
             import logging
@@ -263,7 +270,14 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
             confidence_score=result.get("validation", {}).get("confidence_score", 0.0),
             errors=result.get("validation", {}).get("errors", [])
         ),
-        underground=result.get("underground", None)
+        underground=result.get("underground", None),
+        building_parts=result.get("building_parts", None),
+        roof=result.get("roof", None),
+        assessment=result.get("assessment", None),
+        floor_source=result.get("floor_source", None),
+        is_floor_estimated=result.get("is_floor_estimated", None),
+        underground_floors=result.get("underground_floors", None),
+        built_up_area_sqm=result.get("built_up_area_sqm", None)
     )
 
 @router.get("/buildings/{building_id}/units", response_model=list[UnitResponse])

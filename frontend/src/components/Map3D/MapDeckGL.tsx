@@ -8,7 +8,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { Building, Unit } from '../../types';
-import { getBuildingCenter } from '../../utils/footprintUtils';
+import { getBuildingCenter, getBuildingHeight, getFloorCountInfo, getFootprintDimensions } from '../../utils/footprintUtils';
 import { REEARTH, setupReearthTerrain } from '../../utils/reearth';
 import { RotateCw, Layers, MapPin, Map as MapIcon, Maximize2, Building2, PanelLeft, PanelRight, ArrowDownToLine, Activity, ShieldCheck, Database, X, Zap, Droplets, Flame, Radio, Wrench, Landmark } from 'lucide-react';
 import './Map3D.css';
@@ -64,6 +64,8 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
   const firstUnit = building?.units?.[0];
   const mapLng = centerLng !== 0 ? centerLng : Number(firstUnit?.centroid?.[1]) || 77.0886;
   const mapLat = centerLat !== 0 ? centerLat : Number(firstUnit?.centroid?.[0]) || 28.4942;
+  const buildingHeight = getBuildingHeight(building);
+  const floorInfo = getFloorCountInfo(building);
 
   const [viewState, setViewState] = useState({
     longitude: mapLng,
@@ -519,6 +521,30 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
         getPosition: [selectedFloor],
       },
     }),
+
+    new TextLayer({
+      id: '3d-building-apex-badge-layer',
+      data: [{
+        text: `${building?.building_name || 'Structure'}\n${floorInfo.countText} · ${(buildingHeight).toFixed(1)}m · ${building.assessment?.spatial_validation_status || 'Validated'}`,
+        coordinates: [mapLng, mapLat],
+        zAltitude: (buildingHeight + 3.5) * SCALE_ELEVATION,
+      }],
+      getPosition: (d: any) => [d.coordinates[0], d.coordinates[1], d.zAltitude],
+      getText: (d: any) => d.text,
+      getSize: 12,
+      getColor: [255, 255, 255, 255],
+      getAngle: 0,
+      getTextAnchor: 'middle',
+      getAlignmentBaseline: 'bottom',
+      fontFamily: 'Inter, sans-serif',
+      fontWeight: 'bold',
+      lineHeight: 1.4,
+      background: true,
+      getBackgroundColor: isLightStyle ? [15, 23, 42, 220] : [10, 15, 29, 230],
+      getBorderColor: [124, 111, 224, 240],
+      getBorderWidth: 1.5,
+      backgroundPadding: [8, 6],
+    }),
     // ── Underground layers ────────────────────────────────────────────────
     ...(showUnderground ? [
       ...(undergroundUnitsGeoJSON ? [
@@ -746,7 +772,7 @@ export default function MapDeckGL({ building, selectedUnit, onUnitClick, selecte
           <span className="location-coords-sub">
             {selectedFloor !== null
               ? `Isolated Floor ${selectedFloor} Active`
-              : `All ${building?.floor_count || 4} Floors · ULPIN Overlay`}
+              : `${floorInfo.countText} · ${(buildingHeight).toFixed(1)}m · ${floorInfo.sourceText}`}
           </span>
         </div>
       </div>

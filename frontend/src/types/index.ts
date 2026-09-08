@@ -92,10 +92,46 @@ export interface UndergroundData {
   validation_issues: any[];
 }
 
+export interface BuildingPart {
+  id: string;
+  footprint: GeoJSONPolygon | any;
+  height: number;
+  min_height?: number;
+  levels?: number;
+  min_levels?: number;
+  roof_shape?: string;
+  roof_height?: number;
+  material?: string;
+  color?: string;
+}
+
+export interface RoofInfo {
+  shape?: string;
+  height?: number;
+  levels?: number;
+  material?: string;
+  color?: string;
+}
+
+export interface AssessmentInfo {
+  land_use?: string;
+  built_up_area_sqm?: number;
+  floor_area_sqm?: number;
+  parcel_area_sqm?: number;
+  occupancy_type?: string;
+  construction_type?: string;
+  building_material?: string;
+  record_status?: string;
+  permit_status?: string;
+  assessment_value?: string;
+  spatial_validation_status?: string;
+}
+
 export interface Building {
   status?: string;
   building_id: string;
   parcel_id: string;
+  ulpin?: string;
   aerial_image_url?: string;
   building_name?: string;
   address?: string;
@@ -111,6 +147,16 @@ export interface Building {
   validation?: SpatialValidation;
   created_at?: string;
   underground?: UndergroundData;
+  building_parts?: BuildingPart[];
+  roof?: RoofInfo;
+  assessment?: AssessmentInfo;
+  floor_source?: string;
+  is_floor_estimated?: boolean;
+  underground_floors?: number;
+  built_up_area_sqm?: number;
+  building_material?: string;
+  building_color?: string;
+  land_use?: string;
 }
 
 export interface AutoDetectBuildingPayload {

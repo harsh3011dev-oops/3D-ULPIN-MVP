@@ -414,3 +414,206 @@
   font-size: 0.7rem;
   color: #6ee7b7;
 }
+
+/* ── 3D Anchored Floating Badges (Building Apex & Floor Level) ── */
+.anchored-badge-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 18;
+}
+
+.anchored-building-badge {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: rgba(10, 15, 29, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(124, 111, 224, 0.45);
+  border-radius: 10px;
+  padding: 8px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 12px rgba(124, 111, 224, 0.2);
+  color: #f1f5f9;
+  font-family: 'Inter', sans-serif;
+  pointer-events: auto;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+  max-width: 280px;
+}
+
+.anchored-building-badge::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(10, 15, 29, 0.94);
+}
+
+.badge-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.badge-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge-ulpin {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.64rem;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+.badge-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 0.68rem;
+  color: #cbd5e1;
+  margin-top: 4px;
+}
+
+.badge-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-stat-label {
+  color: #94a3b8;
+}
+
+.badge-stat-val {
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.badge-chips {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.badge-chip {
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.badge-chip.validated {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+}
+
+.badge-chip.source {
+  background: rgba(124, 111, 224, 0.15);
+  border: 1px solid rgba(124, 111, 224, 0.35);
+  color: #c4b5fd;
+}
+
+/* Selected Floor Anchored Floating Card */
+.anchored-floor-badge {
+  position: absolute;
+  transform: translate(24px, -50%);
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(56, 189, 248, 0.6);
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 0 10px rgba(56, 189, 248, 0.25);
+  color: #f1f5f9;
+  font-family: 'Inter', sans-serif;
+  pointer-events: auto;
+  min-width: 170px;
+  z-index: 22;
+}
+
+.anchored-floor-badge::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-right: 8px solid rgba(56, 189, 248, 0.8);
+}
+
+.floor-badge-title {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.floor-badge-unit {
+  font-size: 0.68rem;
+  font-family: var(--font-mono, monospace);
+  color: #e2e8f0;
+  margin-top: 3px;
+}
+
+.floor-badge-detail {
+  font-size: 0.64rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* Floor Level Micro Markers (F1, F2, F3...) */
+.floor-level-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.floor-level-marker:hover,
+.floor-level-marker.active {
+  background: var(--accent-lavender);
+  border-color: #ffffff;
+  color: #ffffff;
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 0 8px rgba(124, 111, 224, 0.6);
+}
+

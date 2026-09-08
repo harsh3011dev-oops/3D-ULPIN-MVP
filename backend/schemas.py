@@ -79,6 +79,13 @@ class BuildingResponse(BaseModel):
     created_at: Optional[datetime] = None
     validation: Optional[BuildingValidationSummary] = None
     underground: Optional[Dict[str, Any]] = None  # Underground infrastructure data
+    building_parts: Optional[List[Dict[str, Any]]] = None
+    roof: Optional[Dict[str, Any]] = None
+    assessment: Optional[Dict[str, Any]] = None
+    floor_source: Optional[str] = None
+    is_floor_estimated: Optional[bool] = None
+    underground_floors: Optional[int] = None
+    built_up_area_sqm: Optional[float] = None
 
 class ValidationResponse(BaseModel):
     building_id: str
