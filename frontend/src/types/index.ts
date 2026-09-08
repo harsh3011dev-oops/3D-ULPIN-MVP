@@ -94,6 +94,7 @@ export interface UndergroundData {
 
 export interface BuildingPart {
   id: string;
+  part_type?: string;
   footprint: GeoJSONPolygon | any;
   height: number;
   min_height?: number;
@@ -103,6 +104,7 @@ export interface BuildingPart {
   roof_height?: number;
   material?: string;
   color?: string;
+  tags?: Record<string, any>;
 }
 
 export interface RoofInfo {

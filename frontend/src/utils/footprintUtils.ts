@@ -183,3 +183,82 @@ export function getFloorCountInfo(building: Building): {
   return { countText, isEstimated, sourceText };
 }
 
+export function getFootprintVertexCount(footprint?: GeoJSONPolygon | any | null): number {
+  if (!footprint) return 0;
+  if (footprint.type === 'MultiPolygon' && Array.isArray(footprint.coordinates)) {
+    return footprint.coordinates.reduce((sum: number, poly: any[]) => sum + (poly[0]?.length || 0), 0);
+  }
+  if (footprint.coordinates && Array.isArray(footprint.coordinates)) {
+    return footprint.coordinates[0]?.length || 0;
+  }
+  return 0;
+}
+
+export interface ShapeMetrics {
+  width: number;
+  depth: number;
+  aspectRatio: number;
+  areaSqm: number;
+  perimeterM: number;
+  circularity: number; // 4*pi*Area / P^2 (1.0 = circle, >0.8 = rounded/octagonal)
+  vertexCount: number;
+  hasHoles: boolean;
+}
+
+export function getShapeMetrics(footprint: GeoJSONPolygon | any, centerLng?: number, centerLat?: number): ShapeMetrics {
+  const fallback: ShapeMetrics = { width: 10, depth: 10, aspectRatio: 1.0, areaSqm: 100, perimeterM: 40, circularity: 0.78, vertexCount: 4, hasHoles: false };
+  if (!footprint) return fallback;
+
+  let polyCoords: number[][][] = [];
+  if (footprint.type === 'MultiPolygon' && footprint.coordinates?.[0]) {
+    polyCoords = footprint.coordinates[0];
+  } else if (footprint.coordinates) {
+    polyCoords = footprint.coordinates;
+  }
+
+  const ring = polyCoords[0];
+  if (!ring || ring.length < 3) return fallback;
+
+  const cLng = centerLng !== undefined ? centerLng : ring.map((p) => p[0]).reduce((a, b) => a + b, 0) / ring.length;
+  const cLat = centerLat !== undefined ? centerLat : ring.map((p) => p[1]).reduce((a, b) => a + b, 0) / ring.length;
+  const mLng = metersPerDegLng(cLat);
+
+  const pts = ring.map((p) => [
+    (p[0] - cLng) * mLng,
+    (p[1] - cLat) * METERS_PER_DEG_LAT,
+  ]);
+
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  const width = Math.max(Math.max(...xs) - Math.min(...xs), 1);
+  const depth = Math.max(Math.max(...ys) - Math.min(...ys), 1);
+  const aspectRatio = Math.max(width, depth) / Math.min(width, depth);
+
+  let area = 0;
+  let perimeter = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const x1 = pts[i][0];
+    const y1 = pts[i][1];
+    const x2 = pts[i + 1][0];
+    const y2 = pts[i + 1][1];
+    area += x1 * y2 - x2 * y1;
+    perimeter += Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+  }
+  area = Math.abs(area) / 2;
+  perimeter = Math.max(perimeter, 1);
+
+  const circularity = perimeter > 0 ? (4 * Math.PI * area) / (perimeter * perimeter) : 0;
+
+  return {
+    width,
+    depth,
+    aspectRatio,
+    areaSqm: Math.round(area),
+    perimeterM: Math.round(perimeter),
+    circularity: Math.min(1.0, circularity),
+    vertexCount: ring.length,
+    hasHoles: polyCoords.length > 1,
+  };
+}
+
+

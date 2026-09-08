@@ -278,9 +278,19 @@ def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 200) 
         # Land Use & Class
         landuse = tags.get("landuse") or tags.get("amenity") or tags.get("tourism") or tags.get("historic") or tags.get("building", "General Cadastral")
 
-        # Parse Building Parts
+        # Parse Building Parts & Auxiliary Structures
         parsed_parts = []
-        for idx, part in enumerate(part_elements):
+        all_part_candidates = list(part_elements)
+
+        # Also add any secondary building structures in the compound (e.g. detached towers, pavilions, minarets, wings)
+        for el in building_elements:
+            if el != main_elem and el.get("id") != main_elem.get("id"):
+                el_tags = el.get("tags", {})
+                b_val = el_tags.get("building", "")
+                if b_val not in ["no", ""]:
+                    all_part_candidates.append(el)
+
+        for idx, part in enumerate(all_part_candidates):
             p_tags = part.get("tags", {})
             p_coords = _elem_to_coords(part)
             if not p_coords:
@@ -289,6 +299,7 @@ def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 200) 
             p_h = _parse_float(p_tags.get("height") or p_tags.get("building:height"))
             p_min_h = _parse_float(p_tags.get("min_height") or p_tags.get("building:min_height")) or 0.0
             p_levels = _parse_int(p_tags.get("building:levels") or p_tags.get("levels"))
+            p_min_levels = _parse_int(p_tags.get("building:min_level") or p_tags.get("min_level")) or 0
             
             if not p_h:
                 if p_levels:
@@ -300,17 +311,21 @@ def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 200) 
             p_roof_h = _parse_float(p_tags.get("roof:height")) or None
             p_material = p_tags.get("building:material") or p_tags.get("material") or building_material
             p_color = p_tags.get("building:colour") or p_tags.get("colour") or building_color
+            p_type = p_tags.get("building:part") or p_tags.get("building") or p_tags.get("man_made") or "generic"
 
             parsed_parts.append({
-                "id": f"part_{idx+1}",
+                "id": f"part_{idx+1}_{part.get('id', idx)}",
+                "part_type": p_type,
                 "footprint": {"type": "Polygon", "coordinates": [p_coords]},
                 "height": float(p_h),
                 "min_height": float(p_min_h),
                 "levels": p_levels or max(1, round((p_h - p_min_h) / 3.5)),
+                "min_levels": p_min_levels,
                 "roof_shape": p_roof_shape,
                 "roof_height": p_roof_h,
                 "material": p_material,
                 "color": p_color,
+                "tags": p_tags
             })
 
         print(f"✅ Extracted OSM Building: '{building_name or 'Unnamed'}' | Floors: {floor_count} ({floor_source}) | Parts: {len(parsed_parts)}")
