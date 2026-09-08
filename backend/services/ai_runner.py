@@ -2,7 +2,7 @@ import sys
 import os
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from shapely.geometry import shape
 
 # Add project root to sys.path so we can import the AI module
@@ -70,7 +70,7 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
         try:
             # 1. Update Job status to 'processing'
             await supabase_service.update_job_status(
-                db, job_id, "processing", 0, "Initializing AI Pipeline", started_at=datetime.utcnow()
+                db, job_id, "processing", 0, "Initializing AI Pipeline", started_at=datetime.now(timezone.utc)
             )
 
             # 2. Call AI pipeline
@@ -189,7 +189,7 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
                 100, 
                 "Done", 
                 result_json=result,
-                completed_at=datetime.utcnow()
+                completed_at=datetime.now(timezone.utc)
             )
             logger.info(f"Job {job_id} completed successfully.")
 
@@ -202,7 +202,7 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
                 job_id, 
                 "failed", 
                 error_message=str(e),
-                completed_at=datetime.utcnow()
+                completed_at=datetime.now(timezone.utc)
             )
 
 def _get_mock_ai_result(parcel_id: str) -> dict:

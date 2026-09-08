@@ -1,7 +1,7 @@
 import uuid
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
@@ -26,7 +26,7 @@ async def create_job(db: AsyncSession, parcel_id: str) -> Job:
         "progress_step": "Initializing",
         "result_json": None,
         "error_message": None,
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.now(timezone.utc).isoformat()
     }
     if db:
         try:

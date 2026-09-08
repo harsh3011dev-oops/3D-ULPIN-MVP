@@ -47,7 +47,7 @@ async def auto_detect_building(request: dict):
 
     result = await call_gemini_api(building_name, city)
     if not result:
-        raise HTTPException(status_code=404, detail="Building not found or confidence too low. Try Manual Entry.")
+        raise HTTPException(status_code=404, detail="Building not found")
 
     _AUTODETECT_CACHE[cache_key] = result
     return result
@@ -161,21 +161,30 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
                     z_min=(floor_num - 1) * floor_height, z_max=floor_num * floor_height,
                     floor_height_m=floor_height
                 ))
+            b_name = (disk_result or {}).get("building_name") or getattr(building, "building_name", None)
+            b_addr = (disk_result or {}).get("address") or getattr(building, "address", None)
+            b_lat = (disk_result or {}).get("latitude") or getattr(building, "centroid_lat", None)
+            b_lon = (disk_result or {}).get("longitude") or getattr(building, "centroid_lon", None)
+            b_created = getattr(building, "created_at", None)
+
             return BuildingResponse(
-                building_id=building.building_id,
+                building_id=str(building.building_id),
                 parcel_id=str(building.parcel_id) if building.parcel_id else (disk_result or {}).get("parcel_id", "unknown"),
-                footprint=_to_geojson(building.footprint), height_meters=building.height_meters or 0.0,
-                floor_count=building.floor_count or 1, total_units=building.total_units or len(units_response), units=units_response,
-                building_name=(disk_result or {}).get("building_name") or getattr(building, "building_name", None),
-                address=(disk_result or {}).get("address") or getattr(building, "address", None),
-                latitude=(disk_result or {}).get("latitude") or getattr(building, "centroid_lat", None),
-                longitude=(disk_result or {}).get("longitude") or getattr(building, "centroid_lon", None),
-                created_at=getattr(building, "created_at", None),
+                footprint=_to_geojson(building.footprint),
+                height_meters=float(building.height_meters or 0.0),
+                floor_count=int(building.floor_count or 1),
+                total_units=int(building.total_units or len(units_response)),
+                units=units_response,
+                building_name=str(b_name) if isinstance(b_name, str) else None,
+                address=str(b_addr) if isinstance(b_addr, str) else None,
+                latitude=float(b_lat) if isinstance(b_lat, (int, float)) else None,
+                longitude=float(b_lon) if isinstance(b_lon, (int, float)) else None,
+                created_at=b_created if hasattr(b_created, "isoformat") else None,
                 validation=BuildingValidationSummary(
-                    is_valid=getattr(validation, "is_valid", result_validation.get("valid", True)),
-                    overlaps_detected=getattr(validation, "overlaps_detected", len(result_validation.get("overlapping_units", []))),
-                    out_of_bounds=getattr(validation, "out_of_bounds", len(result_validation.get("out_of_bounds", []))),
-                    confidence_score=getattr(validation, "confidence_score", result_validation.get("confidence_score", 0.0)),
+                    is_valid=bool(getattr(validation, "is_valid", result_validation.get("valid", True))),
+                    overlaps_detected=int(getattr(validation, "overlaps_detected", len(result_validation.get("overlapping_units", [])))),
+                    out_of_bounds=int(getattr(validation, "out_of_bounds", len(result_validation.get("out_of_bounds", [])))),
+                    confidence_score=float(getattr(validation, "confidence_score", result_validation.get("confidence_score", 0.0))),
                     errors=result_validation.get("errors", [])
                 ),
                 underground=(disk_result or {}).get("underground", None)
@@ -257,21 +266,62 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
         underground=result.get("underground", None)
     )
 
+@router.get("/buildings/{building_id}/units", response_model=list[UnitResponse])
+async def get_building_units(building_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Endpoint: Get list of units for a building
+    """
+    bldg = await get_building(building_id, db)
+    return bldg.units
+
+@router.get("/validation/{building_id}", response_model=ValidationResponse)
+@router.get("/buildings/{building_id}/validation", response_model=ValidationResponse)
 async def get_validation(building_id: str, db: AsyncSession = Depends(get_db)):
     """
     Endpoint 4: Provide validation reports
     """
-    # This requires looking up the building first to get its UUID
     val_log = await get_validation_log(db, building_id)
-    if not val_log:
-        raise HTTPException(status_code=404, detail="Validation log not found for this building")
+    if val_log:
+        return ValidationResponse(
+            building_id=building_id,
+            is_valid=val_log.is_valid,
+            overlaps_detected=val_log.overlaps_detected,
+            out_of_bounds=val_log.out_of_bounds,
+            confidence_score=val_log.confidence_score,
+            errors=val_log.validation_report.get('errors', []) if val_log.validation_report else [],
+            checked_at=val_log.checked_at
+        )
 
-    return ValidationResponse(
-        building_id=building_id,
-        is_valid=val_log.is_valid,
-        overlaps_detected=val_log.overlaps_detected,
-        out_of_bounds=val_log.out_of_bounds,
-        confidence_score=val_log.confidence_score,
-        errors=val_log.validation_report.get('errors', []) if val_log.validation_report else [],
-        checked_at=val_log.checked_at
+    # Fallback: check disk exports
+    import os
+    exports_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../../ai/exports")
     )
+    try:
+        for fname in os.listdir(exports_dir):
+            if not fname.endswith(".json"):
+                continue
+            fpath = os.path.join(exports_dir, fname)
+            try:
+                with open(fpath, encoding='utf-8') as f:
+                    data = json.load(f)
+                r = data.get("result", data)
+                if (r.get("building_id") == building_id or
+                        fname.replace(".json", "") == building_id):
+                    val = r.get("validation", {})
+                    return ValidationResponse(
+                        building_id=r.get("building_id", building_id),
+                        is_valid=val.get("valid", True),
+                        overlaps_detected=len(val.get("overlapping_units", [])),
+                        out_of_bounds=len(val.get("out_of_bounds", [])),
+                        confidence_score=float(val.get("confidence_score", 0.0)),
+                        errors=[str(e) for e in val.get("errors", [])]
+                    )
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    raise HTTPException(status_code=404, detail="Validation log not found for this building")
+
+

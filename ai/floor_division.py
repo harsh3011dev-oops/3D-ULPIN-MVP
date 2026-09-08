@@ -79,6 +79,21 @@ def divide_floor_into_units(
             if unit_poly.is_empty:
                 continue
 
+            if unit_poly.geom_type == "MultiPolygon":
+                polys = [p for p in unit_poly.geoms if p.geom_type == "Polygon" and not p.is_empty]
+                if polys:
+                    unit_poly = max(polys, key=lambda g: g.area)
+                else:
+                    continue
+            elif unit_poly.geom_type == "GeometryCollection":
+                polys = [g for g in unit_poly.geoms if g.geom_type == "Polygon" and not g.is_empty]
+                if polys:
+                    unit_poly = max(polys, key=lambda g: g.area)
+                else:
+                    continue
+            elif unit_poly.geom_type != "Polygon":
+                continue
+
             label = f"{chr(65 + col)}{row + 1:02d}"
             centroid = unit_poly.centroid
             units.append({

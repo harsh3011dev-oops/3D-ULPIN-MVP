@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 from backend.main import app
 from backend.services.supabase_service import get_job
 from backend.database import AsyncSessionLocal
@@ -8,7 +8,7 @@ from backend.database import AsyncSessionLocal
 @pytest.mark.asyncio
 async def test_full_pipeline_flow():
     # 1. Start Job
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.post(
             "/api/v1/buildings/create",
             json={
@@ -22,12 +22,10 @@ async def test_full_pipeline_flow():
         job_id = response.json()["job_id"]
 
     # 2. Wait for completion (this depends on the background task actually running)
-    # Note: In a real integration test environment, we'd use a real DB and wait for the job to complete.
-    # We will poll up to 5 times.
     completed = False
     for i in range(5):
         await asyncio.sleep(2)
-        async with AsyncClient(app=app, base_url="http://test") as ac:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             status_response = await ac.get(f"/api/v1/jobs/{job_id}/status")
             if status_response.status_code == 200:
                 data = status_response.json()
