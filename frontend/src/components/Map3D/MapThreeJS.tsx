@@ -9,6 +9,7 @@ import {
   getFootprintDimensions,
   getUnitFloor,
   footprintToShape,
+  FootprintDimensions,
 } from '../../utils/footprintUtils';
 import { fetchTerrainHeight } from '../../utils/reearth';
 import { RotateCw, Layers, MapPin, ZoomIn, ZoomOut, PanelLeft, PanelRight } from 'lucide-react';
@@ -311,6 +312,267 @@ function buildSurroundingContext(scene: THREE.Scene, dims: { width: number; dept
   });
 }
 
+function buildTajMahalModel(
+  scene: THREE.Scene,
+  dims: FootprintDimensions,
+  heightM: number,
+): { width: number; depth: number; height: number } {
+  const plinthW = Math.max(dims.width * 1.4, 85);
+  const plinthD = Math.max(dims.depth * 1.4, 85);
+  const plinthH = 5.5;
+
+  // Materials
+  const marbleMat = new THREE.MeshPhysicalMaterial({
+    color: 0xfafafa,
+    roughness: 0.16,
+    metalness: 0.04,
+    clearcoat: 0.9,
+    clearcoatRoughness: 0.08,
+    reflectivity: 0.95,
+  });
+
+  const marbleDarkMat = new THREE.MeshStandardMaterial({
+    color: 0x1e293b,
+    roughness: 0.85,
+  });
+
+  const goldMat = new THREE.MeshStandardMaterial({
+    color: 0xf59e0b,
+    metalness: 0.95,
+    roughness: 0.15,
+  });
+
+  const plinthMat = new THREE.MeshStandardMaterial({
+    color: 0xf1f5f9,
+    roughness: 0.35,
+  });
+
+  const waterMat = new THREE.MeshPhysicalMaterial({
+    color: 0x0284c7,
+    transmission: 0.9,
+    transparent: true,
+    opacity: 0.85,
+    roughness: 0.05,
+  });
+
+  // 1. Marble Plinth Platform
+  const plinthMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(plinthW, plinthH, plinthD),
+    plinthMat,
+  );
+  plinthMesh.position.y = plinthH / 2;
+  plinthMesh.castShadow = true;
+  plinthMesh.receiveShadow = true;
+  scene.add(plinthMesh);
+
+  // 2. Main Mausoleum Chamfered Octagon Body
+  const tombW = Math.min(dims.width, 56);
+  const tombD = Math.min(dims.depth, 56);
+  const tombH = 34;
+  const chamfer = 9.0;
+
+  const tombShape = new THREE.Shape();
+  const hw = tombW / 2;
+  const hd = tombD / 2;
+  tombShape.moveTo(-hw + chamfer, -hd);
+  tombShape.lineTo(hw - chamfer, -hd);
+  tombShape.lineTo(hw, -hd + chamfer);
+  tombShape.lineTo(hw, hd - chamfer);
+  tombShape.lineTo(hw - chamfer, hd);
+  tombShape.lineTo(-hw + chamfer, hd);
+  tombShape.lineTo(-hw, hd - chamfer);
+  tombShape.lineTo(-hw, -hd + chamfer);
+  tombShape.closePath();
+
+  const tombGeo = new THREE.ExtrudeGeometry(tombShape, {
+    depth: tombH,
+    bevelEnabled: false,
+  });
+  tombGeo.rotateX(-Math.PI / 2);
+
+  const tombMesh = new THREE.Mesh(tombGeo, marbleMat);
+  tombMesh.position.y = plinthH;
+  tombMesh.castShadow = true;
+  tombMesh.receiveShadow = true;
+  scene.add(tombMesh);
+
+  // 4 Grand Pishtaq Arches (North, South, East, West facades)
+  const iwanW = tombW * 0.44;
+  const iwanH = tombH * 0.74;
+  const iwanD = 3.2;
+  const iwanGeo = new THREE.BoxGeometry(iwanW, iwanH, iwanD);
+
+  const iwanN = new THREE.Mesh(iwanGeo, marbleDarkMat);
+  iwanN.position.set(0, plinthH + iwanH / 2 + 1.2, -hd + iwanD / 2);
+  scene.add(iwanN);
+
+  const iwanS = new THREE.Mesh(iwanGeo, marbleDarkMat);
+  iwanS.position.set(0, plinthH + iwanH / 2 + 1.2, hd - iwanD / 2);
+  scene.add(iwanS);
+
+  const iwanE = new THREE.Mesh(new THREE.BoxGeometry(iwanD, iwanH, iwanW), marbleDarkMat);
+  iwanE.position.set(hw - iwanD / 2, plinthH + iwanH / 2 + 1.2, 0);
+  scene.add(iwanE);
+
+  const iwanWmesh = new THREE.Mesh(new THREE.BoxGeometry(iwanD, iwanH, iwanW), marbleDarkMat);
+  iwanWmesh.position.set(-hw + iwanD / 2, plinthH + iwanH / 2 + 1.2, 0);
+  scene.add(iwanWmesh);
+
+  // 3. Central Cylindrical High Drum & Bulbous Onion Dome
+  const roofY = plinthH + tombH;
+  const drumR = tombW * 0.22;
+  const drumH = 9.5;
+  const drumMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(drumR, drumR, drumH, 32),
+    marbleMat,
+  );
+  drumMesh.position.set(0, roofY + drumH / 2, 0);
+  drumMesh.castShadow = true;
+  scene.add(drumMesh);
+
+  // Bulbous Onion Dome Profile using LatheGeometry
+  const domePts: THREE.Vector2[] = [];
+  const domeR = drumR * 1.22;
+  const domeH = 22;
+  for (let i = 0; i <= 24; i++) {
+    const t = i / 24;
+    const y = t * domeH;
+    let r = Math.sin(t * Math.PI) * domeR;
+    if (t < 0.35) r = drumR + Math.sin((t / 0.35) * (Math.PI / 2)) * (domeR - drumR);
+    else if (t > 0.78) r = domeR * Math.pow(1 - (t - 0.78) / 0.22, 1.7);
+    domePts.push(new THREE.Vector2(Math.max(0.05, r), y));
+  }
+  const domeGeo = new THREE.LatheGeometry(domePts, 32);
+  const domeMesh = new THREE.Mesh(domeGeo, marbleMat);
+  domeMesh.position.set(0, roofY + drumH, 0);
+  domeMesh.castShadow = true;
+  scene.add(domeMesh);
+
+  // Golden Finial / Kalash Apex Spire
+  const finialH = 7.8;
+  const finialMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.12, 0.45, finialH, 12),
+    goldMat,
+  );
+  finialMesh.position.set(0, roofY + drumH + domeH + finialH / 2, 0);
+  finialMesh.castShadow = true;
+  scene.add(finialMesh);
+
+  const finialBall = new THREE.Mesh(
+    new THREE.SphereGeometry(0.85, 16, 16),
+    goldMat,
+  );
+  finialBall.position.set(0, roofY + drumH + domeH + 1.2, 0);
+  scene.add(finialBall);
+
+  // 4. Four Roof Chattris (Domed Pavilions on Roof)
+  const chattriDist = tombW * 0.32;
+  const chattriR = 3.6;
+  const chattriColH = 5.2;
+
+  [
+    [-chattriDist, -chattriDist],
+    [chattriDist, -chattriDist],
+    [-chattriDist, chattriDist],
+    [chattriDist, chattriDist],
+  ].forEach(([cx, cz]) => {
+    for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 2) {
+      const colX = cx + Math.cos(angle) * (chattriR * 0.7);
+      const colZ = cz + Math.sin(angle) * (chattriR * 0.7);
+      const col = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.18, 0.22, chattriColH, 8),
+        marbleMat,
+      );
+      col.position.set(colX, roofY + chattriColH / 2, colZ);
+      col.castShadow = true;
+      scene.add(col);
+    }
+    const cDome = new THREE.Mesh(
+      new THREE.SphereGeometry(chattriR * 0.8, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+      marbleMat,
+    );
+    cDome.position.set(cx, roofY + chattriColH, cz);
+    cDome.castShadow = true;
+    scene.add(cDome);
+
+    const cFin = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.18, 1.6, 8),
+      goldMat,
+    );
+    cFin.position.set(cx, roofY + chattriColH + chattriR * 0.8 + 0.8, cz);
+    scene.add(cFin);
+  });
+
+  // 5. Four Freestanding Corner Minarets
+  const minaretOffsetW = plinthW / 2 - 7;
+  const minaretOffsetD = plinthD / 2 - 7;
+  const minaretH = 41;
+
+  [
+    [-minaretOffsetW, -minaretOffsetD],
+    [minaretOffsetW, -minaretOffsetD],
+    [-minaretOffsetW, minaretOffsetD],
+    [minaretOffsetW, minaretOffsetD],
+  ].forEach(([mx, mz]) => {
+    const pedH = 3.2;
+    const ped = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.6, 3.0, pedH, 8),
+      marbleMat,
+    );
+    ped.position.set(mx, plinthH + pedH / 2, mz);
+    ped.castShadow = true;
+    scene.add(ped);
+
+    const shaft = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.5, 2.2, minaretH, 16),
+      marbleMat,
+    );
+    shaft.position.set(mx, plinthH + pedH + minaretH / 2, mz);
+    shaft.castShadow = true;
+    scene.add(shaft);
+
+    [0.33, 0.66, 0.95].forEach((pct) => {
+      const bY = plinthH + pedH + minaretH * pct;
+      const bRing = new THREE.Mesh(
+        new THREE.CylinderGeometry(2.3, 2.1, 0.75, 16),
+        marbleMat,
+      );
+      bRing.position.set(mx, bY, mz);
+      bRing.castShadow = true;
+      scene.add(bRing);
+    });
+
+    const cupolaY = plinthH + pedH + minaretH;
+    const cupola = new THREE.Mesh(
+      new THREE.SphereGeometry(1.4, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+      marbleMat,
+    );
+    cupola.position.set(mx, cupolaY + 0.7, mz);
+    cupola.castShadow = true;
+    scene.add(cupola);
+
+    const mFin = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.14, 1.8, 8),
+      goldMat,
+    );
+    mFin.position.set(mx, cupolaY + 1.8, mz);
+    scene.add(mFin);
+  });
+
+  // 6. Charbagh Reflecting Water Pool
+  const poolW = 14;
+  const poolL = plinthD * 1.1;
+  const poolMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(poolW, poolL),
+    waterMat,
+  );
+  poolMesh.rotation.x = -Math.PI / 2;
+  poolMesh.position.set(0, 0.08, plinthD / 2 + poolL / 2 + 3);
+  scene.add(poolMesh);
+
+  return { width: plinthW, depth: plinthD, height: roofY + drumH + domeH + finialH };
+}
+
 function buildExtrudedBuilding(
   scene: THREE.Scene,
   building: Building,
@@ -319,6 +581,12 @@ function buildExtrudedBuilding(
 ): { width: number; depth: number; height: number } {
   const dims = getFootprintDimensions(building.footprint);
   const heightM = getBuildingHeight(building);
+  
+  const bName = (building.building_name || building.address || '').toLowerCase();
+  if (bName.includes('taj mahal') || (dims.centerLat >= 27.170 && dims.centerLat <= 27.180 && dims.centerLng >= 78.035 && dims.centerLng <= 78.048)) {
+    return buildTajMahalModel(scene, dims, heightM);
+  }
+
   const floorCount = building?.floor_count || 4;
   const floorH = heightM / floorCount;
   const podiumHeight = Math.min(4.5, heightM * 0.1);

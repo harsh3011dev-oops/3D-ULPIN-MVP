@@ -108,3 +108,48 @@ def fetch_osm_building_metadata(lat: float, lon: float, radius: int = 300) -> di
     except Exception as e:
         print(f"Failed to query OpenStreetMap API: {e}")
         return {"floor_count": None, "height_meters": None, "osm_id": None}
+
+
+def fetch_osm_building_geometry(lat: float, lon: float, radius: int = 150) -> dict | None:
+    """
+    Fetch exact building vector polygon footprint from OpenStreetMap Overpass API.
+    
+    Args:
+        lat (float): Latitude
+        lon (float): Longitude
+        radius (int): Search radius in meters (default 150m)
+
+    Returns:
+        dict: GeoJSON Polygon or None
+    """
+    url = "https://overpass-api.de/api/interpreter"
+    query = f"""
+    [out:json][timeout:15];
+    (
+      way["building"](around:{radius},{lat},{lon});
+      relation["building"](around:{radius},{lat},{lon});
+    );
+    out body geom;
+    """
+    try:
+        print(f"Fetching OSM vector building footprint near [{lat}, {lon}]...")
+        response = requests.post(url, data={"data": query}, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            elements = data.get("elements", [])
+            for el in elements:
+                geom = el.get("geometry", [])
+                if len(geom) >= 3:
+                    coords = [[round(p["lon"], 7), round(p["lat"], 7)] for p in geom]
+                    if coords[0] != coords[-1]:
+                        coords.append(coords[0])
+                    print(f"Found OSM building polygon ({len(coords)} vertices)")
+                    return {
+                        "type": "Polygon",
+                        "coordinates": [coords]
+                    }
+        return None
+    except Exception as e:
+        print(f"Failed to fetch OSM building geometry: {e}")
+        return None
+

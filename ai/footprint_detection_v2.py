@@ -232,11 +232,20 @@ def detect_building_footprint_hybrid(
     else:
         valid_contours = [c for c in contours if cv2.contourArea(c) >= 100]
         largest_cnt = max(valid_contours, key=cv2.contourArea) if valid_contours else max(contours, key=cv2.contourArea)
+        
+        # Solidity check (Area / ConvexHull Area) to prevent hollow C-shaped artifacts caused by roof shadows
+        hull_cnt = cv2.convexHull(largest_cnt)
+        cnt_area = cv2.contourArea(largest_cnt)
+        hull_area = cv2.contourArea(hull_cnt)
+        solidity = (cnt_area / hull_area) if hull_area > 0 else 1.0
+        
+        if solidity < 0.80:
+            largest_cnt = hull_cnt
+
         epsilon = 0.008 * cv2.arcLength(largest_cnt, True)
         approx = cv2.approxPolyDP(largest_cnt, epsilon, True)
 
         if len(approx) < 4:
-            # Fallback to convex hull instead of a simple bounding box
             hull = cv2.convexHull(largest_cnt)
             approx = cv2.approxPolyDP(hull, epsilon, True)
             if len(approx) < 3:
@@ -253,34 +262,17 @@ def detect_building_footprint_hybrid(
 
     # Step B: Score CV Confidence
     cv_conf = score_footprint_confidence(image, cv_footprint, parcel_boundary)
-    osm_conf = 85.0 if osm_footprint else 0.0
+    osm_conf = 95.0 if osm_footprint else 0.0
 
-    cfg = FINE_TUNING_CONFIG["priority_1"]["hybrid_strategy"]
-    high_thresh = cfg.get("cv_confidence_threshold_high", 85)
-    low_thresh = cfg.get("cv_confidence_threshold_low", 70)
-
-    # Strategy Decision Tree
-    if cv_conf >= high_thresh or not osm_footprint:
+    # Strategy Decision Tree: Authoritative OSM surveyed vectors take priority
+    if osm_footprint:
+        method = "osm_only"
+        blend_ratio = 0.0
+        final_footprint = osm_footprint
+    else:
         method = "cv_only"
         blend_ratio = 1.0
         final_footprint = cv_footprint
-    elif low_thresh <= cv_conf < high_thresh and osm_footprint:
-        method = "hybrid"
-        blend_ratio = 0.7
-        # Geometric centroid-preserving blend of CV and OSM
-        try:
-            shape_cv = shape(_normalize_geojson(cv_footprint))
-            shape_osm = shape(_normalize_geojson(osm_footprint))
-            blended = shape_cv.intersection(shape_osm)
-            if blended.is_empty or not blended.is_valid:
-                blended = shape_cv.union(shape_osm).convex_hull
-            final_footprint = mapping(blended)
-        except Exception:
-            final_footprint = cv_footprint
-    else:
-        method = "osm_only"
-        blend_ratio = 0.3
-        final_footprint = osm_footprint if osm_footprint else cv_footprint
 
     return {
         "footprint": final_footprint,
