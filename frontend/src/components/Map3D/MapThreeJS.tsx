@@ -14,11 +14,31 @@ import {
   getFootprintVertexCount,
   getShapeMetrics,
   getPartCenterOffset,
+  getProportionalZoning,
+  scaleShape,
   ShapeMetrics,
   FootprintDimensions,
+  ProportionalZoning,
 } from '../../utils/footprintUtils';
 import { fetchTerrainHeight } from '../../utils/reearth';
-import { RotateCw, Layers, MapPin, ZoomIn, ZoomOut, PanelLeft, PanelRight, ShieldCheck, CheckCircle2, Sparkles, Box, Compass } from 'lucide-react';
+import {
+  RotateCw,
+  Layers,
+  MapPin,
+  ZoomIn,
+  ZoomOut,
+  PanelLeft,
+  PanelRight,
+  ShieldCheck,
+  CheckCircle2,
+  Sparkles,
+  Box,
+  Compass,
+  Eye,
+  Info,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import './Map3D.css';
 
 interface MapThreeJSProps {
@@ -41,8 +61,146 @@ const FLOOR_HEX_COLORS = [
   0x8b5cf6,
 ];
 
+export type LODLevel = 'FAR' | 'MEDIUM' | 'CLOSE' | 'SELECTED';
+
+export interface ArchitecturalTelemetry {
+  geometrySource: string;
+  buildingPartsCount: number;
+  partTypes: string[];
+  roofType: string;
+  roofHeightM: number;
+  generatedMeshCount: number;
+  lodLevel: LODLevel;
+  visualHeight: number;
+  cadastralHeight: number;
+  fallbackUsed: boolean;
+  proportions: {
+    platformM: number;
+    wallM: number;
+    roofM: number;
+    finialM: number;
+  };
+  hasHoles: boolean;
+  circularity: number;
+}
+
+// ─────────────────────────────────────────────────────────────
+// MATERIAL SYSTEM: Realistic Physical & Architectural Materials
+// ─────────────────────────────────────────────────────────────
+
+function createArchitecturalMaterials(building: Building, wireframe: boolean) {
+  const tags = {
+    ...(building.assessment || {}),
+    name: building.building_name || '',
+    material: building.assessment?.building_material || building.building_material || '',
+    colour: building.building_color || '',
+    landUse: building.assessment?.land_use || building.land_use || '',
+  };
+
+  const matString = `${tags.material} ${tags.name} ${tags.colour} ${tags.landUse}`.toLowerCase();
+
+  const isSandstone = matString.includes('sandstone') || matString.includes('red') || matString.includes('brick') || matString.includes('fort');
+  const isMarbleOrWhite = matString.includes('marble') || matString.includes('white') || matString.includes('ivory') || matString.includes('temple') || matString.includes('taj');
+  const isStoneOrHeritage = matString.includes('stone') || matString.includes('heritage') || matString.includes('monument') || matString.includes('historic') || matString.includes('granite');
+  const isTerracotta = matString.includes('clay') || matString.includes('terracotta') || matString.includes('tile');
+
+  // 1. Primary Wall / Body Material
+  let wallColor = 0xe2e8f0; // Warm limestone / architectural off-white
+  let roughness = 0.65;
+  let metalness = 0.05;
+
+  if (isSandstone) {
+    wallColor = 0x9a3412; // Rich red/ochre sandstone
+    roughness = 0.78;
+  } else if (isMarbleOrWhite) {
+    wallColor = 0xf8fafc; // Pristine crystalline marble
+    roughness = 0.40;
+    metalness = 0.02;
+  } else if (isStoneOrHeritage) {
+    wallColor = 0xd6d3d1; // Weathered carved stone
+    roughness = 0.80;
+  } else if (isTerracotta) {
+    wallColor = 0xc2410c;
+    roughness = 0.85;
+  }
+
+  const isModern = !isSandstone && !isMarbleOrWhite && !isStoneOrHeritage;
+
+  const wallMaterial = isModern
+    ? new THREE.MeshPhysicalMaterial({
+        color: 0xf1f5f9,
+        map: generateModernFacadeTexture(building.floor_count || 4),
+        metalness: 0.35,
+        roughness: 0.25,
+        clearcoat: 0.75,
+        clearcoatRoughness: 0.15,
+        reflectivity: 0.85,
+        wireframe,
+      })
+    : new THREE.MeshStandardMaterial({
+        color: wallColor,
+        roughness,
+        metalness,
+        wireframe,
+      });
+
+  // 2. Podium / Platform Plinth Material
+  const podiumMaterial = new THREE.MeshStandardMaterial({
+    color: isSandstone ? 0x7c2d12 : isMarbleOrWhite ? 0xe2e8f0 : 0x475569,
+    roughness: 0.85,
+    metalness: 0.05,
+    wireframe,
+  });
+
+  // 3. Roof / Dome Material
+  let roofColor = 0x334155;
+  if (isMarbleOrWhite) roofColor = 0xffffff;
+  else if (isSandstone) roofColor = 0x7c2d12;
+  else if (isTerracotta) roofColor = 0xb45309;
+
+  const roofMaterial = new THREE.MeshStandardMaterial({
+    color: roofColor,
+    roughness: isMarbleOrWhite ? 0.35 : 0.65,
+    metalness: 0.1,
+    wireframe,
+  });
+
+  // 4. Gold / Brass Kalash Accent Material
+  const goldAccentMat = new THREE.MeshStandardMaterial({
+    color: 0xf59e0b,
+    metalness: 0.95,
+    roughness: 0.18,
+    wireframe,
+  });
+
+  // 5. Cornice / Trim Accent Material
+  const trimMaterial = new THREE.MeshStandardMaterial({
+    color: isMarbleOrWhite ? 0xe2e8f0 : isSandstone ? 0xb45309 : 0x64748b,
+    roughness: 0.5,
+    metalness: 0.15,
+    wireframe,
+  });
+
+  // 6. Subtle Architectural Pen Outline Material
+  const edgeMaterial = new THREE.LineBasicMaterial({
+    color: 0x0f172a,
+    transparent: true,
+    opacity: 0.40,
+  });
+
+  return {
+    wallMaterial,
+    podiumMaterial,
+    roofMaterial,
+    goldAccentMat,
+    trimMaterial,
+    edgeMaterial,
+    isHistoric: !isModern,
+  };
+}
+
 // High-resolution architectural glass curtain wall facade texture generator
-function generateBuildingTexture(floors: number) {
+function generateModernFacadeTexture(floors: number) {
   const canvas = document.createElement('canvas');
   const COLS = 8;
   canvas.width = 1024;
@@ -61,19 +219,19 @@ function generateBuildingTexture(floors: number) {
 
       // 1. Spandrel Beam (Horizontal aluminum panel between floors)
       ctx.fillStyle = '#1e293b';
-      ctx.fillRect(0, y, 1024, rowH * 0.2);
+      ctx.fillRect(0, y, 1024, rowH * 0.22);
 
       // Metallic trim line on spandrel edge
       ctx.fillStyle = '#475569';
-      ctx.fillRect(0, y + rowH * 0.2 - 2, 1024, 2);
+      ctx.fillRect(0, y + rowH * 0.22 - 2, 1024, 2);
 
       // Contact shadow beneath floor slab
       ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-      ctx.fillRect(0, y + rowH * 0.2, 1024, rowH * 0.06);
+      ctx.fillRect(0, y + rowH * 0.22, 1024, rowH * 0.06);
 
       // 2. Glass Window Pane Row
-      const winY = y + rowH * 0.25;
-      const winH = rowH * 0.7;
+      const winY = y + rowH * 0.26;
+      const winH = rowH * 0.68;
 
       for (let i = 0; i < COLS; i++) {
         const x = i * colW + colW * 0.06;
@@ -107,7 +265,7 @@ function generateBuildingTexture(floors: number) {
         }
         ctx.fillRect(x, winY, winW, winH);
 
-        // Glass Glare Reflection Diagonal Streak
+        // Glass Glare Reflection Streak
         ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
         ctx.beginPath();
         ctx.moveTo(x, winY);
@@ -145,7 +303,7 @@ function generatePlazaTexture() {
     ctx.fillStyle = '#0a0f1d';
     ctx.fillRect(0, 0, 1024, 1024);
 
-    ctx.strokeStyle = 'rgba(100, 116, 139, 0.25)';
+    ctx.strokeStyle = 'rgba(100, 116, 139, 0.22)';
     ctx.lineWidth = 2;
     const tileSize = 64;
     for (let x = 0; x < 1024; x += tileSize) {
@@ -261,13 +419,14 @@ function buildSurroundingContext(scene: THREE.Scene, dims: { width: number; dept
   });
 }
 
-/**
- * 4. GEOMETRY CLASSIFICATION
- * Classifies a building part based on footprint shape, aspect ratio, circularity, height, and OSM metadata.
- */
+// ─────────────────────────────────────────────────────────────
+// GEOMETRY CLASSIFICATION ENGINE (Purely metadata + geometry)
+// ─────────────────────────────────────────────────────────────
+
 export type BuildingPartClassification =
   | 'tower'
   | 'cylinder'
+  | 'tapered_tower'
   | 'dome'
   | 'onion'
   | 'cone'
@@ -275,6 +434,7 @@ export type BuildingPartClassification =
   | 'roof'
   | 'wing'
   | 'courtyard'
+  | 'platform'
   | 'entrance'
   | 'generic_extrusion';
 
@@ -286,20 +446,35 @@ export function classifyBuildingPart(part: BuildingPart, metrics: ShapeMetrics):
   const bPartTag = (tags['building:part'] || '').toLowerCase();
 
   // 1. Explicit Dome / Onion tags
-  if (rShape.includes('onion') || bPartTag.includes('onion') || bPartTag.includes('kalash')) return 'onion';
-  if (rShape.includes('dome') || bPartTag.includes('dome') || bPartTag.includes('cupola')) return 'dome';
+  if (rShape.includes('onion') || bPartTag.includes('onion') || bPartTag.includes('kalash') || rShape.includes('bulbous')) {
+    return 'onion';
+  }
+  if (rShape.includes('dome') || bPartTag.includes('dome') || bPartTag.includes('cupola') || rShape.includes('round') || rShape.includes('sphere')) {
+    return 'dome';
+  }
 
   // 2. Explicit Tower / Minaret / Cylinder tags or circular high-aspect ratio structures
-  if (manMade.includes('tower') || manMade.includes('minaret') || manMade.includes('chimney') || bPartTag.includes('tower') || bPartTag.includes('minaret')) {
-    return metrics.circularity > 0.75 ? 'cylinder' : 'tower';
+  if (
+    manMade.includes('tower') ||
+    manMade.includes('minaret') ||
+    manMade.includes('chimney') ||
+    bPartTag.includes('tower') ||
+    bPartTag.includes('minaret') ||
+    pType.includes('minaret') ||
+    pType.includes('tower')
+  ) {
+    if (metrics.circularity > 0.70) {
+      return part.height > 15 ? 'tapered_tower' : 'cylinder';
+    }
+    return 'tower';
   }
 
   // 3. Shape Analysis for Circular / Octagonal Columns & Minarets
-  if (metrics.circularity > 0.78 && metrics.vertexCount >= 6) {
-    if (part.height > 12 && part.height / Math.max(metrics.width, metrics.depth) > 1.8) {
-      return 'cylinder';
+  if (metrics.circularity > 0.76 && metrics.vertexCount >= 6) {
+    if (part.height > 12 && part.height / Math.max(metrics.width, metrics.depth) > 1.6) {
+      return 'tapered_tower';
     }
-    if (metrics.width < 12 && metrics.depth < 12 && part.height > 8) {
+    if (metrics.width < 14 && metrics.depth < 14 && part.height > 6) {
       return 'cylinder';
     }
   }
@@ -307,25 +482,223 @@ export function classifyBuildingPart(part: BuildingPart, metrics: ShapeMetrics):
   // 4. Roof shapes
   if (rShape.includes('pyramidal') || rShape.includes('pyramid') || bPartTag.includes('pyramid')) return 'pyramidal';
   if (rShape.includes('cone') || rShape.includes('conical')) return 'cone';
-  if (rShape.includes('gabled') || rShape.includes('hipped') || rShape.includes('mansard') || rShape.includes('skillion') || bPartTag === 'roof') return 'roof';
+  if (
+    rShape.includes('gabled') ||
+    rShape.includes('hipped') ||
+    rShape.includes('mansard') ||
+    rShape.includes('skillion') ||
+    rShape.includes('pitched') ||
+    bPartTag === 'roof'
+  ) {
+    return 'roof';
+  }
 
-  // 5. Courtyards (shapes with holes)
+  // 5. Plinths & Platforms
+  if (bPartTag.includes('platform') || bPartTag.includes('plinth') || bPartTag.includes('podium') || bPartTag.includes('terrace')) {
+    return 'platform';
+  }
+
+  // 6. Courtyards (shapes with holes)
   if (metrics.hasHoles || bPartTag.includes('courtyard') || bPartTag.includes('atrium')) return 'courtyard';
 
-  // 6. Entrances / Porticos / Canopies
+  // 7. Entrances / Porticos / Canopies
   if (bPartTag.includes('entrance') || bPartTag.includes('steps') || bPartTag.includes('canopy') || bPartTag.includes('portico')) return 'entrance';
 
-  // 7. Wings (elongated extensions)
+  // 8. Wings (elongated extensions)
   if (metrics.aspectRatio > 2.6 || bPartTag.includes('wing') || bPartTag.includes('corridor')) return 'wing';
 
   return 'generic_extrusion';
 }
 
+// ─────────────────────────────────────────────────────────────
+// PROCEDURAL ARCHITECTURAL GEOMETRY BUILDERS
+// ─────────────────────────────────────────────────────────────
+
 /**
- * 5. PROCEDURAL ROOF GENERATOR
- * Generates accurate 3D roof geometry according to classified shape and dimensions.
+ * 1. Tapered Minaret / Classical Architectural Tower Builder
  */
-function generateRoof(
+function createTaperedTowerMesh(
+  radiusBase: number,
+  heightM: number,
+  facadeMat: THREE.Material,
+  accentMat: THREE.Material,
+  edgeMat: THREE.Material,
+): THREE.Group {
+  const towerGroup = new THREE.Group();
+  const radiusTop = radiusBase * 0.78;
+
+  // Main Tapered Shaft
+  const shaftGeo = new THREE.CylinderGeometry(radiusTop, radiusBase, heightM, 24);
+  const shaftMesh = new THREE.Mesh(shaftGeo, facadeMat);
+  shaftMesh.position.y = heightM / 2;
+  shaftMesh.castShadow = true;
+  shaftMesh.receiveShadow = true;
+  towerGroup.add(shaftMesh);
+
+  const shaftEdges = new THREE.LineSegments(new THREE.EdgesGeometry(shaftGeo, 30), edgeMat);
+  shaftEdges.position.y = heightM / 2;
+  towerGroup.add(shaftEdges);
+
+  // Multi-Tier Cantilever Balcony Rings
+  const tierPcts = heightM > 25 ? [0.35, 0.65, 0.92] : [0.5, 0.92];
+  tierPcts.forEach((pct) => {
+    const tierH = heightM * pct;
+    const currentR = radiusBase + (radiusTop - radiusBase) * pct;
+    const ringGeo = new THREE.CylinderGeometry(currentR * 1.28, currentR * 1.08, 0.6, 24);
+    const ringMesh = new THREE.Mesh(ringGeo, facadeMat);
+    ringMesh.position.y = tierH;
+    ringMesh.castShadow = true;
+    towerGroup.add(ringMesh);
+
+    // Balcony Railing / Corbel Trim
+    const trimGeo = new THREE.TorusGeometry(currentR * 1.25, 0.08, 6, 24);
+    trimGeo.rotateX(Math.PI / 2);
+    const trimMesh = new THREE.Mesh(trimGeo, accentMat);
+    trimMesh.position.y = tierH + 0.35;
+    towerGroup.add(trimMesh);
+  });
+
+  // Crown Pavilion / Cupola at apex
+  const cupolaR = radiusTop * 0.95;
+  const cupolaH = Math.max(cupolaR * 1.4, 2.5);
+
+  // Open Pillar Pavilion
+  const pillarCount = 6;
+  for (let i = 0; i < pillarCount; i++) {
+    const ang = (i / pillarCount) * Math.PI * 2;
+    const px = Math.cos(ang) * cupolaR * 0.75;
+    const pz = Math.sin(ang) * cupolaR * 0.75;
+    const pillarMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, cupolaH * 0.5, 8), facadeMat);
+    pillarMesh.position.set(px, heightM + (cupolaH * 0.5) / 2, pz);
+    towerGroup.add(pillarMesh);
+  }
+
+  // Small Dome Crown
+  const domeGeo = new THREE.SphereGeometry(cupolaR * 0.9, 20, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+  const domeMesh = new THREE.Mesh(domeGeo, facadeMat);
+  domeMesh.position.y = heightM + cupolaH * 0.5;
+  domeMesh.castShadow = true;
+  towerGroup.add(domeMesh);
+
+  // Brass/Golden Kalash Needle Finial
+  const finialH = Math.max(cupolaR * 1.2, 2.2);
+  const finialMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.22, finialH, 8), accentMat);
+  finialMesh.position.y = heightM + cupolaH * 0.5 + cupolaR * 0.9 + finialH / 2;
+  finialMesh.castShadow = true;
+  towerGroup.add(finialMesh);
+
+  return towerGroup;
+}
+
+/**
+ * 2. Parametric Bulbous Onion Dome & Classical Hemisphere Dome Lathe Builder
+ */
+function createDomeMesh(
+  radius: number,
+  heightM: number,
+  domeType: 'onion' | 'hemisphere',
+  domeMat: THREE.Material,
+  accentMat: THREE.Material,
+  edgeMat: THREE.Material,
+): THREE.Group {
+  const domeGroup = new THREE.Group();
+
+  // Circular Drum Base with arched frieze
+  const drumH = Math.max(heightM * 0.22, 1.5);
+  const drumR = radius * 0.92;
+  const drumGeo = new THREE.CylinderGeometry(drumR, drumR, drumH, 32);
+  const drumMesh = new THREE.Mesh(drumGeo, domeMat);
+  drumMesh.position.y = drumH / 2;
+  drumMesh.castShadow = true;
+  domeGroup.add(drumMesh);
+
+  const drumTrim = new THREE.Mesh(new THREE.CylinderGeometry(drumR * 1.05, drumR * 1.02, 0.35, 32), accentMat);
+  drumTrim.position.y = drumH;
+  domeGroup.add(drumTrim);
+
+  const actualDomeH = Math.max(heightM - drumH, 2.0);
+
+  if (domeType === 'onion') {
+    // True Architectural Bulbous Onion Spline via LatheGeometry
+    const pts: THREE.Vector2[] = [];
+    const segments = 24;
+    const bulbousR = radius * 1.08;
+
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const y = drumH + t * actualDomeH;
+      let r: number;
+
+      if (t < 0.25) {
+        // Base outward flare
+        const k = t / 0.25;
+        r = drumR + (bulbousR - drumR) * Math.sin(k * (Math.PI / 2));
+      } else if (t < 0.70) {
+        // Bulbous belly curve
+        const k = (t - 0.25) / 0.45;
+        r = bulbousR * Math.cos(k * 0.7);
+      } else {
+        // Ogee inward pointed tip
+        const k = (t - 0.70) / 0.30;
+        r = bulbousR * Math.cos(0.7) * Math.pow(1 - k, 1.8);
+      }
+
+      pts.push(new THREE.Vector2(Math.max(0.04, r), y));
+    }
+
+    const onionGeo = new THREE.LatheGeometry(pts, 36);
+    const onionMesh = new THREE.Mesh(onionGeo, domeMat);
+    onionMesh.castShadow = true;
+    onionMesh.receiveShadow = true;
+    domeGroup.add(onionMesh);
+
+    const domeEdges = new THREE.LineSegments(new THREE.EdgesGeometry(onionGeo, 35), edgeMat);
+    domeGroup.add(domeEdges);
+
+    // Decorative Kalash Spire with stacked lotus beads
+    const kalashH = Math.max(heightM * 0.28, 2.5);
+    const kalashGroup = new THREE.Group();
+
+    const bead1 = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.16, 12, 12), accentMat);
+    bead1.position.y = drumH + actualDomeH + radius * 0.16;
+    kalashGroup.add(bead1);
+
+    const bead2 = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.10, 12, 12), accentMat);
+    bead2.position.y = drumH + actualDomeH + radius * 0.35;
+    kalashGroup.add(bead2);
+
+    const needle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.15, kalashH, 8), accentMat);
+    needle.position.y = drumH + actualDomeH + kalashH / 2;
+    kalashGroup.add(needle);
+
+    domeGroup.add(kalashGroup);
+  } else {
+    // Classical Hemisphere Dome
+    const hemiGeo = new THREE.SphereGeometry(drumR, 32, 20, 0, Math.PI * 2, 0, Math.PI / 2);
+    const hemiMesh = new THREE.Mesh(hemiGeo, domeMat);
+    hemiMesh.position.y = drumH;
+    hemiMesh.castShadow = true;
+    domeGroup.add(hemiMesh);
+
+    // Lantern Cupola & Spire
+    const lanternGeo = new THREE.CylinderGeometry(drumR * 0.2, drumR * 0.25, actualDomeH * 0.3, 12);
+    const lanternMesh = new THREE.Mesh(lanternGeo, accentMat);
+    lanternMesh.position.y = drumH + drumR + (actualDomeH * 0.3) / 2;
+    domeGroup.add(lanternMesh);
+
+    const spireH = Math.max(heightM * 0.25, 2.0);
+    const spireMesh = new THREE.Mesh(new THREE.ConeGeometry(drumR * 0.18, spireH, 12), accentMat);
+    spireMesh.position.y = drumH + drumR + actualDomeH * 0.3 + spireH / 2;
+    domeGroup.add(spireMesh);
+  }
+
+  return domeGroup;
+}
+
+/**
+ * 3. Procedural Roof Mesh Generator matching shape perimeters
+ */
+function generatePolygonalRoof(
   group: THREE.Group,
   shapes: THREE.Shape[],
   roofShape: string,
@@ -334,78 +707,68 @@ function generateRoof(
   dims: { width: number; depth: number },
   roofMat: THREE.Material,
   accentMat: THREE.Material,
+  edgeMat: THREE.Material,
   offsetCenter?: { x: number; z: number },
 ) {
-  const normalizedShape = (roofShape || 'flat').toLowerCase();
+  const normShape = (roofShape || 'flat').toLowerCase();
   const radius = Math.min(dims.width, dims.depth) / 2;
   const cx = offsetCenter?.x || 0;
   const cz = offsetCenter?.z || 0;
 
-  if (normalizedShape.includes('onion') || normalizedShape.includes('bulbous')) {
-    // Bulbous Onion Dome Lathe Geometry with Kalash Finial
-    const pts: THREE.Vector2[] = [];
-    const domeH = Math.max(roofHeightM, radius * 1.3, 5);
-    const domeR = radius * 0.95;
-    for (let i = 0; i <= 20; i++) {
-      const t = i / 20;
-      const y = t * domeH;
-      let r = Math.sin(t * Math.PI) * domeR;
-      if (t < 0.3) r = radius * 0.75 + Math.sin((t / 0.3) * (Math.PI / 2)) * (domeR - radius * 0.75);
-      else if (t > 0.75) r = domeR * Math.pow(1 - (t - 0.75) / 0.25, 1.6);
-      pts.push(new THREE.Vector2(Math.max(0.05, r), y));
-    }
-    const onionGeo = new THREE.LatheGeometry(pts, 32);
-    const onionMesh = new THREE.Mesh(onionGeo, roofMat);
-    onionMesh.position.set(cx, baseElevation, cz);
-    onionMesh.castShadow = true;
-    group.add(onionMesh);
-
-    // Golden Kalash Finial Spire
-    const finialH = Math.max(roofHeightM * 0.45, 2.8);
-    const finial = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.35, finialH, 8), accentMat);
-    finial.position.set(cx, baseElevation + domeH + finialH / 2, cz);
-    finial.castShadow = true;
-    group.add(finial);
-  } else if (normalizedShape.includes('dome') || normalizedShape.includes('round') || normalizedShape.includes('spherical')) {
-    // Hemisphere Dome
-    const domeGeo = new THREE.SphereGeometry(radius * 0.95, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
-    const domeMesh = new THREE.Mesh(domeGeo, roofMat);
-    domeMesh.position.set(cx, baseElevation, cz);
-    domeMesh.castShadow = true;
-    group.add(domeMesh);
-
-    // Finial
-    const finial = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.3, roofHeightM * 0.6 || 2.5, 8), accentMat);
-    finial.position.set(cx, baseElevation + radius * 0.95 + (roofHeightM * 0.3 || 1.2), cz);
-    finial.castShadow = true;
-    group.add(finial);
-  } else if (normalizedShape.includes('pyramidal') || normalizedShape.includes('pyramid')) {
+  if (normShape.includes('onion') || normShape.includes('bulbous')) {
+    const onionGroup = createDomeMesh(radius, Math.max(roofHeightM, radius * 1.1, 5), 'onion', roofMat, accentMat, edgeMat);
+    onionGroup.position.set(cx, baseElevation, cz);
+    group.add(onionGroup);
+  } else if (normShape.includes('dome') || normShape.includes('round') || normShape.includes('spherical')) {
+    const domeGroup = createDomeMesh(radius, Math.max(roofHeightM, radius * 0.9, 4), 'hemisphere', roofMat, accentMat, edgeMat);
+    domeGroup.position.set(cx, baseElevation, cz);
+    group.add(domeGroup);
+  } else if (normShape.includes('pyramidal') || normShape.includes('pyramid')) {
     const pyramidH = Math.max(roofHeightM, 4);
-    const pyramidGeo = new THREE.ConeGeometry(radius * 1.05, pyramidH, 4);
+    const pyramidGeo = new THREE.ConeGeometry(radius * 1.08, pyramidH, 4);
     const pyramidMesh = new THREE.Mesh(pyramidGeo, roofMat);
     pyramidMesh.position.set(cx, baseElevation + pyramidH / 2, cz);
     pyramidMesh.rotation.y = Math.PI / 4;
     pyramidMesh.castShadow = true;
     group.add(pyramidMesh);
-  } else if (normalizedShape.includes('cone') || normalizedShape.includes('conical')) {
-    const coneH = Math.max(roofHeightM, 4);
+
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(pyramidGeo, 25), edgeMat);
+    edges.position.set(cx, baseElevation + pyramidH / 2, cz);
+    edges.rotation.y = Math.PI / 4;
+    group.add(edges);
+  } else if (normShape.includes('cone') || normShape.includes('conical') || normShape.includes('spire')) {
+    const coneH = Math.max(roofHeightM, 5);
     const coneGeo = new THREE.ConeGeometry(radius * 1.05, coneH, 32);
     const coneMesh = new THREE.Mesh(coneGeo, roofMat);
     coneMesh.position.set(cx, baseElevation + coneH / 2, cz);
     coneMesh.castShadow = true;
     group.add(coneMesh);
-  } else if (normalizedShape.includes('gabled') || normalizedShape.includes('hipped') || normalizedShape.includes('pitched') || normalizedShape.includes('skillion')) {
-    const pitchH = Math.max(roofHeightM, 3.5);
+
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(coneGeo, 30), edgeMat);
+    edges.position.set(cx, baseElevation + coneH / 2, cz);
+    group.add(edges);
+  } else if (normShape.includes('gabled') || normShape.includes('hipped') || normShape.includes('pitched') || normShape.includes('skillion') || normShape.includes('mansard')) {
+    const pitchH = Math.max(roofHeightM, 3.2);
     shapes.forEach((shape) => {
-      const gabledGeo = new THREE.ExtrudeGeometry(shape, { depth: pitchH, bevelEnabled: true, bevelThickness: 0.6, bevelSize: 0.4 });
+      const gabledGeo = new THREE.ExtrudeGeometry(shape, {
+        depth: pitchH,
+        bevelEnabled: true,
+        bevelThickness: pitchH * 0.35,
+        bevelSize: 0.5,
+        bevelSegments: 2,
+      });
       gabledGeo.rotateX(-Math.PI / 2);
       const gMesh = new THREE.Mesh(gabledGeo, roofMat);
       gMesh.position.set(0, baseElevation, 0);
       gMesh.castShadow = true;
       group.add(gMesh);
+
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(gabledGeo, 25), edgeMat);
+      edges.position.set(0, baseElevation, 0);
+      group.add(edges);
     });
   } else {
-    // Default Flat Roof with Parapet wall, Setback Elevator Core & Louvers
+    // Modern Flat Roof with Parapet wall, Stepped Louvered Core, and Communication Mast
     const parapetH = Math.max(1.2, baseElevation * 0.02);
     shapes.forEach((shape) => {
       const parapetGeo = new THREE.ExtrudeGeometry(shape, { depth: parapetH, bevelEnabled: false });
@@ -414,29 +777,33 @@ function generateRoof(
       parapetMesh.position.set(0, baseElevation, 0);
       parapetMesh.castShadow = true;
       group.add(parapetMesh);
+
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(parapetGeo, 35), edgeMat);
+      edges.position.set(0, baseElevation, 0);
+      group.add(edges);
     });
 
     const coreW = Math.max(dims.width * 0.35, 4);
     const coreD = Math.max(dims.depth * 0.35, 4);
-    const coreH = Math.max(3.2, baseElevation * 0.08);
+    const coreH = Math.max(3.0, baseElevation * 0.08);
     const coreMesh = new THREE.Mesh(new THREE.BoxGeometry(coreW, coreH, coreD), roofMat);
     coreMesh.position.set(cx, baseElevation + parapetH + coreH / 2, cz);
     coreMesh.castShadow = true;
     group.add(coreMesh);
 
-    const hvacMesh = new THREE.Mesh(new THREE.BoxGeometry(coreW * 0.7, 1.4, coreD * 0.7), accentMat);
+    const hvacMesh = new THREE.Mesh(new THREE.BoxGeometry(coreW * 0.75, 1.4, coreD * 0.75), accentMat);
     hvacMesh.position.set(cx, baseElevation + parapetH + coreH + 0.7, cz);
     hvacMesh.castShadow = true;
     group.add(hvacMesh);
 
-    const mastH = Math.max(5.0, baseElevation * 0.15);
+    const mastH = Math.max(5.0, baseElevation * 0.14);
     const mastMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.2, mastH, 8), accentMat);
     mastMesh.position.set(cx, baseElevation + parapetH + coreH + 1.4 + mastH / 2, cz);
     group.add(mastMesh);
 
     const beaconMesh = new THREE.Mesh(
       new THREE.SphereGeometry(0.35, 8, 8),
-      new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 2.0 }),
+      new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 2.5 }),
     );
     beaconMesh.position.set(cx, baseElevation + parapetH + coreH + 1.4 + mastH, cz);
     group.add(beaconMesh);
@@ -444,124 +811,197 @@ function generateRoof(
 }
 
 /**
- * SEPARATE VISUAL BUILDING RECONSTRUCTION
- * Assembles multi-mesh physical geometry into visualBuildingGroup.
+ * 4. Lightweight Procedural Facade Details at Close LOD (Instanced Windows & String Courses)
  */
-function constructMultiMeshBuilding(
+function buildCloseDetailFacade(
+  facadeGroup: THREE.Group,
+  shapes: THREE.Shape[],
+  baseY: number,
+  wallHeight: number,
+  floorHeight: number,
+) {
+  const windowGeo = new THREE.BoxGeometry(1.2, 1.8, 0.15);
+  const windowMat = new THREE.MeshStandardMaterial({
+    color: 0x0f172a,
+    roughness: 0.1,
+    metalness: 0.9,
+  });
+
+  const floors = Math.floor(wallHeight / floorHeight);
+  if (floors <= 0) return;
+
+  shapes.forEach((shape) => {
+    const pts = shape.getPoints();
+    if (pts.length < 3) return;
+
+    const windowTransforms: THREE.Matrix4[] = [];
+
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      if (segLen < 3.5) continue;
+
+      const numBays = Math.floor(segLen / 4.0);
+      const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+
+      for (let f = 0; f < floors; f++) {
+        const winY = baseY + f * floorHeight + floorHeight * 0.45;
+
+        for (let b = 1; b <= numBays; b++) {
+          const t = b / (numBays + 1);
+          const wx = p1.x + (p2.x - p1.x) * t;
+          const wz = -(p1.y + (p2.y - p1.y) * t);
+
+          const mat = new THREE.Matrix4();
+          mat.makeRotationY(-angle);
+          mat.setPosition(wx, winY, wz);
+          windowTransforms.push(mat);
+        }
+      }
+    }
+
+    if (windowTransforms.length > 0) {
+      const instancedMesh = new THREE.InstancedMesh(windowGeo, windowMat, windowTransforms.length);
+      windowTransforms.forEach((matrix, idx) => {
+        instancedMesh.setMatrixAt(idx, matrix);
+      });
+      instancedMesh.instanceMatrix.needsUpdate = true;
+      facadeGroup.add(instancedMesh);
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// MULTI-MASS ARCHITECTURAL RECONSTRUCTION PIPELINE
+// ─────────────────────────────────────────────────────────────
+
+function constructMultiMassBuilding(
   visualGroup: THREE.Group,
+  facadeDetailsGroup: THREE.Group,
   building: Building,
   dims: FootprintDimensions,
   totalHeight: number,
   floorHeight: number,
-  steelMaterial: THREE.MeshStandardMaterial,
-): { exteriorMeshes: THREE.Mesh[]; geometrySource: string } {
+  wireframe: boolean,
+): {
+  exteriorMeshes: THREE.Mesh[];
+  geometrySource: string;
+  partTypes: string[];
+  roofType: string;
+  roofHeightM: number;
+  proportions: { platformM: number; wallM: number; roofM: number; finialM: number };
+  circularity: number;
+} {
   const exteriorMeshes: THREE.Mesh[] = [];
+  const partTypes: string[] = [];
   const centerLng = dims.centerLng;
   const centerLat = dims.centerLat;
 
-  const bMatTag = (building.assessment?.building_material || building.building_name || '').toLowerCase();
-  const isHistoricOrStone = bMatTag.includes('stone') || bMatTag.includes('brick') || bMatTag.includes('marble') || bMatTag.includes('heritage') || bMatTag.includes('fort') || bMatTag.includes('temple');
-
-  const facadeMat = isHistoricOrStone
-    ? new THREE.MeshStandardMaterial({
-        color: bMatTag.includes('red') || bMatTag.includes('brick') ? 0x991b1b : 0xf8fafc,
-        roughness: 0.65,
-        metalness: 0.05,
-      })
-    : new THREE.MeshPhysicalMaterial({
-        map: generateBuildingTexture(building.floor_count || 3),
-        metalness: 0.35,
-        roughness: 0.22,
-        clearcoat: 0.85,
-        clearcoatRoughness: 0.12,
-        reflectivity: 0.9,
-      });
-
-  const goldAccentMat = new THREE.MeshStandardMaterial({
-    color: 0xf59e0b,
-    metalness: 0.95,
-    roughness: 0.15,
-  });
+  const materials = createArchitecturalMaterials(building, wireframe);
+  const metrics = getShapeMetrics(building.footprint, centerLng, centerLat);
+  const zoning = getProportionalZoning(
+    totalHeight,
+    metrics,
+    building.roof?.height,
+    building.roof?.shape,
+    materials.isHistoric,
+  );
 
   const parts = building.building_parts || [];
   let geometrySource = 'fallback';
+  let roofType = building.roof?.shape || (materials.isHistoric ? 'dome' : 'flat');
+  let roofHeightM = zoning.roofHeight;
 
   if (parts.length > 0) {
-    geometrySource = 'building:part';
+    geometrySource = 'OSM building:part';
 
     parts.forEach((part: BuildingPart) => {
       const partShapes = part.footprint
         ? footprintToShapes(part.footprint, centerLng, centerLat)
         : footprintToShapes(building.footprint, centerLng, centerLat);
 
-      const metrics = getShapeMetrics(part.footprint, centerLng, centerLat);
-      const classification = classifyBuildingPart(part, metrics);
-      const partOffset = getPartCenterOffset(part.footprint, centerLng, centerLat);
+      const partMetrics = getShapeMetrics(part.footprint, centerLng, centerLat);
+      const classification = classifyBuildingPart(part, partMetrics);
+      partTypes.push(classification);
 
+      const partOffset = getPartCenterOffset(part.footprint, centerLng, centerLat);
       const baseLevel = part.min_levels || 0;
       const partLevels = part.levels || Math.max((building.floor_count || 3) - baseLevel, 1);
       const baseElev = part.min_height !== undefined ? part.min_height : baseLevel * floorHeight;
       const partH = part.height !== undefined ? Math.max(part.height - baseElev, 2.0) : partLevels * floorHeight;
 
-      // 1. Specialized Circular Cylinders & Minaret Towers
-      if (classification === 'cylinder') {
-        const radius = Math.min(metrics.width, metrics.depth) / 2;
-        const cylGeo = new THREE.CylinderGeometry(radius * 0.9, radius * 1.05, partH, 24);
-        const cylMesh = new THREE.Mesh(cylGeo, facadeMat);
+      // 1. Tapered Minarets & Towers
+      if (classification === 'tapered_tower') {
+        const radius = Math.min(partMetrics.width, partMetrics.depth) / 2;
+        const towerMesh = createTaperedTowerMesh(
+          radius,
+          partH,
+          materials.wallMaterial,
+          materials.goldAccentMat,
+          materials.edgeMaterial,
+        );
+        towerMesh.position.set(partOffset.x, baseElev, partOffset.z);
+        visualGroup.add(towerMesh);
+      }
+      // 2. Standard Circular Cylinders
+      else if (classification === 'cylinder') {
+        const radius = Math.min(partMetrics.width, partMetrics.depth) / 2;
+        const cylGeo = new THREE.CylinderGeometry(radius * 0.92, radius, partH, 24);
+        const cylMesh = new THREE.Mesh(cylGeo, materials.wallMaterial);
         cylMesh.position.set(partOffset.x, baseElev + partH / 2, partOffset.z);
         cylMesh.castShadow = true;
         cylMesh.receiveShadow = true;
         visualGroup.add(cylMesh);
         exteriorMeshes.push(cylMesh);
 
-        // Balcony / Tier rings
-        [0.35, 0.7, 0.95].forEach((pct) => {
-          const ringMesh = new THREE.Mesh(new THREE.CylinderGeometry(radius * 1.15, radius * 1.05, 0.6, 24), facadeMat);
-          ringMesh.position.set(partOffset.x, baseElev + partH * pct, partOffset.z);
-          visualGroup.add(ringMesh);
-          exteriorMeshes.push(ringMesh);
-        });
+        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(cylGeo, 30), materials.edgeMaterial);
+        edges.position.set(partOffset.x, baseElev + partH / 2, partOffset.z);
+        visualGroup.add(edges);
 
         // Cupola at apex
         const cupolaGeo = new THREE.SphereGeometry(radius * 0.9, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
-        const cupolaMesh = new THREE.Mesh(cupolaGeo, facadeMat);
+        const cupolaMesh = new THREE.Mesh(cupolaGeo, materials.wallMaterial);
         cupolaMesh.position.set(partOffset.x, baseElev + partH, partOffset.z);
         visualGroup.add(cupolaMesh);
         exteriorMeshes.push(cupolaMesh);
 
-        const finial = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.2, 2.5, 8), isHistoricOrStone ? goldAccentMat : steelMaterial);
-        finial.position.set(partOffset.x, baseElev + partH + radius * 0.9 + 1.25, partOffset.z);
+        const finial = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.2, 2.2, 8), materials.goldAccentMat);
+        finial.position.set(partOffset.x, baseElev + partH + radius * 0.9 + 1.1, partOffset.z);
         visualGroup.add(finial);
       }
-      // 2. Bulbous Onion or Hemisphere Domes
+      // 3. Bulbous Onion / Classical Domes
       else if (classification === 'dome' || classification === 'onion') {
-        generateRoof(
-          visualGroup,
-          partShapes,
-          classification,
-          baseElev,
+        const radius = Math.min(partMetrics.width, partMetrics.depth) / 2;
+        const domeGroup = createDomeMesh(
+          radius,
           part.roof_height || partH,
-          metrics,
-          facadeMat,
-          isHistoricOrStone ? goldAccentMat : steelMaterial,
-          partOffset,
+          classification === 'onion' ? 'onion' : 'hemisphere',
+          materials.roofMaterial,
+          materials.goldAccentMat,
+          materials.edgeMaterial,
         );
+        domeGroup.position.set(partOffset.x, baseElev, partOffset.z);
+        visualGroup.add(domeGroup);
       }
-      // 3. Cones or Pyramidal roofs
-      else if (classification === 'cone' || classification === 'pyramidal') {
-        generateRoof(
-          visualGroup,
-          partShapes,
-          classification,
-          baseElev,
-          part.roof_height || partH,
-          metrics,
-          facadeMat,
-          isHistoricOrStone ? goldAccentMat : steelMaterial,
-          partOffset,
-        );
+      // 4. Platforms & Plinths
+      else if (classification === 'platform') {
+        partShapes.forEach((shape) => {
+          const platGeo = new THREE.ExtrudeGeometry(shape, { depth: partH, bevelEnabled: false });
+          platGeo.rotateX(-Math.PI / 2);
+          const platMesh = new THREE.Mesh(platGeo, materials.podiumMaterial);
+          platMesh.position.y = baseElev;
+          platMesh.castShadow = true;
+          platMesh.receiveShadow = true;
+          visualGroup.add(platMesh);
+          exteriorMeshes.push(platMesh);
+
+          const edges = new THREE.LineSegments(new THREE.EdgesGeometry(platGeo, 30), materials.edgeMaterial);
+          edges.position.y = baseElev;
+          visualGroup.add(edges);
+        });
       }
-      // 4. Generic Extrusion / Wings / Courtyards / Towers (Preserves exact polygon corners, holes & curves)
+      // 5. Generic Extrusions / Wings / Main Bodies / Courtyards
       else {
         partShapes.forEach((shape) => {
           const extrudeGeo = new THREE.ExtrudeGeometry(shape, {
@@ -570,68 +1010,117 @@ function constructMultiMeshBuilding(
           });
           extrudeGeo.rotateX(-Math.PI / 2);
 
-          const partMesh = new THREE.Mesh(extrudeGeo, facadeMat);
+          const partMesh = new THREE.Mesh(extrudeGeo, materials.wallMaterial);
           partMesh.position.y = baseElev;
           partMesh.castShadow = true;
           partMesh.receiveShadow = true;
           visualGroup.add(partMesh);
           exteriorMeshes.push(partMesh);
+
+          const edges = new THREE.LineSegments(new THREE.EdgesGeometry(extrudeGeo, 30), materials.edgeMaterial);
+          edges.position.y = baseElev;
+          visualGroup.add(edges);
         });
 
-        // Roof for this building part
+        // Roof for this building part if specified or if top tier
         const pRoofShape = part.roof_shape || (partLevels > 1 ? building.roof?.shape : 'flat') || 'flat';
-        const pRoofHeight = part.roof_height || building.roof?.height || 3.0;
-        generateRoof(
-          visualGroup,
-          partShapes,
-          pRoofShape,
-          baseElev + partH,
-          pRoofHeight,
-          metrics,
-          facadeMat,
-          isHistoricOrStone ? goldAccentMat : steelMaterial,
-          partOffset,
-        );
+        if (pRoofShape !== 'flat') {
+          const pRoofH = part.roof_height || building.roof?.height || 3.0;
+          generatePolygonalRoof(
+            visualGroup,
+            partShapes,
+            pRoofShape,
+            baseElev + partH,
+            pRoofH,
+            partMetrics,
+            materials.roofMaterial,
+            materials.goldAccentMat,
+            materials.edgeMaterial,
+            partOffset,
+          );
+        }
       }
     });
   } else if (building.footprint) {
-    geometrySource = 'footprint';
+    // ─────────────────────────────────────────────────────────────
+    // SINGLE FOOTPRINT MULTI-MASS PROCEDURAL RECONSTRUCTION
+    // Decomposes single footprint into realistic architectural masses
+    // (Podium Platform + Main Wall Body + Cornice + Crown/Roof)
+    // ─────────────────────────────────────────────────────────────
+    geometrySource = 'OSM Footprint (Procedural Mass Decomposition)';
     const shapes = footprintToShapes(building.footprint, centerLng, centerLat);
 
     if (shapes.length > 0) {
-      shapes.forEach((shape) => {
-        const extrudeGeo = new THREE.ExtrudeGeometry(shape, {
-          depth: totalHeight,
-          bevelEnabled: false,
-        });
-        extrudeGeo.rotateX(-Math.PI / 2);
+      // 1. Platform / Plinth Base
+      let currentElev = 0;
+      if (zoning.hasPlatform) {
+        shapes.forEach((shape) => {
+          const podiumShape = scaleShape(shape, 1.04);
+          const podGeo = new THREE.ExtrudeGeometry(podiumShape, { depth: zoning.platformHeight, bevelEnabled: false });
+          podGeo.rotateX(-Math.PI / 2);
+          const podMesh = new THREE.Mesh(podGeo, materials.podiumMaterial);
+          podMesh.position.y = 0;
+          podMesh.castShadow = true;
+          podMesh.receiveShadow = true;
+          visualGroup.add(podMesh);
+          exteriorMeshes.push(podMesh);
 
-        const bodyMesh = new THREE.Mesh(extrudeGeo, facadeMat);
-        bodyMesh.position.y = 0;
+          const edges = new THREE.LineSegments(new THREE.EdgesGeometry(podGeo, 30), materials.edgeMaterial);
+          visualGroup.add(edges);
+        });
+        currentElev += zoning.platformHeight;
+      }
+
+      // 2. Main Wall Body
+      shapes.forEach((shape) => {
+        const bodyGeo = new THREE.ExtrudeGeometry(shape, { depth: zoning.wallHeight, bevelEnabled: false });
+        bodyGeo.rotateX(-Math.PI / 2);
+        const bodyMesh = new THREE.Mesh(bodyGeo, materials.wallMaterial);
+        bodyMesh.position.y = currentElev;
         bodyMesh.castShadow = true;
         bodyMesh.receiveShadow = true;
         visualGroup.add(bodyMesh);
         exteriorMeshes.push(bodyMesh);
+
+        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(bodyGeo, 30), materials.edgeMaterial);
+        edges.position.y = currentElev;
+        visualGroup.add(edges);
       });
 
-      // Roof on top
-      const roofShape = building.roof?.shape || 'flat';
-      const roofHeight = building.roof?.height || 3.5;
-      generateRoof(
+      // 3. String Course / Attic Cornice
+      if (zoning.hasSteppedTiers) {
+        shapes.forEach((shape) => {
+          const corniceShape = scaleShape(shape, 1.02);
+          const cGeo = new THREE.ExtrudeGeometry(corniceShape, { depth: 0.8, bevelEnabled: false });
+          cGeo.rotateX(-Math.PI / 2);
+          const cMesh = new THREE.Mesh(cGeo, materials.trimMaterial);
+          cMesh.position.y = currentElev + zoning.wallHeight - 0.8;
+          visualGroup.add(cMesh);
+        });
+      }
+
+      currentElev += zoning.wallHeight;
+
+      // 4. Crown / Roof / Dome System
+      generatePolygonalRoof(
         visualGroup,
         shapes,
-        roofShape,
-        totalHeight,
-        roofHeight,
+        roofType,
+        currentElev,
+        zoning.roofHeight,
         dims,
-        facadeMat,
-        isHistoricOrStone ? goldAccentMat : steelMaterial,
+        materials.roofMaterial,
+        materials.goldAccentMat,
+        materials.edgeMaterial,
       );
+
+      // 5. Close LOD Facade Details (Instanced windows)
+      buildCloseDetailFacade(facadeDetailsGroup, shapes, zoning.hasPlatform ? zoning.platformHeight : 0, zoning.wallHeight, floorHeight);
     }
   } else {
-    // Universal fallback box only if no geometry data is available
+    // Universal fallback
     const fallbackGeo = new THREE.BoxGeometry(dims.width, totalHeight, dims.depth);
-    const fallbackMesh = new THREE.Mesh(fallbackGeo, facadeMat);
+    const fallbackMesh = new THREE.Mesh(fallbackGeo, materials.wallMaterial);
     fallbackMesh.position.y = totalHeight / 2;
     fallbackMesh.castShadow = true;
     fallbackMesh.receiveShadow = true;
@@ -639,8 +1128,25 @@ function constructMultiMeshBuilding(
     exteriorMeshes.push(fallbackMesh);
   }
 
-  return { exteriorMeshes, geometrySource };
+  return {
+    exteriorMeshes,
+    geometrySource,
+    partTypes: Array.from(new Set(partTypes)),
+    roofType,
+    roofHeightM,
+    proportions: {
+      platformM: zoning.platformHeight,
+      wallM: zoning.wallHeight,
+      roofM: zoning.roofHeight,
+      finialM: zoning.finialHeight,
+    },
+    circularity: metrics.circularity,
+  };
 }
+
+// ─────────────────────────────────────────────────────────────
+// COMPONENT MAIN
+// ─────────────────────────────────────────────────────────────
 
 export default function MapThreeJS({
   building,
@@ -660,6 +1166,7 @@ export default function MapThreeJS({
   const unitMeshesRef = useRef<Map<string, THREE.Mesh>>(new Map());
   const exteriorMeshesRef = useRef<THREE.Mesh[]>([]);
   const visualBuildingGroupRef = useRef<THREE.Group | null>(null);
+  const facadeDetailsGroupRef = useRef<THREE.Group | null>(null);
   const cadastralULPINGroupRef = useRef<THREE.Group | null>(null);
   const autoRotateRef = useRef(false);
 
@@ -667,7 +1174,25 @@ export default function MapThreeJS({
   const [wireframeMode, setWireframeMode] = useState(false);
   const [, setHoveredUnitId] = useState<string | null>(null);
   const [groundElevation, setGroundElevation] = useState<number | null>(null);
-  const [detectedGeometrySource, setDetectedGeometrySource] = useState<string>('footprint');
+  const [activeLod, setActiveLod] = useState<LODLevel>('MEDIUM');
+  const [showDebugHud, setShowDebugHud] = useState(true);
+
+  // Telemetry state
+  const [telemetry, setTelemetry] = useState<ArchitecturalTelemetry>({
+    geometrySource: 'OSM Footprint',
+    buildingPartsCount: 0,
+    partTypes: [],
+    roofType: 'flat',
+    roofHeightM: 3.5,
+    generatedMeshCount: 1,
+    lodLevel: 'MEDIUM',
+    visualHeight: 30,
+    cadastralHeight: 30,
+    fallbackUsed: false,
+    proportions: { platformM: 2, wallM: 24, roofM: 4, finialM: 0 },
+    hasHoles: false,
+    circularity: 0.78,
+  });
 
   // 3D Anchored Screen Projection State
   const [apexScreenPos, setApexScreenPos] = useState<{ x: number; y: number; visible: boolean } | null>(null);
@@ -702,7 +1227,7 @@ export default function MapThreeJS({
     const height = mountRef.current.clientHeight || 520;
 
     const maxDim = Math.max(dims.width, dims.depth, 10);
-    const sceneExtent = Math.max(maxDim * 3, buildingHeight * 0.6, 60);
+    const sceneExtent = Math.max(maxDim * 3, buildingHeight * 0.7, 60);
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
@@ -739,15 +1264,15 @@ export default function MapThreeJS({
     controls.dampingFactor = 0.05;
     controls.target.set(0, targetY, 0);
     controls.maxPolarAngle = Math.PI / 2 - 0.02;
-    controls.minDistance = Math.max(6, maxDim * 0.4);
+    controls.minDistance = Math.max(4, maxDim * 0.3);
     controls.maxDistance = 10000;
     controlsRef.current = controls;
 
-    // Natural Lighting
-    const hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x1e293b, 1.4);
+    // Natural High-Fidelity Lighting Setup
+    const hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x1e293b, 1.45);
     scene.add(hemiLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfffaf0, 2.8);
+    const sunLight = new THREE.DirectionalLight(0xfffaf0, 2.9);
     sunLight.position.set(sceneExtent * 0.7, buildingHeight * 2.2, sceneExtent * 0.6);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
@@ -766,20 +1291,14 @@ export default function MapThreeJS({
     rimLight.position.set(-maxDim * 1.5, buildingHeight * 0.8, -maxDim * 1.5);
     scene.add(rimLight);
 
-    const steelMaterial = new THREE.MeshStandardMaterial({
-      color: 0x475569,
-      metalness: 0.9,
-      roughness: 0.2,
-      wireframe: wireframeMode,
-    });
-
-    // Build Surrounding Context
+    // Surrounding Plaza & Landscaping
     buildSurroundingContext(scene, dims, sceneExtent);
 
     // ─────────────────────────────────────────────────────────────
     // ARCHITECTURE SEPARATION:
-    // 1. visualBuildingGroup: Realistic Multi-Mesh Physical Building
-    // 2. cadastralULPINGroup: Independent Cadastral / Floor Volumes
+    // 1. visualBuildingGroup: Solid, realistic multi-mass physical building
+    // 2. facadeDetailsGroup: Close LOD instanced windows & cornices
+    // 3. cadastralULPINGroup: Independent cadastral floor volumes
     // ─────────────────────────────────────────────────────────────
     const rootBuildingGroup = new THREE.Group();
     rootBuildingGroup.name = 'rootBuildingGroup';
@@ -790,37 +1309,43 @@ export default function MapThreeJS({
     rootBuildingGroup.add(visualBuildingGroup);
     visualBuildingGroupRef.current = visualBuildingGroup;
 
+    const facadeDetailsGroup = new THREE.Group();
+    facadeDetailsGroup.name = 'facadeDetailsGroup';
+    rootBuildingGroup.add(facadeDetailsGroup);
+    facadeDetailsGroupRef.current = facadeDetailsGroup;
+
     const cadastralULPINGroup = new THREE.Group();
     cadastralULPINGroup.name = 'cadastralULPINGroup';
     rootBuildingGroup.add(cadastralULPINGroup);
     cadastralULPINGroupRef.current = cadastralULPINGroup;
 
-    // Construct Visual Physical Multi-Mesh Building
-    const { exteriorMeshes, geometrySource } = constructMultiMeshBuilding(
+    // Construct Multi-Mass Realistic Physical Building
+    const reconResult = constructMultiMassBuilding(
       visualBuildingGroup,
+      facadeDetailsGroup,
       building,
       dims,
       buildingHeight,
       floorHeight,
-      steelMaterial,
+      wireframeMode,
     );
-    exteriorMeshesRef.current = exteriorMeshes;
-    setDetectedGeometrySource(geometrySource);
+    exteriorMeshesRef.current = reconResult.exteriorMeshes;
 
-    // 10. DEBUGGING CONSOLE LOG
-    const footprintCount = building.footprint ? (building.footprint.type === 'MultiPolygon' ? building.footprint.coordinates.length : 1) : 0;
-    const buildingPartCount = building.building_parts?.length || 0;
-    const vertexCount = getFootprintVertexCount(building.footprint);
-    const fallbackUsed = geometrySource === 'fallback' ? 'YES' : 'NO';
-
-    console.log('[3D Building Pipeline Debug]', {
-      'building name': building.building_name || building.address || 'Cadastral Structure',
-      'geometry source': geometrySource,
-      'footprint count': footprintCount,
-      'building-part count': buildingPartCount,
-      'vertex count': vertexCount,
-      'generated mesh count': exteriorMeshes.length,
-      'fallback used': fallbackUsed,
+    // Update Telemetry
+    setTelemetry({
+      geometrySource: reconResult.geometrySource,
+      buildingPartsCount: building.building_parts?.length || 0,
+      partTypes: reconResult.partTypes,
+      roofType: reconResult.roofType,
+      roofHeightM: reconResult.roofHeightM,
+      generatedMeshCount: reconResult.exteriorMeshes.length,
+      lodLevel: 'MEDIUM',
+      visualHeight: buildingHeight,
+      cadastralHeight: (building.floor_count || 1) * floorHeight,
+      fallbackUsed: reconResult.geometrySource.includes('fallback'),
+      proportions: reconResult.proportions,
+      hasHoles: getShapeMetrics(building.footprint).hasHoles,
+      circularity: reconResult.circularity,
     });
 
     // Construct Cadastral ULPIN Floor Layers
@@ -915,6 +1440,25 @@ export default function MapThreeJS({
 
       const dist = camera.position.distanceTo(controls.target);
       setCamDistMeters(dist);
+
+      // LOD Controller
+      let currentLod: LODLevel = 'MEDIUM';
+      if (selectedFloor !== null) {
+        currentLod = 'SELECTED';
+      } else if (dist > 350) {
+        currentLod = 'FAR';
+      } else if (dist <= 120) {
+        currentLod = 'CLOSE';
+      } else {
+        currentLod = 'MEDIUM';
+      }
+
+      setActiveLod(currentLod);
+
+      // Toggle close facade detail visibility
+      if (facadeDetailsGroupRef.current) {
+        facadeDetailsGroupRef.current.visible = currentLod === 'CLOSE' || currentLod === 'SELECTED';
+      }
 
       const projApex = apexWorldVec.clone().project(camera);
       if (projApex.z < 1.0) {
@@ -1150,6 +1694,15 @@ export default function MapThreeJS({
           <span>Wireframe</span>
         </button>
 
+        <button
+          className={`toolbar-btn ${showDebugHud ? 'active' : ''}`}
+          onClick={() => setShowDebugHud(!showDebugHud)}
+          title="Toggle Architectural Telemetry HUD"
+        >
+          <Info size={15} />
+          <span>HUD</span>
+        </button>
+
         <div className="zoom-controls">
           <button className="zoom-btn" onClick={handleZoomIn} title="Zoom In"><ZoomIn size={14} /></button>
           <button className="zoom-btn" onClick={handleZoomOut} title="Zoom Out"><ZoomOut size={14} /></button>
@@ -1188,7 +1741,7 @@ export default function MapThreeJS({
               {building?.building_name || building?.address || 'Procedural Cadastral Structure'}
             </span>
             <span className="text-[0.62rem] font-semibold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-              Source: {detectedGeometrySource}
+              LOD: {activeLod}
             </span>
           </div>
           <span className="text-[0.68rem] font-mono text-indigo-300">
@@ -1198,9 +1751,57 @@ export default function MapThreeJS({
         </div>
       </div>
 
+      {/* ── 10. COMPREHENSIVE ARCHITECTURAL TELEMETRY HUD ── */}
+      {showDebugHud && (
+        <div className="architectural-telemetry-hud">
+          <div className="hud-title-bar">
+            <span className="hud-label">3D ARCHITECTURAL TELEMETRY</span>
+            <span className={`hud-badge ${telemetry.geometrySource.includes('part') ? 'active' : ''}`}>
+              {telemetry.geometrySource.includes('part') ? 'HIGH FIDELITY' : 'PROCEDURAL'}
+            </span>
+          </div>
+          <div className="hud-grid">
+            <div className="hud-item">
+              <span className="hud-k">Source:</span>
+              <span className="hud-v">{telemetry.geometrySource}</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Building Parts:</span>
+              <span className="hud-v">{telemetry.buildingPartsCount} {telemetry.partTypes.length > 0 ? `(${telemetry.partTypes.slice(0, 3).join(', ')})` : ''}</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Roof Type:</span>
+              <span className="hud-v">{telemetry.roofType} (~{telemetry.roofHeightM.toFixed(1)}m)</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Meshes Generated:</span>
+              <span className="hud-v">{telemetry.generatedMeshCount} architectural masses</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Active LOD:</span>
+              <span className="hud-v font-bold text-sky-400">{activeLod} ({Math.round(camDistMeters)}m cam)</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Height Zoning:</span>
+              <span className="hud-v">
+                Base {telemetry.proportions.platformM.toFixed(1)}m | Wall {telemetry.proportions.wallM.toFixed(1)}m | Roof {telemetry.proportions.roofM.toFixed(1)}m
+              </span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Cadastral vs Visual:</span>
+              <span className="hud-v">{telemetry.cadastralHeight.toFixed(1)}m / {telemetry.visualHeight.toFixed(1)}m</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Circularity / Holes:</span>
+              <span className="hud-v">{telemetry.circularity.toFixed(2)} / {telemetry.hasHoles ? 'Courtyard Present' : 'Solid'}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="absolute bottom-3 left-4 z-10 flex items-center gap-2 bg-slate-900/80 backdrop-blur border border-white/10 px-3 py-1.5 rounded-full text-xs text-gray-300">
         <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-        <span className="font-semibold text-indigo-300">Three.js — Multi-Mesh Visual + Cadastral Engine</span>
+        <span className="font-semibold text-indigo-300">Multi-Mass 3D Architectural Engine</span>
       </div>
     </div>
   );

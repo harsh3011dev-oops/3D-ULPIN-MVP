@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Building, GeoJSONPolygon, Unit } from '../types';
+import { Building, GeoJSONPolygon, Unit, BuildingPart } from '../types';
 
 const METERS_PER_DEG_LAT = 111320;
 
@@ -142,6 +142,75 @@ export function footprintToShapes(
   return s ? [s] : [];
 }
 
+/**
+ * Returns outer perimeter 2D points from a GeoJSON Polygon in local meter coordinates.
+ */
+export function getFootprintPoints2D(
+  footprint: GeoJSONPolygon | any,
+  originLng: number,
+  originLat: number,
+): THREE.Vector2[] {
+  if (!footprint) return [];
+  let ring: number[][] = [];
+  if (footprint.type === 'MultiPolygon' && footprint.coordinates?.[0]?.[0]) {
+    ring = footprint.coordinates[0][0];
+  } else if (footprint.coordinates?.[0]) {
+    ring = footprint.coordinates[0];
+  }
+  if (!ring.length) return [];
+
+  const mLng = metersPerDegLng(originLat);
+  return ring.map((pt) => new THREE.Vector2((pt[0] - originLng) * mLng, -(pt[1] - originLat) * METERS_PER_DEG_LAT));
+}
+
+/**
+ * Produce a scaled version of a THREE.Shape relative to its geometric center
+ * Useful for setbacks, podiums, stepped roofs, and cornices.
+ */
+export function scaleShape(shape: THREE.Shape, scale: number): THREE.Shape {
+  const scaledShape = new THREE.Shape();
+  const curves = shape.curves;
+  if (!curves || curves.length === 0) return shape;
+
+  // Compute centroid
+  const pts = shape.getPoints();
+  if (pts.length < 3) return shape;
+  let cx = 0;
+  let cy = 0;
+  pts.forEach((p) => {
+    cx += p.x;
+    cy += p.y;
+  });
+  cx /= pts.length;
+  cy /= pts.length;
+
+  pts.forEach((p, i) => {
+    const sx = cx + (p.x - cx) * scale;
+    const sy = cy + (p.y - cy) * scale;
+    if (i === 0) scaledShape.moveTo(sx, sy);
+    else scaledShape.lineTo(sx, sy);
+  });
+
+  // Scale holes if any
+  if (shape.holes && shape.holes.length > 0) {
+    shape.holes.forEach((hole) => {
+      const hPts = hole.getPoints();
+      if (hPts.length >= 3) {
+        const scaledHole = new THREE.Path();
+        hPts.forEach((p, i) => {
+          const sx = cx + (p.x - cx) * scale;
+          const sy = cy + (p.y - cy) * scale;
+          if (i === 0) scaledHole.moveTo(sx, sy);
+          else scaledHole.lineTo(sx, sy);
+        });
+        scaledShape.holes.push(scaledHole);
+      }
+    });
+  }
+
+  return scaledShape;
+}
+
 export function getBuildingHeight(building: Building): number {
   if (building.height_meters && building.height_meters > 0) return building.height_meters;
   if (building.height && building.height > 0) return building.height;
@@ -203,10 +272,11 @@ export interface ShapeMetrics {
   circularity: number; // 4*pi*Area / P^2 (1.0 = circle, >0.8 = rounded/octagonal)
   vertexCount: number;
   hasHoles: boolean;
+  isSymmetric: boolean;
 }
 
 export function getShapeMetrics(footprint: GeoJSONPolygon | any, centerLng?: number, centerLat?: number): ShapeMetrics {
-  const fallback: ShapeMetrics = { width: 10, depth: 10, aspectRatio: 1.0, areaSqm: 100, perimeterM: 40, circularity: 0.78, vertexCount: 4, hasHoles: false };
+  const fallback: ShapeMetrics = { width: 10, depth: 10, aspectRatio: 1.0, areaSqm: 100, perimeterM: 40, circularity: 0.78, vertexCount: 4, hasHoles: false, isSymmetric: true };
   if (!footprint) return fallback;
 
   let polyCoords: number[][][] = [];
@@ -248,6 +318,7 @@ export function getShapeMetrics(footprint: GeoJSONPolygon | any, centerLng?: num
   perimeter = Math.max(perimeter, 1);
 
   const circularity = perimeter > 0 ? (4 * Math.PI * area) / (perimeter * perimeter) : 0;
+  const isSymmetric = Math.abs(width - depth) / Math.max(width, depth) < 0.15;
 
   return {
     width,
@@ -258,6 +329,7 @@ export function getShapeMetrics(footprint: GeoJSONPolygon | any, centerLng?: num
     circularity: Math.min(1.0, circularity),
     vertexCount: ring.length,
     hasHoles: polyCoords.length > 1,
+    isSymmetric,
   };
 }
 
@@ -284,4 +356,88 @@ export function getPartCenterOffset(
   return { x, z };
 }
 
+/**
+ * Proportional Zoning:
+ * Separates total monument/building height into realistic architectural masses
+ * (Platform/Podium, Main Wall Body, Roof/Dome, and Finial/Spire)
+ * rather than assuming total height == wall height.
+ */
+export interface ProportionalZoning {
+  platformHeight: number;
+  wallHeight: number;
+  roofHeight: number;
+  finialHeight: number;
+  visualTotalHeight: number;
+  hasPlatform: boolean;
+  hasSteppedTiers: boolean;
+}
 
+export function getProportionalZoning(
+  totalHeight: number,
+  metrics: ShapeMetrics,
+  explicitRoofHeight?: number,
+  roofShape?: string,
+  isHistoricOrMonument?: boolean,
+): ProportionalZoning {
+  const normRoofShape = (roofShape || '').toLowerCase();
+  const hasExplicitRoof = normRoofShape !== '' && normRoofShape !== 'flat';
+
+  let platformHeight = 0;
+  let finialHeight = 0;
+  let roofHeight = 0;
+  let hasPlatform = false;
+  let hasSteppedTiers = false;
+
+  if (isHistoricOrMonument || (metrics.circularity > 0.75 && totalHeight > 20)) {
+    // Monumental / Classic proportions
+    hasPlatform = true;
+    platformHeight = Math.min(Math.max(totalHeight * 0.08, 2.0), 6.0);
+    const remainingH = totalHeight - platformHeight;
+
+    if (hasExplicitRoof || normRoofShape.includes('dome') || normRoofShape.includes('onion') || normRoofShape.includes('cone') || normRoofShape.includes('pyramid') || isHistoricOrMonument) {
+      roofHeight = explicitRoofHeight || Math.min(Math.max(remainingH * 0.32, 4.0), 24.0);
+      finialHeight = Math.min(Math.max(roofHeight * 0.25, 2.0), 6.0);
+    } else {
+      roofHeight = Math.min(remainingH * 0.15, 4.0);
+    }
+
+    const wallHeight = Math.max(remainingH - roofHeight - finialHeight, 3.5);
+    hasSteppedTiers = totalHeight > 30;
+
+    return {
+      platformHeight,
+      wallHeight,
+      roofHeight,
+      finialHeight,
+      visualTotalHeight: platformHeight + wallHeight + roofHeight + finialHeight,
+      hasPlatform,
+      hasSteppedTiers,
+    };
+  }
+
+  // Standard architectural structure
+  if (totalHeight > 25) {
+    platformHeight = Math.min(Math.max(totalHeight * 0.04, 1.2), 3.5);
+    hasPlatform = true;
+  }
+
+  if (explicitRoofHeight && explicitRoofHeight > 0) {
+    roofHeight = explicitRoofHeight;
+  } else if (hasExplicitRoof) {
+    roofHeight = Math.min(Math.max(totalHeight * 0.20, 3.0), 12.0);
+  } else {
+    roofHeight = Math.min(Math.max(totalHeight * 0.06, 1.5), 3.5); // Parapet & elevator core zone
+  }
+
+  const wallHeight = Math.max(totalHeight - platformHeight - roofHeight, 3.0);
+
+  return {
+    platformHeight,
+    wallHeight,
+    roofHeight,
+    finialHeight: 0,
+    visualTotalHeight: platformHeight + wallHeight + roofHeight,
+    hasPlatform,
+    hasSteppedTiers: totalHeight > 45,
+  };
+}
