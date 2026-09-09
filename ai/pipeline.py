@@ -157,12 +157,18 @@ def process_building(*args, **kwargs) -> dict:
         # ── GEMINI VISION INTEGRATION ──
         logger.info("[STEP 2.5] Sending satellite image to Gemini Vision for analysis...")
         import asyncio
-        from ai.gemini_vision_analyzer import analyze_building_image
+        import concurrent.futures
+        from ai.vision_analyzer import analyze_building_image
+
+        gemini_vision_data = None
         try:
-            gemini_vision_data = asyncio.run(analyze_building_image(image_path))
+            # Run the async Gemini Vision call safely from a sync context
+            # (pipeline runs in a thread pool, so we spin up a clean event loop)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(asyncio.run, analyze_building_image(image_path))
+                gemini_vision_data = future.result(timeout=60)
         except Exception as e:
-            logger.warning(f"Gemini Vision analysis failed: {e}")
-            gemini_vision_data = None
+            logger.warning("Gemini Vision analysis failed: %s", e)
 
         gemini_footprint = None
         if gemini_vision_data and gemini_vision_data.get("confidence", 0) > 50:
