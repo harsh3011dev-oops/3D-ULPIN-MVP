@@ -1626,14 +1626,23 @@ export default function MapThreeJS({
     })();
 
     // Construct Cadastral ULPIN Floor Layers
+    // Always generate one slab per floor (even if no units from DB),
+    // so floor selection always works. Units just override color/metadata.
     const unitMap = new Map<string, THREE.Mesh>();
     const units = building?.units || [];
     const shape = building.footprint ? footprintToShape(building.footprint, centerLng, centerLat) : null;
+    const totalFloors = building.floor_count || Math.max(units.length, 1);
 
-    units.forEach((unit) => {
-      const floorNum = getUnitFloor(unit);
+    // Build a map from floor number to unit (if available)
+    const floorToUnit = new Map<number, (typeof units)[0]>();
+    units.forEach(u => { const f = getUnitFloor(u); floorToUnit.set(f, u); });
+
+    // Create one slab per floor
+    const floorSlabs: THREE.Mesh[] = [];
+    for (let floorNum = 1; floorNum <= totalFloors; floorNum++) {
       const levelY = (floorNum - 1) * floorHeight;
       const baseColor = FLOOR_HEX_COLORS[(floorNum - 1) % FLOOR_HEX_COLORS.length];
+      const unit = floorToUnit.get(floorNum);
 
       const levelMat = new THREE.MeshStandardMaterial({
         color: baseColor,
@@ -1660,11 +1669,50 @@ export default function MapThreeJS({
       }
 
       levelMesh.frustumCulled = false;
-      levelMesh.userData = { unit, baseColor };
+      levelMesh.userData = { unit: unit || { unit_id: `floor-${floorNum}`, floor: floorNum }, baseColor, floorNum };
       levelMesh.visible = false;
       cadastralULPINGroup.add(levelMesh);
-      unitMap.set(unit.unit_id, levelMesh);
-    });
+      floorSlabs.push(levelMesh);
+
+      // Register by unit_id if a real unit exists, also by floor key
+      if (unit) unitMap.set(unit.unit_id, levelMesh);
+      unitMap.set(`floor-${floorNum}`, levelMesh);
+    }
+
+    // ── Sequential Floor Reveal Animation ────────────────────────────
+    // Animates floors popping in one-by-one from bottom to top on load.
+    let revealTimer: ReturnType<typeof setTimeout>;
+    const revealFloor = (idx: number) => {
+      if (idx >= floorSlabs.length) return;
+      const slab = floorSlabs[idx];
+      const mat = slab.material as THREE.MeshStandardMaterial;
+      slab.visible = true;
+      // Animate opacity from 0 to target over ~300ms using a simple interval
+      let opacity = 0;
+      const targetOpacity = 0.45;
+      const step = targetOpacity / 15;
+      const fadeIn = setInterval(() => {
+        opacity = Math.min(opacity + step, targetOpacity);
+        mat.opacity = opacity;
+        mat.needsUpdate = true;
+        if (opacity >= targetOpacity) {
+          clearInterval(fadeIn);
+          // After fully visible, fade back out (slabs idle until floor is selected)
+          const fadeOut = setInterval(() => {
+            opacity = Math.max(opacity - step * 0.5, 0);
+            mat.opacity = opacity;
+            mat.needsUpdate = true;
+            if (opacity <= 0) {
+              slab.visible = false;
+              clearInterval(fadeOut);
+            }
+          }, 30);
+        }
+      }, 20);
+      revealTimer = setTimeout(() => revealFloor(idx + 1), 120);
+    };
+    // Start the staggered reveal animation shortly after scene loads
+    const startRevealTimeout = setTimeout(() => revealFloor(0), 400);
 
     unitMeshesRef.current = unitMap;
 
@@ -1800,6 +1848,9 @@ export default function MapThreeJS({
       domElem.removeEventListener('pointermove', handlePointerMove);
       domElem.removeEventListener('click', handleClick);
       renderer.dispose();
+      clearTimeout(startRevealTimeout);
+      // @ts-ignore — revealTimer may not be set if floors = 0
+      clearTimeout(revealTimer);
       unitMap.clear();
       unitMeshesRef.current.clear();
       exteriorMeshesRef.current = [];
@@ -1814,45 +1865,51 @@ export default function MapThreeJS({
   useEffect(() => {
     // 1. Cadastral ULPIN Layer Highlighting
     unitMeshesRef.current.forEach((mesh) => {
-      const u = mesh.userData.unit as Unit;
-      const isSelected = selectedUnit?.unit_id === u.unit_id;
-      const isFloorActive = selectedFloor !== null && selectedFloor === getUnitFloor(u);
+      const u = mesh.userData.unit;
+      const floorNum = mesh.userData.floorNum || getUnitFloor(u);
+      const isSelected = selectedUnit?.unit_id === u?.unit_id;
+      const isFloorActive = selectedFloor !== null && selectedFloor === floorNum;
       const mat = mesh.material as THREE.MeshStandardMaterial;
 
       if (isSelected) {
         mesh.visible = true;
         mat.color.setHex(0x38bdf8);
         mat.emissive.setHex(0x0284c7);
-        mat.emissiveIntensity = 0.9;
+        mat.emissiveIntensity = 1.1;
         mat.opacity = 0.92;
+        mat.needsUpdate = true;
       } else if (isFloorActive) {
         mesh.visible = true;
         mat.color.setHex(0x7c6fe0);
         mat.emissive.setHex(0x4338ca);
-        mat.emissiveIntensity = 0.6;
-        mat.opacity = 0.85;
+        mat.emissiveIntensity = 0.8;
+        mat.opacity = 0.88;
+        mat.needsUpdate = true;
       } else {
         mesh.visible = false;
         mat.opacity = 0;
+        mat.emissiveIntensity = 0;
+        mat.needsUpdate = true;
       }
     });
 
-    // 2. Visual Building Envelope: Fades smoothly when a floor is isolated; 100% opacity in ALL mode
+    // 2. Visual Building Envelope: Fades smoothly when a floor is isolated; fully opaque otherwise
     if (visualBuildingGroupRef.current) {
       visualBuildingGroupRef.current.visible = true;
       visualBuildingGroupRef.current.traverse((child) => {
         if ((child as THREE.Mesh).isMesh) {
           const m = child as THREE.Mesh;
+          const targetOpacity = selectedFloor !== null ? 0.2 : 1.0;
           if (Array.isArray(m.material)) {
             m.material.forEach((mat) => {
               mat.transparent = selectedFloor !== null;
-              mat.opacity = selectedFloor !== null ? 0.25 : 1.0;
+              mat.opacity = targetOpacity;
               mat.depthWrite = selectedFloor === null;
               mat.needsUpdate = true;
             });
           } else if (m.material) {
             m.material.transparent = selectedFloor !== null;
-            m.material.opacity = selectedFloor !== null ? 0.25 : 1.0;
+            m.material.opacity = targetOpacity;
             m.material.depthWrite = selectedFloor === null;
             m.material.needsUpdate = true;
           }
