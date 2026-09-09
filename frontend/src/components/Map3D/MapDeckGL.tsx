@@ -849,7 +849,7 @@ export default function MapDeckGL({
 
       {/* Basemap & Terrain Controls */}
       <div className="basemap-selector-box">
-        <MapIcon size={14} style={{ color: 'var(--accent-lavender)' }} />
+        <MapIcon size={14} style={{ color: 'var(--accent-teal)' }} />
         <span>Style:</span>
         <select
           className="basemap-select-input"
@@ -955,7 +955,7 @@ export default function MapDeckGL({
             </strong>
           </div>
           {hoveredUnitInfo.unit.ulpin && (
-            <div style={{ marginTop: 4, fontSize: 10, color: '#7c6fe0', wordBreak: 'break-all' }}>
+            <div style={{ marginTop: 4, fontSize: 10, color: '#22D3EE', wordBreak: 'break-all', fontFamily: 'monospace' }}>
               {hoveredUnitInfo.unit.ulpin}
             </div>
           )}
@@ -1043,7 +1043,7 @@ export default function MapDeckGL({
       {/* Tech Footer Badge */}
       <div className="tech-badge-footer">
         <span className="pulse-dot" />
-        <span style={{ color: 'var(--accent-lavender)', fontWeight: 600 }}>
+        <span style={{ color: 'var(--accent-teal)', fontWeight: 600 }}>
           {google3DStatus === 'available' && useGoogle3D
             ? 'Google Photorealistic 3D Tiles'
             : 'Re:Earth 3D Buildings + Terrain'}

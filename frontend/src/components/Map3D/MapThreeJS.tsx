@@ -461,7 +461,7 @@ export type BuildingPartClassification =
   | 'entrance'
   | 'generic_extrusion';
 
-export function classifyBuildingPart(part: BuildingPart, metrics: ShapeMetrics): BuildingPartClassification {
+function classifyBuildingPart(part: BuildingPart, metrics: ShapeMetrics): BuildingPartClassification {
   const pType = (part.part_type || '').toLowerCase();
   const rShape = (part.roof_shape || '').toLowerCase();
   const tags = part.tags || {};
@@ -1880,8 +1880,8 @@ export default function MapThreeJS({
         mat.needsUpdate = true;
       } else if (isFloorActive) {
         mesh.visible = true;
-        mat.color.setHex(0x7c6fe0);
-        mat.emissive.setHex(0x4338ca);
+        mat.color.setHex(0x0d9488);
+        mat.emissive.setHex(0x042f2e);
         mat.emissiveIntensity = 0.8;
         mat.opacity = 0.88;
         mat.needsUpdate = true;

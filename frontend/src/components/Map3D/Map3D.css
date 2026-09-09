@@ -65,9 +65,9 @@
 }
 
 .mode-switch-btn.active {
-  background: var(--accent-lavender);
+  background: var(--accent-teal);
   color: #ffffff;
-  box-shadow: 0 2px 10px rgba(124, 111, 224, 0.4);
+  box-shadow: 0 2px 10px rgba(13, 148, 136, 0.4);
 }
 
 /* ── Floating Controls Overlay ── */
@@ -103,8 +103,8 @@
 
 .map-control-btn:hover {
   color: #ffffff;
-  background: var(--accent-lavender);
-  border-color: var(--accent-lavender);
+  background: var(--accent-teal);
+  border-color: var(--accent-teal);
 }
 
 /* Basemap Selector */
@@ -116,39 +116,34 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(10, 15, 29, 0.92);
+  background: rgba(10, 15, 29, 0.88);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(124, 111, 224, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-sm);
   padding: 6px 12px;
-  border-radius: var(--radius-md);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #cbd5e1;
   box-shadow: var(--shadow-md);
+  font-size: 0.78rem;
+  color: #cbd5e1;
 }
 
 .basemap-select-input {
-  background: #0f172a;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-xs);
   color: #ffffff;
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(124, 111, 224, 0.3);
+  font-size: 0.76rem;
+  padding: 4px 8px;
   outline: none;
   cursor: pointer;
 }
 
-/* FIX dropdown option visibility */
-.basemap-select-input option,
-.location-preset-select option {
-  background-color: #0f172a !important;
-  color: #ffffff !important;
-  padding: 8px 12px;
+.basemap-select-input option {
+  background: #0f172a;
+  color: #ffffff;
 }
 
-/* Location Header Overlay */
-.location-overlay-banner {
+/* Location HUD Badge */
+.location-hud-badge {
   position: absolute;
   top: 14px;
   left: 14px;
@@ -156,11 +151,11 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(10, 15, 29, 0.92);
+  background: rgba(10, 15, 29, 0.88);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(124, 111, 224, 0.3);
-  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--radius-md);
+  padding: 8px 14px;
   box-shadow: var(--shadow-md);
 }
 
@@ -168,8 +163,8 @@
   width: 28px;
   height: 28px;
   border-radius: var(--radius-sm);
-  background: var(--accent-lavender-soft);
-  color: var(--accent-lavender);
+  background: var(--accent-teal-soft);
+  color: var(--accent-teal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -191,7 +186,7 @@
 .location-coords-sub {
   font-family: var(--font-mono);
   font-size: 0.68rem;
-  color: var(--accent-lavender);
+  color: var(--accent-teal);
 }
 
 /* Bottom Tech Badge */
@@ -227,8 +222,8 @@
 }
 
 .map-control-btn.active {
-  background: rgba(124, 111, 224, 0.35);
-  border-color: rgba(124, 111, 224, 0.6);
+  background: rgba(13, 148, 136, 0.35);
+  border-color: rgba(13, 148, 136, 0.6);
   color: #fff;
 }
 
@@ -244,7 +239,7 @@
 }
 
 .terrain-toggle-label input {
-  accent-color: var(--accent-lavender);
+  accent-color: var(--accent-teal);
 }
 
 .map-attribution-footer {
@@ -610,11 +605,11 @@
 
 .floor-level-marker:hover,
 .floor-level-marker.active {
-  background: var(--accent-lavender);
+  background: var(--accent-teal);
   border-color: #ffffff;
   color: #ffffff;
   transform: translate(-50%, -50%) scale(1.15);
-  box-shadow: 0 0 8px rgba(124, 111, 224, 0.6);
+  box-shadow: 0 0 8px rgba(13, 148, 136, 0.6);
 }
 
 /* ── 3D Architectural Telemetry HUD ── */

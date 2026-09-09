@@ -5,12 +5,21 @@ import Header from '../components/Header/Header';
 import { autoDetectBuilding, createBuilding } from '../api/api';
 import { AutoDetectBuildingResult } from '../types';
 import {
-  MapPin, Layers, ArrowRight, ArrowLeft, Search,
-  Building2, Satellite, Ruler, CheckCircle, Loader2, ChevronRight, PencilLine
+  MapPin,
+  Layers,
+  ArrowRight,
+  ArrowLeft,
+  Search,
+  Building2,
+  CheckCircle,
+  Loader2,
+  Compass,
+  AlertTriangle,
+  Sparkles,
+  Check
 } from 'lucide-react';
 import './ExplorePage.css';
 
-/* ── Types ── */
 interface FormState {
   buildingName: string;
   location: string;
@@ -20,20 +29,62 @@ interface FormState {
   floors: string;
 }
 
-type EntryMode = 'pick' | 'search' | 'manual';
+type EntryMode = 'select' | 'search' | 'manual';
 
-const STEPS = [
-  { id: 1, label: 'Location',  icon: MapPin },
-  { id: 2, label: 'Satellite', icon: Satellite },
-  { id: 3, label: 'Dimensions',icon: Ruler },
-  { id: 4, label: 'Generate',  icon: CheckCircle },
+const PRESET_LANDMARKS = [
+  { name: 'Burj Khalifa', city: 'Dubai', lat: '25.19729°N', lon: '55.27450°E', height: '828', floors: '163' },
+  { name: 'Taj Mahal', city: 'Agra', lat: '27.17510°N', lon: '78.04210°E', height: '73', floors: '2' },
+  { name: 'India Gate', city: 'New Delhi', lat: '28.61290°N', lon: '77.22950°E', height: '42', floors: '1' },
+  { name: 'Empire State Building', city: 'New York', lat: '40.74840°N', lon: '73.98570°W', height: '380', floors: '102' },
 ];
 
-const slide = {
-  enter: (dir: number) => ({ x: dir > 0 ? 60 : -60, opacity: 0 }),
-  center: { x: 0, opacity: 1, transition: { duration: 0.35, ease: 'easeOut' as const } },
-  exit:   (dir: number) => ({ x: dir > 0 ? -60 : 60, opacity: 0, transition: { duration: 0.25 } }),
-};
+/**
+ * Parses coordinates in various standard and geodetic formats:
+ * - Standard directional: "25.19729°N", "55.27450°E", "25.19729° S", "55.27450° W"
+ * - Directional suffixes: "25.19729 N", "55.27450 E", "25.19729S", "55.27450W"
+ * - DMS notation: "25° 11' 50.2\" N", "55° 16' 28.2\" E"
+ * - Decimal: "25.19729", "-55.27450"
+ */
+export function parseCoordinate(val: string, type?: 'lat' | 'lon'): number {
+  if (!val) return NaN;
+  const raw = val.trim();
+  if (!raw) return NaN;
+
+  // Check DMS pattern: degrees° minutes' seconds" [N/S/E/W]
+  const dmsMatch = raw.match(/([0-9.]+)[°\s]+([0-9.]+)?['\s]*([0-9.]+)?["\s]*([NSEWnsew])?/i);
+  if (dmsMatch && (raw.includes('°') || raw.includes("'") || raw.includes('"'))) {
+    const deg = parseFloat(dmsMatch[1] || '0');
+    const min = parseFloat(dmsMatch[2] || '0');
+    const sec = parseFloat(dmsMatch[3] || '0');
+    const dir = (dmsMatch[4] || '').toUpperCase();
+
+    if (!isNaN(deg)) {
+      let dec = deg + (isNaN(min) ? 0 : min / 60) + (isNaN(sec) ? 0 : sec / 3600);
+      if (dir === 'S' || dir === 'W') dec = -dec;
+      return dec;
+    }
+  }
+
+  // Check standard directional degree notation: e.g. "25.19729°N" or "25.19729 N" or "-25.19729"
+  const clean = raw.replace(/[°º]/g, '').trim();
+  const dirMatch = clean.match(/^([+-]?[0-9.]+)\s*([NSEWnsew])?$/i);
+  if (dirMatch) {
+    let num = parseFloat(dirMatch[1]);
+    const dir = (dirMatch[2] || '').toUpperCase();
+    if (!isNaN(num)) {
+      if (dir === 'S' || dir === 'W') {
+        num = -Math.abs(num);
+      } else if (dir === 'N' || dir === 'E') {
+        num = Math.abs(num);
+      }
+      return num;
+    }
+  }
+
+  // Fallback plain float
+  const fallback = parseFloat(clean.replace(/[^0-9.-]/g, ''));
+  return fallback;
+}
 
 function emptyForm(): FormState {
   return {
@@ -48,568 +99,698 @@ function emptyForm(): FormState {
 
 export default function ExplorePage() {
   const navigate = useNavigate();
-  const [entryMode, setEntryMode] = useState<EntryMode>('pick');
-  const [step, setStep] = useState(1);
-  const [dir, setDir] = useState(1);
+  const [entryMode, setEntryMode] = useState<EntryMode>('select');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const [buildingName, setBuildingName] = useState('');
-  const [city, setCity] = useState('');
-  const [building, setBuilding] = useState<AutoDetectBuildingResult | null>(null);
+  // Search State
+  const [searchName, setSearchName] = useState('');
+  const [searchCity, setSearchCity] = useState('');
+  const [detectedBuilding, setDetectedBuilding] = useState<AutoDetectBuildingResult | null>(null);
 
+  // Manual Form State
+  const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormState>(emptyForm());
 
-  const set = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  const setFormField = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setError('');
-    setForm(f => ({ ...f, [key]: e.target.value }));
+    setForm((f) => ({ ...f, [key]: e.target.value }));
   };
 
-  const go = (next: number) => {
-    setDir(next > step ? 1 : -1);
-    setStep(next);
-  };
-
-  const switchToManual = () => {
+  const handleLatChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError('');
-    if (building) {
-      setForm({
-        buildingName: building.building_name,
-        location: building.city,
-        latitude: String(building.latitude),
-        longitude: String(building.longitude),
-        height: building.height_meters != null ? String(building.height_meters) : '',
-        floors: building.floors != null ? String(building.floors) : '',
-      });
-    } else if (buildingName || city) {
-      setForm(f => ({
-        ...f,
-        buildingName: buildingName || f.buildingName,
-        location: city || f.location,
-      }));
+    const val = e.target.value;
+    // Auto-detect combined paste e.g. "25.19729°N, 55.27450°E" or "25.19729, 55.27450"
+    if (val.includes(',')) {
+      const parts = val.split(',');
+      if (parts.length >= 2) {
+        setForm((f) => ({
+          ...f,
+          latitude: parts[0].trim(),
+          longitude: parts[1].trim(),
+        }));
+        return;
+      }
     }
-    setEntryMode('manual');
-    setStep(1);
+    setForm((f) => ({ ...f, latitude: val }));
   };
 
-  const searchBuilding = async () => {
-    if (!buildingName.trim() || !city.trim()) {
-      setError('Enter both building name and city.');
+  const handleLonChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError('');
+    const val = e.target.value;
+    if (val.includes(',')) {
+      const parts = val.split(',');
+      if (parts.length >= 2) {
+        setForm((f) => ({
+          ...f,
+          latitude: parts[0].trim(),
+          longitude: parts[1].trim(),
+        }));
+        return;
+      }
+    }
+    setForm((f) => ({ ...f, longitude: val }));
+  };
+
+  const handleSearch = async () => {
+    if (!searchName.trim() || !searchCity.trim()) {
+      setError('Please provide both building name and city.');
       return;
     }
     setLoading(true);
     setError('');
-    setBuilding(null);
+    setDetectedBuilding(null);
     try {
       const result = await autoDetectBuilding({
-        building_name: buildingName.trim(),
-        city: city.trim(),
+        building_name: searchName.trim(),
+        city: searchCity.trim(),
       });
-      setBuilding(result);
+      setDetectedBuilding(result);
     } catch (err: any) {
       const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : 'Building not found');
-      setBuilding(null);
+      setError(typeof detail === 'string' ? detail : 'Building lookup failed. You can use manual coordinates instead.');
+      setDetectedBuilding(null);
     } finally {
       setLoading(false);
     }
   };
 
   const handleEditDetected = (field: keyof AutoDetectBuildingResult, value: string) => {
-    if (!building) return;
+    if (!detectedBuilding) return;
     const numeric = field === 'floors' ? parseInt(value, 10) : parseFloat(value);
-    setBuilding({
-      ...building,
-      [field]: Number.isNaN(numeric) ? (value === '' ? null : building[field]) : numeric,
+    setDetectedBuilding({
+      ...detectedBuilding,
+      [field]: Number.isNaN(numeric) ? (value === '' ? null : detectedBuilding[field]) : numeric,
     });
   };
 
   const submitDetectedBuilding = async () => {
-    if (!building) return;
-    if (building.latitude == null || building.longitude == null) {
-      setError('Latitude and longitude are required.');
+    if (!detectedBuilding) return;
+    if (detectedBuilding.latitude == null || detectedBuilding.longitude == null) {
+      setError('Latitude and longitude coordinates are required.');
       return;
     }
-    if (building.height_meters == null || building.height_meters <= 0) {
-      setError('Enter a valid height in metres.');
+    if (detectedBuilding.height_meters == null || detectedBuilding.height_meters <= 0) {
+      setError('Please provide a valid height in meters.');
       return;
     }
-    if (building.floors == null || building.floors < 1) {
-      setError('Enter at least 1 floor.');
+    if (detectedBuilding.floors == null || detectedBuilding.floors < 1) {
+      setError('Please specify at least 1 floor level.');
       return;
     }
+
     setLoading(true);
     setError('');
     try {
-      const parcelId = `AUTO_${building.building_name.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 18)}_${Date.now().toString(36).toUpperCase()}`;
+      const parcelId = `AUTO_${detectedBuilding.building_name.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 18)}_${Date.now().toString(36).toUpperCase()}`;
       const res = await createBuilding({
         parcel_id: parcelId,
-        building_name: building.building_name,
-        address: `${building.building_name}, ${building.city}`,
-        latitude: building.latitude,
-        longitude: building.longitude,
-        height_meters: building.height_meters,
-        floor_count: building.floors,
+        building_name: detectedBuilding.building_name,
+        address: `${detectedBuilding.building_name}, ${detectedBuilding.city}`,
+        latitude: detectedBuilding.latitude,
+        longitude: detectedBuilding.longitude,
+        height_meters: detectedBuilding.height_meters,
+        floor_count: detectedBuilding.floors,
       });
-      if (!res.job_id) throw new Error('Backend did not return a job ID.');
+      if (!res.job_id) throw new Error('Pipeline job failed to queue.');
       navigate(`/processing/${res.job_id}`);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || err?.message || 'Could not start processing. Check if the backend is running.');
+      setError(err?.response?.data?.detail || err?.message || 'Could not launch pipeline job.');
     } finally {
       setLoading(false);
     }
   };
 
-  const validateStep = (): boolean => {
+  const validateManualStep = (): boolean => {
     if (step === 1) {
-      if (!form.buildingName.trim()) { setError('Please enter the building name.'); return false; }
-      if (!form.location.trim())     { setError('Please enter the location / address.'); return false; }
+      if (!form.buildingName.trim()) { setError('Enter a building or parcel identifier.'); return false; }
+      if (!form.location.trim())     { setError('Enter city or location address.'); return false; }
     }
     if (step === 2) {
-      const lat = parseFloat(form.latitude);
-      const lon = parseFloat(form.longitude);
-      if (!form.latitude || isNaN(lat) || lat < -90  || lat > 90)  { setError('Enter a valid latitude (–90 to 90).'); return false; }
-      if (!form.longitude || isNaN(lon) || lon < -180 || lon > 180) { setError('Enter a valid longitude (–180 to 180).'); return false; }
+      const lat = parseCoordinate(form.latitude, 'lat');
+      const lon = parseCoordinate(form.longitude, 'lon');
+      if (isNaN(lat) || lat < -90 || lat > 90) {
+        setError('Enter valid latitude (-90° to 90° or standard format e.g. 25.19729°N).');
+        return false;
+      }
+      if (isNaN(lon) || lon < -180 || lon > 180) {
+        setError('Enter valid longitude (-180° to 180° or standard format e.g. 55.27450°E).');
+        return false;
+      }
     }
     if (step === 3) {
       const h = parseFloat(form.height);
-      const f = parseInt(form.floors);
-      if (!form.height || isNaN(h) || h <= 0)   { setError('Enter a valid height in metres (e.g. 18).'); return false; }
-      if (!form.floors || isNaN(f) || f < 1)    { setError('Enter at least 1 floor.'); return false; }
+      const f = parseInt(form.floors, 10);
+      if (!form.height || isNaN(h) || h <= 0) { setError('Enter height in meters (> 0).'); return false; }
+      if (!form.floors || isNaN(f) || f < 1) { setError('Enter at least 1 floor level.'); return false; }
     }
     setError('');
     return true;
   };
 
-  const next = () => { if (validateStep()) go(step + 1); };
-  const back = () => go(step - 1);
-
-  const handleGenerate = async () => {
-    if (!validateStep()) return;
+  const handleManualGenerate = async () => {
+    if (!validateManualStep()) return;
     setLoading(true);
+    setError('');
     try {
+      const lat = parseCoordinate(form.latitude, 'lat');
+      const lon = parseCoordinate(form.longitude, 'lon');
       const parcelId = `PARCEL_${form.buildingName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 18)}_${Date.now().toString(36).toUpperCase()}`;
       const res = await createBuilding({
         parcel_id: parcelId,
         building_name: form.buildingName.trim(),
         address: `${form.buildingName}, ${form.location}`,
-        latitude: parseFloat(form.latitude),
-        longitude: parseFloat(form.longitude),
+        latitude: lat,
+        longitude: lon,
         height_meters: parseFloat(form.height),
-        floor_count: parseInt(form.floors),
+        floor_count: parseInt(form.floors, 10),
       });
-      if (!res.job_id) throw new Error('Backend did not return a job ID.');
+      if (!res.job_id) throw new Error('Pipeline job failed to queue.');
       navigate(`/processing/${res.job_id}`);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || err?.message || 'Could not start processing. Check if the backend is running.');
+      setError(err?.response?.data?.detail || err?.message || 'Failed to submit building.');
     } finally {
       setLoading(false);
     }
   };
 
-  const progress = ((step - 1) / (STEPS.length - 1)) * 100;
+  const loadPreset = (preset: typeof PRESET_LANDMARKS[0]) => {
+    setSearchName(preset.name);
+    setSearchCity(preset.city);
+    setForm({
+      buildingName: preset.name,
+      location: preset.city,
+      latitude: preset.lat,
+      longitude: preset.lon,
+      height: preset.height,
+      floors: preset.floors,
+    });
+    setEntryMode('search');
+  };
+
+  // Parsed coordinates for live HUD indicator
+  const parsedLat = parseCoordinate(form.latitude, 'lat');
+  const parsedLon = parseCoordinate(form.longitude, 'lon');
 
   return (
-    <div className="explore-page">
+    <div className="explore-page-wrapper">
       <Header />
 
-      <main className="explore-container">
-        <motion.div
-          className="exp-card"
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          {entryMode === 'pick' && (
-            <>
-              <div className="exp-body">
-                <div className="exp-step-header">
-                  <div className="exp-step-icon-box"><Building2 size={22} /></div>
-                  <h2 className="exp-step-title">How do you want to start?</h2>
-                  <p className="exp-step-desc">Search a famous landmark to auto-fill coordinates and height, or enter everything yourself.</p>
+      <main className="explore-main-container">
+        <div className="explore-layout-grid">
+          {/* ── LEFT COLUMN: CADASTRAL PREVIEW & SPATIAL TELEMETRY ── */}
+          <div className="explore-preview-col">
+            <div className="preview-cadastral-card cadastral-panel">
+              <div className="preview-header">
+                <div className="preview-status font-mono">
+                  <span className="live-dot" />
+                  <span>CADASTRAL HUD · REAL-TIME TELEMETRY</span>
                 </div>
-                <div className="exp-mode-grid">
-                  <button type="button" className="exp-mode-card" onClick={() => { setError(''); setEntryMode('search'); }}>
-                    <Search size={22} />
-                    <strong>Search Famous Building</strong>
-                    <span>Name + city → AI fills lat, lon, height, floors</span>
-                  </button>
-                  <button type="button" className="exp-mode-card" onClick={() => { setError(''); setEntryMode('manual'); }}>
-                    <PencilLine size={22} />
-                    <strong>Manual Entry</strong>
-                    <span>Type coordinates and dimensions yourself</span>
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-
-          {entryMode === 'search' && (
-            <>
-              <div className="exp-body">
-                <div className="exp-step-header">
-                  <div className="exp-step-icon-box"><Search size={22} /></div>
-                  <h2 className="exp-step-title">Search Famous Building</h2>
-                  <p className="exp-step-desc">Enter the landmark name and city. Gemini will auto-fill coordinates, height, and floors — you can still edit them.</p>
-                </div>
-
-                <div className="exp-field">
-                  <label className="exp-label">Building Name</label>
-                  <input
-                    className="exp-input"
-                    type="text"
-                    placeholder="e.g. Taj Mahal"
-                    value={buildingName}
-                    onChange={(e) => { setError(''); setBuildingName(e.target.value); }}
-                    autoFocus
-                  />
-                </div>
-                <div className="exp-field">
-                  <label className="exp-label">City</label>
-                  <input
-                    className="exp-input"
-                    type="text"
-                    placeholder="e.g. Agra"
-                    value={city}
-                    onChange={(e) => { setError(''); setCity(e.target.value); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter') searchBuilding(); }}
-                  />
-                </div>
-
-                {building && (
-                  <div className="exp-found-card">
-                    <h3 className="exp-found-title">
-                      <CheckCircle size={16} /> {building.building_name} found
-                    </h3>
-                    <p className="exp-found-meta">
-                      Source: {building.source} · Confidence: {building.confidence}% · {building.city}
-                    </p>
-                    <div className="exp-row">
-                      <div className="exp-field">
-                        <label className="exp-label">Latitude</label>
-                        <input
-                          className="exp-input"
-                          type="number"
-                          step="0.0001"
-                          value={building.latitude}
-                          onChange={(e) => handleEditDetected('latitude', e.target.value)}
-                        />
-                      </div>
-                      <div className="exp-field">
-                        <label className="exp-label">Longitude</label>
-                        <input
-                          className="exp-input"
-                          type="number"
-                          step="0.0001"
-                          value={building.longitude}
-                          onChange={(e) => handleEditDetected('longitude', e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="exp-row">
-                      <div className="exp-field">
-                        <label className="exp-label">Height (m)</label>
-                        <input
-                          className="exp-input"
-                          type="number"
-                          placeholder="Height (m)"
-                          value={building.height_meters ?? ''}
-                          onChange={(e) => handleEditDetected('height_meters', e.target.value)}
-                        />
-                      </div>
-                      <div className="exp-field">
-                        <label className="exp-label">Floors</label>
-                        <input
-                          className="exp-input"
-                          type="number"
-                          placeholder="Floors"
-                          value={building.floors ?? ''}
-                          onChange={(e) => handleEditDetected('floors', e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <span className="chip-neutral font-mono">EPSG:4326</span>
               </div>
 
-              {error && (
-                <motion.p className="exp-error" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                  ⚠ {error}
-                </motion.p>
-              )}
+              {/* Architectural Wireframe HUD Display */}
+              <div className="wireframe-hud-box">
+                <div className="hud-grid-overlay" />
+                <div className="hud-crosshair-center">
+                  <div className="crosshair-ring" />
+                  <div className="crosshair-x" />
+                </div>
 
-              <div className="exp-nav">
-                <button className="exp-btn-back" onClick={() => { setError(''); setEntryMode('pick'); }} disabled={loading}>
-                  <ArrowLeft size={16} /> Back
-                </button>
-                <button className="exp-btn-back" onClick={switchToManual} disabled={loading} style={{ marginRight: 0 }}>
-                  Manual Entry Instead
-                </button>
-                {!building && (
-                  <button className="exp-btn-next" onClick={searchBuilding} disabled={loading}>
-                    {loading ? <><Loader2 size={16} className="spin" /> Searching…</> : <><Search size={16} /> Search</>}
-                  </button>
-                )}
-                {building && (
-                  <button className="exp-btn-generate" onClick={submitDetectedBuilding} disabled={loading}>
-                    {loading
-                      ? <><Loader2 size={16} className="spin" /> Starting…</>
-                      : <><ArrowRight size={16} /> Generate 3D ULPIN</>
-                    }
-                  </button>
-                )}
+                <div className="hud-corner top-left font-mono">
+                  <span>DATUM: WGS84</span>
+                  <span>ACCURACY: ±0.05m</span>
+                </div>
+
+                <div className="hud-corner top-right font-mono">
+                  <span>METHOD: {entryMode.toUpperCase()}</span>
+                  <span>STATUS: READY</span>
+                </div>
+
+                <div className="hud-corner bottom-left font-mono">
+                  <span>
+                    LAT: {detectedBuilding?.latitude
+                      ? `${detectedBuilding.latitude.toFixed(5)}°`
+                      : !isNaN(parsedLat)
+                      ? `${parsedLat.toFixed(5)}°`
+                      : '28.6129° N'}
+                  </span>
+                  <span>
+                    LON: {detectedBuilding?.longitude
+                      ? `${detectedBuilding.longitude.toFixed(5)}°`
+                      : !isNaN(parsedLon)
+                      ? `${parsedLon.toFixed(5)}°`
+                      : '77.2295° E'}
+                  </span>
+                </div>
+
+                <div className="hud-corner bottom-right font-mono">
+                  <span>H: {detectedBuilding?.height_meters || form.height || '42.0'}m</span>
+                  <span>FL: {detectedBuilding?.floors || form.floors || '12'}</span>
+                </div>
               </div>
-            </>
-          )}
 
-          {entryMode === 'manual' && (
-            <>
-          {/* Progress bar */}
-          <div className="exp-progress-track">
-            <motion.div
-              className="exp-progress-fill"
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.4, ease: 'easeInOut' }}
-            />
+              {/* Preset Landmarks Quick Selector */}
+              <div className="presets-selector-section">
+                <div className="presets-label font-mono">
+                  <span>QUICK LANDMARK PRESETS (1-CLICK LOAD)</span>
+                </div>
+                <div className="presets-grid">
+                  {PRESET_LANDMARKS.map((p, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className="preset-tag-btn"
+                      onClick={() => loadPreset(p)}
+                    >
+                      <Building2 size={12} color="#0D9488" />
+                      <span>{p.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Technical Specifications Summary */}
+              <div className="preview-specs-footer font-mono">
+                <div className="spec-row">
+                  <span>TOPOLOGY PROTOCOL</span>
+                  <span className="val">ISO 19152 LADM 3D</span>
+                </div>
+                <div className="spec-row">
+                  <span>MESH SYNTHESIS</span>
+                  <span className="val">LoD1 / OSM2World</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Step indicators */}
-          <div className="exp-steps">
-            {STEPS.map((s) => {
-              const Icon = s.icon;
-              const done = step > s.id;
-              const active = step === s.id;
-              return (
-                <div key={s.id} className={`exp-step ${active ? 'active' : ''} ${done ? 'done' : ''}`}>
-                  <div className="exp-step-circle">
-                    {done ? <CheckCircle size={14} /> : <Icon size={14} />}
+          {/* ── RIGHT COLUMN: SELECTION & INGESTION INTERFACE ── */}
+          <div className="explore-interface-col">
+            <div className="interface-card cadastral-panel">
+              {/* Header */}
+              <div className="interface-header">
+                <span className="chip-cadastral">INGESTION WORKBENCH</span>
+                <h1 className="interface-title font-display">Create a 3D Cadastral Record</h1>
+                <p className="interface-desc">
+                  Select an ingestion method to auto-detect geometry or manually configure multi-strata boundaries.
+                </p>
+              </div>
+
+              {/* Mode Selection Panels (when mode is 'select') */}
+              {entryMode === 'select' && (
+                <div className="mode-selection-rows">
+                  <div
+                    className="mode-row-card"
+                    onClick={() => setEntryMode('search')}
+                  >
+                    <div className="mode-num font-mono">01</div>
+                    <div className="mode-content">
+                      <div className="mode-heading">Search Building</div>
+                      <div className="mode-sub">
+                        Auto-fill coordinates, elevations, and floor levels via AI geospatial lookup.
+                      </div>
+                    </div>
+                    <ArrowRight size={18} className="mode-arrow" />
                   </div>
-                  <span className="exp-step-label">{s.label}</span>
+
+                  <div
+                    className="mode-row-card"
+                    onClick={() => { setEntryMode('manual'); setStep(1); }}
+                  >
+                    <div className="mode-num font-mono">02</div>
+                    <div className="mode-content">
+                      <div className="mode-heading">Manual Coordinates</div>
+                      <div className="mode-sub">
+                        Define custom geodetic parcel boundaries, Z-elevations, and floor strata parameters.
+                      </div>
+                    </div>
+                    <ArrowRight size={18} className="mode-arrow" />
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-
-          {/* ── Step Content ── */}
-          <div className="exp-body">
-            <AnimatePresence mode="wait" custom={dir}>
-              {/* STEP 1 — Location */}
-              {step === 1 && (
-                <motion.div key="s1" custom={dir} variants={slide} initial="enter" animate="center" exit="exit">
-                  <div className="exp-step-header">
-                    <div className="exp-step-icon-box"><MapPin size={22} /></div>
-                    <h2 className="exp-step-title">Building Identity</h2>
-                    <p className="exp-step-desc">Enter the name and address of the building you want to digitize into a 3D cadastral record.</p>
-                  </div>
-
-                  <div className="exp-field">
-                    <label className="exp-label">Building / Structure Name</label>
-                    <input
-                      id="building-name"
-                      className="exp-input"
-                      type="text"
-                      placeholder="e.g. Panipat Institute of Engineering and Technology"
-                      value={form.buildingName}
-                      onChange={set('buildingName')}
-                      autoFocus
-                    />
-                  </div>
-                  <div className="exp-field">
-                    <label className="exp-label">Location / Address</label>
-                    <input
-                      id="building-location"
-                      className="exp-input"
-                      type="text"
-                      placeholder="e.g. GT Road, Samalkha, Panipat, Haryana"
-                      value={form.location}
-                      onChange={set('location')}
-                    />
-                  </div>
-                </motion.div>
               )}
 
-              {/* STEP 2 — GPS + Satellite */}
-              {step === 2 && (
-                <motion.div key="s2" custom={dir} variants={slide} initial="enter" animate="center" exit="exit">
-                  <div className="exp-step-header">
-                    <div className="exp-step-icon-box"><Satellite size={22} /></div>
-                    <h2 className="exp-step-title">GPS Coordinates</h2>
-                    <p className="exp-step-desc">Enter the precise latitude and longitude of the building. A satellite preview will appear below.</p>
+              {/* ── SEARCH BUILDING FLOW ── */}
+              {entryMode === 'search' && (
+                <div className="search-flow-container">
+                  <div className="flow-nav-bar">
+                    <button
+                      type="button"
+                      className="flow-back-link font-mono"
+                      onClick={() => { setEntryMode('select'); setDetectedBuilding(null); setError(''); }}
+                    >
+                      <ArrowLeft size={14} />
+                      <span>Back to Methods</span>
+                    </button>
+                    <span className="font-mono text-muted">METHOD: 01 SEARCH</span>
                   </div>
 
-                  <div className="exp-row">
-                    <div className="exp-field">
-                      <label className="exp-label">Latitude</label>
+                  <div className="search-form-grid">
+                    <div className="form-group">
+                      <label className="font-mono">BUILDING / LANDMARK NAME</label>
                       <input
-                        id="lat-input"
-                        className="exp-input"
-                        type="number"
-                        step="0.0001"
-                        placeholder="e.g. 29.2386"
-                        value={form.latitude}
-                        onChange={set('latitude')}
-                        autoFocus
+                        type="text"
+                        placeholder="e.g. Burj Khalifa, Taj Mahal, Empire State"
+                        value={searchName}
+                        onChange={(e) => setSearchName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                       />
                     </div>
-                    <div className="exp-field">
-                      <label className="exp-label">Longitude</label>
-                      <input
-                        id="lon-input"
-                        className="exp-input"
-                        type="number"
-                        step="0.0001"
-                        placeholder="e.g. 76.9943"
-                        value={form.longitude}
-                        onChange={set('longitude')}
-                      />
-                    </div>
-                  </div>
 
-                  {/* Satellite image preview */}
-                  <AnimatePresence>
-                    {form.latitude && form.longitude && !isNaN(parseFloat(form.latitude)) && !isNaN(parseFloat(form.longitude)) && (
-                      <motion.div
-                        className="exp-sat-preview"
-                        initial={{ opacity: 0, scale: 0.97 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.4 }}
-                      >
-                        <div className="exp-sat-badge"><Satellite size={11} /> Live Satellite Preview</div>
-                        <iframe
-                          title="satellite-preview"
-                          className="exp-sat-frame"
-                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(form.longitude)-0.003},${parseFloat(form.latitude)-0.002},${parseFloat(form.longitude)+0.003},${parseFloat(form.latitude)+0.002}&layer=hot&marker=${form.latitude},${form.longitude}`}
-                          loading="lazy"
-                        />
-                        <p className="exp-sat-caption">
-                          📍 {parseFloat(form.latitude).toFixed(4)}°N, {parseFloat(form.longitude).toFixed(4)}°E — {form.buildingName}
-                        </p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-              )}
-
-              {/* STEP 3 — Dimensions */}
-              {step === 3 && (
-                <motion.div key="s3" custom={dir} variants={slide} initial="enter" animate="center" exit="exit">
-                  <div className="exp-step-header">
-                    <div className="exp-step-icon-box"><Ruler size={22} /></div>
-                    <h2 className="exp-step-title">Building Dimensions</h2>
-                    <p className="exp-step-desc">Provide the structural dimensions so the AI can construct an accurate 3D extrusion.</p>
-                  </div>
-
-                  <div className="exp-row">
-                    <div className="exp-field">
-                      <label className="exp-label">Building Height (metres)</label>
+                    <div className="form-group">
+                      <label className="font-mono">CITY / LOCATION</label>
                       <input
-                        id="height-input"
-                        className="exp-input"
-                        type="number"
-                        min="1"
-                        step="0.5"
-                        placeholder="e.g. 18"
-                        value={form.height}
-                        onChange={set('height')}
-                        autoFocus
-                      />
-                    </div>
-                    <div className="exp-field">
-                      <label className="exp-label">Number of Floors</label>
-                      <input
-                        id="floors-input"
-                        className="exp-input"
-                        type="number"
-                        min="1"
-                        step="1"
-                        placeholder="e.g. 5"
-                        value={form.floors}
-                        onChange={set('floors')}
+                        type="text"
+                        placeholder="e.g. Dubai, Agra, New York"
+                        value={searchCity}
+                        onChange={(e) => setSearchCity(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                       />
                     </div>
                   </div>
 
-                  {/* Summary card */}
-                  {form.height && form.floors && (
+                  <div className="search-action-row">
+                    <button
+                      type="button"
+                      className="btn-primary search-btn"
+                      disabled={loading || !searchName.trim() || !searchCity.trim()}
+                      onClick={handleSearch}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          <span>Querying Geospatial AI...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Search size={16} />
+                          <span>Search Landmark</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Detected Building Card */}
+                  {detectedBuilding && (
                     <motion.div
-                      className="exp-summary"
-                      initial={{ opacity: 0, y: 8 }}
+                      className="detected-result-card"
+                      initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                     >
-                      <div className="exp-summary-row"><Building2 size={14} /><span><b>{form.buildingName}</b></span></div>
-                      <div className="exp-summary-row"><MapPin size={14} /><span>{form.location}</span></div>
-                      <div className="exp-summary-row"><Layers size={14} /><span>{form.floors} floors · {form.height}m · {parseFloat(form.latitude).toFixed(4)}°N, {parseFloat(form.longitude).toFixed(4)}°E</span></div>
+                      <div className="detected-header">
+                        <div className="detected-title-block">
+                          <CheckCircle size={16} color="#10B981" />
+                          <span className="detected-name">{detectedBuilding.building_name}</span>
+                          <span className="detected-city font-mono">({detectedBuilding.city})</span>
+                        </div>
+                        <span className="chip-success font-mono">
+                          CONFIDENCE: {detectedBuilding.confidence}%
+                        </span>
+                      </div>
+
+                      <div className="detected-fields-grid">
+                        <div className="detected-field">
+                          <label className="font-mono">LATITUDE</label>
+                          <input
+                            type="number"
+                            step="any"
+                            value={detectedBuilding.latitude ?? ''}
+                            onChange={(e) => handleEditDetected('latitude', e.target.value)}
+                          />
+                        </div>
+
+                        <div className="detected-field">
+                          <label className="font-mono">LONGITUDE</label>
+                          <input
+                            type="number"
+                            step="any"
+                            value={detectedBuilding.longitude ?? ''}
+                            onChange={(e) => handleEditDetected('longitude', e.target.value)}
+                          />
+                        </div>
+
+                        <div className="detected-field">
+                          <label className="font-mono">HEIGHT (METRES)</label>
+                          <input
+                            type="number"
+                            value={detectedBuilding.height_meters ?? ''}
+                            onChange={(e) => handleEditDetected('height_meters', e.target.value)}
+                          />
+                        </div>
+
+                        <div className="detected-field">
+                          <label className="font-mono">FLOORS</label>
+                          <input
+                            type="number"
+                            value={detectedBuilding.floors ?? ''}
+                            onChange={(e) => handleEditDetected('floors', e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="detected-submit-row">
+                        <button
+                          type="button"
+                          className="btn-primary submit-detected-btn"
+                          disabled={loading}
+                          onClick={submitDetectedBuilding}
+                        >
+                          {loading ? (
+                            <>
+                              <Loader2 size={16} className="animate-spin" />
+                              <span>Queueing Pipeline...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>Generate 3D ULPIN Model</span>
+                              <ArrowRight size={16} />
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </motion.div>
                   )}
-                </motion.div>
+                </div>
               )}
 
-              {/* STEP 4 — Generate */}
-              {step === 4 && (
-                <motion.div key="s4" custom={dir} variants={slide} initial="enter" animate="center" exit="exit">
-                  <div className="exp-step-header">
-                    <div className="exp-step-icon-box ready"><CheckCircle size={22} /></div>
-                    <h2 className="exp-step-title">Ready to Generate</h2>
-                    <p className="exp-step-desc">The AI pipeline will extract the satellite footprint, assign 3D ULPIN codes to every unit, and render the model.</p>
+              {/* ── MANUAL COORDINATES WIZARD FLOW ── */}
+              {entryMode === 'manual' && (
+                <div className="manual-flow-container">
+                  <div className="flow-nav-bar">
+                    <button
+                      type="button"
+                      className="flow-back-link font-mono"
+                      onClick={() => { setEntryMode('select'); setError(''); }}
+                    >
+                      <ArrowLeft size={14} />
+                      <span>Back to Methods</span>
+                    </button>
+                    <span className="font-mono text-muted">STEP 0{step} / 04</span>
                   </div>
 
-                  <div className="exp-confirm-card">
-                    <div className="exp-confirm-row">
-                      <span className="exp-confirm-key">Building</span>
-                      <span className="exp-confirm-val">{form.buildingName}</span>
-                    </div>
-                    <div className="exp-confirm-row">
-                      <span className="exp-confirm-key">Address</span>
-                      <span className="exp-confirm-val">{form.location}</span>
-                    </div>
-                    <div className="exp-confirm-row">
-                      <span className="exp-confirm-key">Coordinates</span>
-                      <span className="exp-confirm-val">{parseFloat(form.latitude).toFixed(5)}°N, {parseFloat(form.longitude).toFixed(5)}°E</span>
-                    </div>
-                    <div className="exp-confirm-row">
-                      <span className="exp-confirm-key">Height</span>
-                      <span className="exp-confirm-val">{form.height} m</span>
-                    </div>
-                    <div className="exp-confirm-row">
-                      <span className="exp-confirm-key">Floors</span>
-                      <span className="exp-confirm-val">{form.floors} floors</span>
-                    </div>
+                  {/* Step Progress Dots */}
+                  <div className="wizard-steps-track font-mono">
+                    {[
+                      { s: 1, label: '01 Location' },
+                      { s: 2, label: '02 Coordinates' },
+                      { s: 3, label: '03 Dimensions' },
+                      { s: 4, label: '04 Generate' },
+                    ].map((st) => (
+                      <div
+                        key={st.s}
+                        className={`wizard-step-pill ${step === st.s ? 'active' : step > st.s ? 'done' : ''}`}
+                      >
+                        <span>{st.label}</span>
+                      </div>
+                    ))}
                   </div>
-                </motion.div>
+
+                  {/* Step 1: Location */}
+                  {step === 1 && (
+                    <div className="step-panel">
+                      <div className="form-group">
+                        <label className="font-mono">BUILDING / PARCEL NAME</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Burj Khalifa, Tower Alpha, Parcel 482"
+                          value={form.buildingName}
+                          onChange={setFormField('buildingName')}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="font-mono">CITY / ADDRESS</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Dubai, Connaught Place, Agra"
+                          value={form.location}
+                          onChange={setFormField('location')}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 2: Coordinates with Standard Form & Paste Support */}
+                  {step === 2 && (
+                    <div className="step-panel">
+                      <div className="coord-format-tip font-mono">
+                        <Compass size={14} color="#0D9488" />
+                        <span>Accepts standard geodetic (<strong>25.19729°N, 55.27450°E</strong>), DMS, or decimal notation.</span>
+                      </div>
+
+                      <div className="form-group">
+                        <div className="form-label-row font-mono">
+                          <label>LATITUDE (NORTH / SOUTH)</label>
+                          {!isNaN(parsedLat) && (
+                            <span className="parsed-badge">
+                              <Check size={11} />
+                              <span>WGS84: {parsedLat.toFixed(6)}°</span>
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="e.g. 25.19729°N or 25.19729"
+                          value={form.latitude}
+                          onChange={handleLatChange}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <div className="form-label-row font-mono">
+                          <label>LONGITUDE (EAST / WEST)</label>
+                          {!isNaN(parsedLon) && (
+                            <span className="parsed-badge">
+                              <Check size={11} />
+                              <span>WGS84: {parsedLon.toFixed(6)}°</span>
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="e.g. 55.27450°E or 55.27450"
+                          value={form.longitude}
+                          onChange={handleLonChange}
+                        />
+                      </div>
+
+                      <div className="paste-helper-hint font-mono">
+                        <span>Tip: You can paste a combined pair (e.g. <code>25.19729°N, 55.27450°E</code>) directly into Latitude to auto-fill both.</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 3: Dimensions */}
+                  {step === 3 && (
+                    <div className="step-panel">
+                      <div className="form-group">
+                        <label className="font-mono">ESTIMATED HEIGHT (METRES)</label>
+                        <input
+                          type="number"
+                          placeholder="e.g. 828 or 45"
+                          value={form.height}
+                          onChange={setFormField('height')}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="font-mono">TOTAL FLOOR LEVELS</label>
+                        <input
+                          type="number"
+                          placeholder="e.g. 163 or 14"
+                          value={form.floors}
+                          onChange={setFormField('floors')}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 4: Review & Generate */}
+                  {step === 4 && (
+                    <div className="step-panel">
+                      <div className="review-summary-card">
+                        <div className="review-title font-mono">PARCEL SPECIFICATION SUMMARY</div>
+                        <div className="review-grid font-mono">
+                          <div className="rev-item"><span>NAME:</span> <strong>{form.buildingName}</strong></div>
+                          <div className="rev-item"><span>LOCATION:</span> <strong>{form.location}</strong></div>
+                          <div className="rev-item">
+                            <span>LATITUDE:</span>{' '}
+                            <strong>
+                              {form.latitude}{' '}
+                              <span style={{ color: 'var(--accent-teal)', fontWeight: 600 }}>
+                                ({parsedLat.toFixed(5)}°)
+                              </span>
+                            </strong>
+                          </div>
+                          <div className="rev-item">
+                            <span>LONGITUDE:</span>{' '}
+                            <strong>
+                              {form.longitude}{' '}
+                              <span style={{ color: 'var(--accent-teal)', fontWeight: 600 }}>
+                                ({parsedLon.toFixed(5)}°)
+                              </span>
+                            </strong>
+                          </div>
+                          <div className="rev-item"><span>HEIGHT:</span> <strong>{form.height} m</strong></div>
+                          <div className="rev-item"><span>FLOORS:</span> <strong>{form.floors} Levels</strong></div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Wizard Step Controls */}
+                  <div className="wizard-actions-bar">
+                    {step > 1 && (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => { setError(''); setStep(step - 1); }}
+                      >
+                        <ArrowLeft size={15} />
+                        <span>Previous</span>
+                      </button>
+                    )}
+
+                    {step < 4 ? (
+                      <button
+                        type="button"
+                        className="btn-primary wizard-next-btn"
+                        onClick={() => { if (validateManualStep()) setStep(step + 1); }}
+                      >
+                        <span>Continue</span>
+                        <ArrowRight size={15} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-primary wizard-next-btn"
+                        disabled={loading}
+                        onClick={handleManualGenerate}
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 size={16} className="animate-spin" />
+                            <span>Synthesizing 3D Model...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Generate 3D ULPIN Model</span>
+                            <ArrowRight size={16} />
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
-            </AnimatePresence>
-          </div>
 
-          {/* Error */}
-          {error && (
-            <motion.p className="exp-error" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              ⚠ {error}
-            </motion.p>
-          )}
-
-          {/* Navigation buttons */}
-          <div className="exp-nav">
-            <button className="exp-btn-back" onClick={() => { if (step === 1) { setError(''); setEntryMode('pick'); } else { back(); } }} disabled={loading}>
-              <ArrowLeft size={16} /> Back
-            </button>
-            {step < 4 && (
-              <button className="exp-btn-next" onClick={next}>
-                Continue <ChevronRight size={16} />
-              </button>
-            )}
-            {step === 4 && (
-              <button className="exp-btn-generate" onClick={handleGenerate} disabled={loading}>
-                {loading
-                  ? <><Loader2 size={16} className="spin" /> Initialising AI Pipeline…</>
-                  : <><ArrowRight size={16} /> Generate 3D ULPIN Model</>
-                }
-              </button>
-            )}
+              {/* Error Callout */}
+              {error && (
+                <div className="explore-error-alert font-mono">
+                  <AlertTriangle size={15} color="#DC2626" />
+                  <span>{error}</span>
+                </div>
+              )}
+            </div>
           </div>
-            </>
-          )}
-        </motion.div>
+        </div>
       </main>
     </div>
   );

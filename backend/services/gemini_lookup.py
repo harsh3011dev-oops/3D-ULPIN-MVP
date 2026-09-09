@@ -20,9 +20,6 @@ CACHE: dict[str, dict[str, Any]] = {}
 
 GEMINI_MODELS = (
     "gemini-3.6-flash",
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
 )
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
@@ -104,16 +101,7 @@ async def call_gemini_api(building_name: str, city: str) -> Optional[dict[str, A
     if ckey in CACHE:
         return CACHE[ckey]
 
-    # 2. Call Gemini API
-    api_key = (
-        settings.gemini_api_key
-        or os.getenv("GEMINI_API_KEY")
-        or os.getenv("GOOGLE_API_KEY")
-        or ""
-    )
-
-    if api_key:
-        prompt = f"""You are a geospatial lookup tool for well-known buildings.
+    prompt = f"""You are a geospatial lookup tool for well-known buildings.
 
 Get exact building info for: {building_name}, {city}
 
@@ -134,18 +122,26 @@ Rules:
 - Do not invent coordinates for unknown places.
 """
 
+    # 2. Call Gemini API
+    api_key = (
+        settings.gemini_api_key
+        or os.getenv("GEMINI_API_KEY")
+        or os.getenv("GOOGLE_API_KEY")
+        or ""
+    )
+
+    if api_key:
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
                 "temperature": 0.1,
-                "responseMimeType": "application/json",
             },
         }
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             for model in GEMINI_MODELS:
                 url = GEMINI_URL.format(model=model)
-                for attempt in range(5):
+                for attempt in range(2):
                     try:
                         response = await client.post(
                             url,
@@ -155,12 +151,16 @@ Rules:
                         )
                     except httpx.HTTPError as exc:
                         logger.warning("Gemini HTTP error for %s: %s", model, exc)
-                        await asyncio.sleep(2.0 ** attempt)
+                        await asyncio.sleep(1.0)
                         continue
 
-                    if response.status_code in (503, 429):
-                        logger.warning("Gemini %s HTTP %d (attempt %d/5), retrying...", model, response.status_code, attempt + 1)
-                        await asyncio.sleep(2.0 ** attempt)
+                    if response.status_code == 429:
+                        logger.warning("Gemini %s rate limited (HTTP 429), failing over to secondary provider...", model)
+                        break
+
+                    if response.status_code == 503:
+                        logger.warning("Gemini %s HTTP %d (attempt %d/2), retrying...", model, response.status_code, attempt + 1)
+                        await asyncio.sleep(0.5)
                         continue
 
                     if response.status_code != 200:
@@ -183,37 +183,39 @@ Rules:
     # ── GROQ FALLBACK ──
     groq_api_key = getattr(settings, "groq_api_key", os.getenv("GROQ_API_KEY", ""))
     if groq_api_key:
-        logger.info("Gemini text lookup failed, falling back to Groq...")
+        logger.info("Gemini text lookup failed or not available, trying Groq...")
         groq_url = "https://api.groq.com/openai/v1/chat/completions"
-        groq_payload = {
-            "model": "llama-3.1-70b-versatile",
-            "messages": [
-                {"role": "system", "content": "You are a geospatial data assistant. You MUST return ONLY valid JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.1,
-            "response_format": {"type": "json_object"}
-        }
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            try:
-                response = await client.post(
-                    groq_url,
-                    headers={"Authorization": f"Bearer {groq_api_key}"},
-                    json=groq_payload
-                )
-                if response.status_code == 200:
-                    text = response.json()["choices"][0]["message"]["content"]
-                    parsed = _extract_json(text)
-                    if parsed:
-                        normalized = _normalize(parsed, city)
-                        if normalized:
-                            CACHE[ckey] = normalized
-                            logger.info("Groq successfully returned location data.")
-                            return normalized
-                else:
-                    logger.warning("Groq fallback failed: HTTP %d", response.status_code)
-            except Exception as e:
-                logger.warning("Groq request failed: %s", e)
+        for groq_model in ("openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b", "groq/compound"):
+            groq_payload = {
+                "model": groq_model,
+                "messages": [
+                    {"role": "system", "content": "You are a geospatial data assistant. You MUST return ONLY valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.1,
+                "response_format": {"type": "json_object"}
+            }
+            async with httpx.AsyncClient(timeout=25.0) as client:
+                try:
+                    response = await client.post(
+                        groq_url,
+                        headers={"Authorization": f"Bearer {groq_api_key}"},
+                        json=groq_payload
+                    )
+                    if response.status_code == 200:
+                        text = response.json()["choices"][0]["message"]["content"]
+                        parsed = _extract_json(text)
+                        if parsed:
+                            normalized = _normalize(parsed, city)
+                            if normalized:
+                                normalized["source"] = "groq"
+                                CACHE[ckey] = normalized
+                                logger.info("Groq successfully returned location data.")
+                                return normalized
+                    else:
+                        logger.warning("Groq (%s) fallback failed: HTTP %d", groq_model, response.status_code)
+                except Exception as e:
+                    logger.warning("Groq request failed: %s", e)
 
     # ── HUGGING FACE FALLBACK ──
     hf_api_key = getattr(settings, "hf_api_key", os.getenv("HF_API_KEY", ""))
@@ -242,6 +244,7 @@ Rules:
                     if parsed:
                         normalized = _normalize(parsed, city)
                         if normalized:
+                            normalized["source"] = "huggingface"
                             CACHE[ckey] = normalized
                             logger.info("Hugging Face successfully returned location data.")
                             return normalized
@@ -251,22 +254,54 @@ Rules:
                 logger.warning("Hugging Face request failed: %s", e)
 
     # ── MVP MOCK FALLBACK ──
-    logger.warning("All Gemini, Groq, and Hugging Face lookup attempts failed. Returning simulated fallback for MVP demo.")
+    logger.warning("All AI lookup attempts failed. Returning simulated fallback for MVP demo.")
     
-    # MOCK RESPONSE FOR MVP HACKATHON DEMO
-    # Returns sensible defaults so the UI doesn't say 'Building not found' during rate limits
-    query_lower = query.lower()
-    city_lower = city.lower()
+    bname_lower = building_name.lower().strip()
     
-    if "india gate" in query_lower:
-        mock = {"lat": 28.6129, "lon": 77.2295, "height_meters": 42, "floors": 1}
-    elif "taj mahal" in query_lower:
-        mock = {"lat": 27.1751, "lon": 78.0421, "height_meters": 73, "floors": 2}
-    elif "burj" in query_lower:
-        mock = {"lat": 25.1972, "lon": 55.2744, "height_meters": 828, "floors": 163}
+    if "india gate" in bname_lower:
+        mock = {
+            "building_name": "India Gate",
+            "city": city or "New Delhi",
+            "latitude": 28.6129,
+            "longitude": 77.2295,
+            "height_meters": 42.0,
+            "floors": 1,
+            "confidence": 95,
+            "source": "fallback",
+        }
+    elif "taj mahal" in bname_lower:
+        mock = {
+            "building_name": "Taj Mahal",
+            "city": city or "Agra",
+            "latitude": 27.1751,
+            "longitude": 78.0421,
+            "height_meters": 73.0,
+            "floors": 2,
+            "confidence": 95,
+            "source": "fallback",
+        }
+    elif "burj" in bname_lower:
+        mock = {
+            "building_name": "Burj Khalifa",
+            "city": city or "Dubai",
+            "latitude": 25.1972,
+            "longitude": 55.2744,
+            "height_meters": 828.0,
+            "floors": 163,
+            "confidence": 99,
+            "source": "fallback",
+        }
     else:
-        # Default fallback (e.g. Empire State Building coordinates)
-        mock = {"lat": 40.7484, "lon": -73.9857, "height_meters": 380, "floors": 102}
+        mock = {
+            "building_name": building_name,
+            "city": city,
+            "latitude": 40.7484,
+            "longitude": -73.9857,
+            "height_meters": 380.0,
+            "floors": 102,
+            "confidence": 85,
+            "source": "fallback",
+        }
         
     CACHE[ckey] = mock
     return mock

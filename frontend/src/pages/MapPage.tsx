@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import Header from '../components/Header/Header';
 import Map3D from '../components/Map3D/Map3D';
 import FloorSelector from '../components/FloorSelector/FloorSelector';
@@ -10,17 +9,10 @@ import { getBuilding } from '../api/api';
 import { Building, Unit } from '../types';
 import { getBuildingCenter } from '../utils/footprintUtils';
 import {
-  Building2, MapPin, Layers, BarChart3, Search,
-  FileCheck, ShieldCheck, Activity, Loader2, AlertTriangle
+  Building2, MapPin, Layers,
+  ShieldCheck, Activity, Loader2, AlertTriangle
 } from 'lucide-react';
 import './MapPage.css';
-
-const SIDEBAR_NAV = [
-  { id: 'layer',     label: 'Layer Stack',     icon: Layers },
-  { id: 'analytics', label: 'Analytics',       icon: BarChart3 },
-  { id: 'registry',  label: 'Parcel Registry', icon: Search },
-  { id: 'audit',     label: 'Permit Audit',    icon: FileCheck },
-];
 
 export default function MapPage() {
   const { buildingId: building_id } = useParams<{ buildingId: string }>();
@@ -28,7 +20,6 @@ export default function MapPage() {
   const [building, setBuilding]           = useState<Building | null>(null);
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
   const [selectedUnit, setSelectedUnit]   = useState<Unit | null>(null);
-  const [activeTab, setActiveTab]         = useState('layer');
   const [isLoading, setIsLoading]         = useState(true);
   const [loadError, setLoadError]         = useState<string | null>(null);
 
@@ -62,28 +53,12 @@ export default function MapPage() {
     loadData();
   }, [building_id]);
 
-  const getCoordinates = () => {
-    if (!building) return { lat: '—', lng: '—' };
-    if (building.latitude != null && building.longitude != null) {
-      return { lat: building.latitude.toFixed(5), lng: building.longitude.toFixed(5) };
-    }
-    const { lat, lng } = getBuildingCenter(building);
-    if (lat !== 0 || lng !== 0) {
-      return { lat: lat.toFixed(5), lng: lng.toFixed(5) };
-    }
-    return { lat: '—', lng: '—' };
-  };
-
-  const { lat: currentLat, lng: currentLng } = getCoordinates();
-
-  const [isLeftOpen, setIsLeftOpen]   = useState(() => typeof window !== 'undefined' && window.innerWidth > 900);
   const [isRightOpen, setIsRightOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 900);
 
   // Auto handle window resize for desktop site toggle on mobile
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth > 900) {
-        setIsLeftOpen(true);
         setIsRightOpen(true);
       }
     };
@@ -98,7 +73,7 @@ export default function MapPage() {
       {isLoading && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           flex: 1, gap: 16, height: 'calc(100vh - 60px)', color: 'var(--text-secondary)' }}>
-          <Loader2 size={40} style={{ animation: 'spin 1s linear infinite', color: 'var(--accent-lavender)' }} />
+          <Loader2 size={40} style={{ animation: 'spin 1s linear infinite', color: 'var(--accent-teal)' }} />
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>Loading 3D Spatial Building…</p>
         </div>
       )}
@@ -106,64 +81,25 @@ export default function MapPage() {
       {!isLoading && loadError && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           flex: 1, gap: 16, height: 'calc(100vh - 60px)' }}>
-          <AlertTriangle size={40} style={{ color: 'var(--accent-rose)' }} />
+          <AlertTriangle size={40} style={{ color: 'var(--accent-red)' }} />
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{loadError}</p>
           <button className="btn-primary" style={{ padding: '10px 24px' }}
-            onClick={() => navigate('/explore')}>back Try New Building</button>
+            onClick={() => navigate('/explore')}>Try New Building</button>
         </div>
       )}
 
       {!isLoading && !loadError && (
-      <div className={`map-content-area ${!isLeftOpen ? 'left-closed' : ''} ${!isRightOpen ? 'right-closed' : ''}`}>
+      <div className={`map-content-area ${!isRightOpen ? 'right-closed' : ''}`}>
 
-        {/* ── Mobile/Desktop Backdrop Overlay when drawers are open ── */}
-        {(isLeftOpen || isRightOpen) && (
+        {/* ── Mobile/Desktop Backdrop Overlay when drawer is open ── */}
+        {isRightOpen && (
           <div
             className="sidebar-backdrop-overlay"
-            onClick={() => { setIsLeftOpen(false); setIsRightOpen(false); }}
+            onClick={() => setIsRightOpen(false)}
           />
         )}
 
-        {/* ── Left Sidebar ── */}
-        <aside className={`map-left-sidebar ${isLeftOpen ? 'is-open' : ''}`}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 6 }}>
-            <div className="sidebar-section-label">Spatial Toolkit</div>
-            <button
-              type="button"
-              className="drawer-close-btn"
-              onClick={() => setIsLeftOpen(false)}
-              aria-label="Close Toolkit"
-            >✕</button>
-          </div>
-
-          {SIDEBAR_NAV.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              className={`sidebar-nav-item ${activeTab === id ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab(id);
-                if (window.innerWidth <= 900) setIsLeftOpen(false);
-              }}
-            >
-              <Icon size={15} />
-              {label}
-            </button>
-          ))}
-
-          {/* Dynamic Coord badge */}
-          <div style={{
-            marginTop: 'auto', padding: '12px 10px',
-            borderTop: '1px solid var(--border-subtle)',
-            fontFamily: 'var(--font-mono)', fontSize: '0.65rem',
-            color: 'var(--text-muted)', lineHeight: 1.8
-          }}>
-            <div style={{ color: 'var(--accent-lavender)', fontWeight: 700, marginBottom: 4 }}>COORDINATES</div>
-            <div>LAT: {currentLat}° N</div>
-            <div>LON: {currentLng}° E</div>
-          </div>
-        </aside>
-
-        {/* ── 3D Viewport ── */}
+        {/* ── 3D Viewport (Full Width) ── */}
         <div className="map-viewport">
           <Map3D
             building={building}
@@ -176,9 +112,7 @@ export default function MapPage() {
                 setSelectedFloor(fn);
               }
             }}
-            isLeftOpen={isLeftOpen}
             isRightOpen={isRightOpen}
-            onToggleLeft={() => setIsLeftOpen(!isLeftOpen)}
             onToggleRight={() => setIsRightOpen(!isRightOpen)}
           />
         </div>
@@ -186,7 +120,7 @@ export default function MapPage() {
         {/* ── Right Sidebar ── */}
         <aside className={`map-right-sidebar ${isRightOpen ? 'is-open' : ''}`}>
           {/* Header Action */}
-          <div className="location-target-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 6px' }}>
+          <div className="location-target-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px' }}>
             <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
               3D Cadastral Record
             </div>
@@ -195,12 +129,13 @@ export default function MapPage() {
                 type="button"
                 onClick={() => navigate('/explore')}
                 style={{
-                  background: 'var(--accent-lavender-soft)',
-                  border: '1px solid rgba(124,111,224,0.25)',
-                  borderRadius: 'var(--radius-full)',
-                  color: '#7c6fe0',
+                  background: 'var(--accent-teal-soft)',
+                  border: '1px solid rgba(13, 148, 136, 0.3)',
+                  borderRadius: 'var(--radius-xs)',
+                  color: '#0D9488',
                   fontSize: '0.72rem',
                   fontWeight: 700,
+                  fontFamily: 'var(--font-mono)',
                   padding: '4px 10px',
                   cursor: 'pointer',
                   display: 'flex',
@@ -224,9 +159,9 @@ export default function MapPage() {
             <div className="building-meta">
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <div style={{
-                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                  background: 'var(--accent-lavender-soft)', color: 'var(--accent-lavender)',
-                  border: '1.5px solid rgba(124,111,224,0.2)',
+                  width: 32, height: 32, borderRadius: 4, flexShrink: 0,
+                  background: 'var(--accent-teal-soft)', color: 'var(--accent-teal)',
+                  border: '1px solid rgba(13, 148, 136, 0.25)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}>
                   <Building2 size={16} />
@@ -263,7 +198,6 @@ export default function MapPage() {
           {/* Floor Isolator */}
           {building && (
             <div className="floor-isolator-section">
-              <div className="section-title">Floor Isolator</div>
               <FloorSelector
                 totalFloors={building.floor_count}
                 selectedFloor={selectedFloor}
@@ -282,15 +216,15 @@ export default function MapPage() {
             </div>
           )}
 
-          {/* Unit Cards */}
+          {/* Unit Cards & Structural Integrity */}
           <div className="unit-list-area">
             {selectedUnit && <UnitCard unit={selectedUnit} />}
 
             {/* Structural Score */}
             <div style={{
-              marginTop: 8, padding: '14px 16px', borderRadius: 'var(--radius-md)',
-              background: '#ffffff', border: '1.5px solid var(--border-subtle)',
-              boxShadow: 'var(--shadow-sm)', display: 'flex',
+              padding: '14px 16px', borderRadius: 'var(--radius-sm)',
+              background: '#FFFFFF', border: '1px solid var(--border-color)',
+              boxShadow: 'var(--shadow-xs)', display: 'flex',
               alignItems: 'center', justifyContent: 'space-between'
             }}>
               <div>
@@ -299,17 +233,17 @@ export default function MapPage() {
                   letterSpacing: '0.8px', marginBottom: 4 }}>
                   Structural Integrity
                 </div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem',
-                  fontWeight: 800, color: 'var(--primary)' }}>
+                <div style={{ fontFamily: 'var(--font-sans)', fontSize: '1.5rem',
+                  fontWeight: 800, color: 'var(--text-primary)' }}>
                   {(building?.validation?.confidence_score ?? 0).toFixed(1)}<span style={{ fontSize: '0.85rem', fontWeight: 400,
                     color: 'var(--text-muted)' }}>%</span>
                 </div>
               </div>
               <svg width="44" height="44" viewBox="0 0 40 40">
                 <circle cx="20" cy="20" r="16" strokeWidth="4" fill="none"
-                  stroke="var(--surface-container)" />
+                  stroke="var(--bg-secondary)" />
                 <circle cx="20" cy="20" r="16" strokeWidth="4" fill="none"
-                  stroke="var(--accent-sage)" strokeDasharray="100.53"
+                  stroke="var(--accent-teal)" strokeDasharray="100.53"
                   strokeDashoffset={100.53 - ((building?.validation?.confidence_score ?? 0) / 100) * 100.53} strokeLinecap="round"
                   style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }} />
               </svg>

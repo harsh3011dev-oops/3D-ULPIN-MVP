@@ -1,203 +1,154 @@
-/* ── Premium Aero Header ── */
-.app-header {
-  height: 64px;
-  padding: 0 32px;
+/* ── Cadastral Engineering Header ── */
+.cadastral-header {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(245, 245, 242, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border-color);
+  transition: all var(--transition-fast);
+}
+
+.header-inner {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 12px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  position: sticky;
-  top: 0;
-  z-index: 200;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(28px) saturate(1.8);
-  -webkit-backdrop-filter: blur(28px) saturate(1.8);
-  border-bottom: 1px solid rgba(124, 111, 224, 0.1);
-  box-shadow: 0 1px 24px rgba(26, 26, 46, 0.06);
+  gap: 24px;
 }
 
 /* ── Brand ── */
 .header-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   text-decoration: none;
   color: var(--text-primary);
-  min-width: 200px;
 }
 
-.logo-icon-wrapper {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+.brand-symbol {
+  width: 34px;
+  height: 34px;
   background: var(--primary);
+  color: #FFFFFF;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
-  flex-shrink: 0;
-  box-shadow: 0 2px 12px rgba(26, 26, 46, 0.18);
+  box-shadow: var(--shadow-xs);
+  border: 1px solid #000000;
 }
 
-.brand-text {
+.brand-meta {
   display: flex;
   flex-direction: column;
-  line-height: 1;
 }
 
 .brand-title {
-  font-family: var(--font-display);
-  font-size: 1.15rem;
+  font-size: 0.98rem;
   font-weight: 700;
-  letter-spacing: -0.2px;
-  color: var(--primary);
-}
-
-.brand-tagline {
-  font-size: 0.6rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1.2px;
-  font-weight: 500;
-  margin-top: 2px;
-}
-
-.badge-mvp {
-  background: var(--accent-lavender-soft);
-  color: var(--accent-lavender);
-  border: 1px solid rgba(124, 111, 224, 0.2);
-  font-size: 0.6rem;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: var(--radius-full);
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-}
-
-/* ── Center Gooey Nav ── */
-.header-nav-gooey {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-}
-
-.gooey-pill-track {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 5px;
-  background: rgba(248, 248, 252, 0.9);
-  border: 1px solid rgba(124, 111, 224, 0.12);
-  border-radius: var(--radius-full);
-  box-shadow: 0 2px 12px rgba(26, 26, 46, 0.07);
-  position: relative;
-}
-
-.gooey-nav-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 20px;
-  border-radius: var(--radius-full);
-  text-decoration: none;
-  font-size: 0.84rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  transition: color var(--transition-fast);
-  z-index: 1;
-  white-space: nowrap;
-}
-
-.gooey-nav-item:hover {
+  letter-spacing: -0.01em;
+  line-height: 1.15;
   color: var(--text-primary);
 }
 
-.gooey-nav-item.active {
-  color: #ffffff;
+.brand-tag {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.brand-iso-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  background: #E5E7EB;
+  color: #374151;
+  font-size: 0.66rem;
   font-weight: 600;
+  font-family: var(--font-mono);
+  border-radius: var(--radius-xs);
+  border: 1px solid #D1D5DB;
+  letter-spacing: 0.02em;
 }
 
-/* The blob that slides under active item */
-.gooey-active-blob {
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius-full);
-  background: var(--primary);
-  z-index: -1;
-  box-shadow: 0 2px 12px rgba(26, 26, 46, 0.2);
-}
-
-.gooey-nav-icon {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-/* ── Right status ── */
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 200px;
-  justify-content: flex-end;
-}
-
-.status-badge {
+/* ── Nav Links ── */
+.header-nav {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: var(--accent-sage-soft);
-  border: 1px solid rgba(111, 173, 155, 0.25);
-  padding: 5px 13px;
-  border-radius: var(--radius-full);
-  font-size: 0.73rem;
+  background: rgba(229, 231, 235, 0.5);
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+.nav-link {
+  position: relative;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: var(--radius-xs);
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.nav-link:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.nav-link.active {
+  color: var(--text-primary);
   font-weight: 600;
-  color: var(--accent-sage);
+  background: #FFFFFF;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-.status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent-sage);
-  animation: pulseGreen 2.5s infinite;
-  flex-shrink: 0;
+.nav-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 14px;
+  right: 14px;
+  height: 2px;
+  background: var(--accent-teal);
+  border-radius: 1px;
 }
 
-@keyframes pulseGreen {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(111, 173, 155, 0.5); }
-  50%       { box-shadow: 0 0 0 5px rgba(111, 173, 155, 0); }
+/* ── Actions ── */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-cta-btn {
+  padding: 8px 16px;
+  font-size: 0.82rem;
+}
+
+.header-cta-btn .cta-arrow {
+  transition: transform var(--transition-fast);
+}
+
+.header-cta-btn:hover .cta-arrow {
+  transform: translate(2px, -2px);
 }
 
 @media (max-width: 768px) {
-  .app-header {
-    padding: 0 12px;
-    height: 56px;
-  }
-  .header-brand {
-    min-width: auto;
-    gap: 6px;
-  }
-  .brand-title {
-    font-size: 1rem;
-  }
-  .brand-tagline {
+  .header-nav {
     display: none;
   }
-  .gooey-nav-label {
-    display: none;
-  }
-  .gooey-nav-item {
-    padding: 6px 12px;
-  }
-  .header-actions {
-    min-width: auto;
-    gap: 4px;
-  }
-  .badge-mvp {
+  .brand-iso-badge {
     display: none;
   }
 }
-
