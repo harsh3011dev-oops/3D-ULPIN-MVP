@@ -52,15 +52,16 @@ async def auto_detect_building(request: dict):
     if not building_name or not city:
         raise HTTPException(status_code=400, detail="Both building_name and city are required.")
 
-    cache_key = f"{building_name}|{city}".lower()
-    if cache_key in _AUTODETECT_CACHE:
-        return _AUTODETECT_CACHE[cache_key]
+    # Use a different variable name to avoid shadowing the imported `cache_key` function
+    _key = f"{building_name}|{city}".lower()
+    if _key in _AUTODETECT_CACHE:
+        return _AUTODETECT_CACHE[_key]
 
     result = await call_gemini_api(building_name, city)
     if not result:
         raise HTTPException(status_code=404, detail="Building not found")
 
-    _AUTODETECT_CACHE[cache_key] = result
+    _AUTODETECT_CACHE[_key] = result
     return result
 
 @router.post("/buildings/create", response_model=GenericResponse, status_code=202)
@@ -113,8 +114,9 @@ async def get_job_status(job_id: str, db: AsyncSession = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    building_id = None
-    if getattr(job, 'result_json', None) and isinstance(job.result_json, dict):
+    # Prefer the dedicated building_id column; fall back to result_json for backward compat
+    building_id = getattr(job, 'building_id', None)
+    if not building_id and getattr(job, 'result_json', None) and isinstance(job.result_json, dict):
         building_id = job.result_json.get("building_id")
 
     return JobStatusResponse(
@@ -294,10 +296,12 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
 @router.get("/buildings/{building_id}/units", response_model=list[UnitResponse])
 async def get_building_units(building_id: str, db: AsyncSession = Depends(get_db)):
     """
-    Endpoint: Get list of units for a building
+    Endpoint: Get list of units for a building.
+    Delegates to the get_building endpoint and extracts units.
     """
-    bldg = await get_building(building_id, db)
-    return bldg.units
+    # Call the service layer, not the endpoint function, to avoid dependency injection issues
+    building_resp = await get_building(building_id, db)
+    return building_resp.units
 
 @router.get("/validation/{building_id}", response_model=ValidationResponse)
 @router.get("/buildings/{building_id}/validation", response_model=ValidationResponse)

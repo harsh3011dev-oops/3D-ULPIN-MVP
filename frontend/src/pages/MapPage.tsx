@@ -44,10 +44,7 @@ export default function MapPage() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        // Use direct axios call as specified
-        const axios = (await import('axios')).default;
-        const response = await axios.get(`/api/v1/buildings/${building_id}`);
-        const data = response.data;
+        const data = await getBuilding(building_id);
         if (data) {
           setBuilding(data);
           if (data.units?.length > 0) setSelectedUnit(data.units[0]);

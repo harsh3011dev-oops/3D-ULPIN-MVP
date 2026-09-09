@@ -62,7 +62,7 @@ def _load_result_by_building_id(building_id: str) -> dict | None:
         pass
     return None
 
-async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, height_meters: float, floor_count: int, latitude: float = None, longitude: float = None, units_per_floor: int = 4, aerial_image_url: str = None, parcel_boundary: dict = None, building_name: str = None):
+async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, height_meters: float, floor_count: int, latitude: float = None, longitude: float = None, units_per_floor: int = 4, aerial_image_url: str = None, parcel_boundary: dict = None, building_name: str = None) -> None:
     """Background task to run the AI pipeline and store results in Supabase."""
     logger.info(f"Starting AI pipeline for job {job_id}")
     
@@ -74,35 +74,45 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
             )
 
             # 2. Call AI pipeline
+            import asyncio
             try:
-                import asyncio
                 from ai.pipeline import process_building
-                # Wait for 50% progress
-                await supabase_service.update_job_status(db, job_id, "processing", 50, "Running AI Inference")
-                
-                # Execute CPU & network heavy process_building in a thread pool so event loop remains unblocked
-                result = await asyncio.to_thread(
-                    process_building,
-                    parcel_id=parcel_id,
-                    building_name=building_name,
-                    address=address,
-                    latitude=latitude,
-                    longitude=longitude,
-                    height_meters=height_meters,
-                    floor_count=floor_count,
-                    parcel_boundary=parcel_boundary
-                )
+            except ImportError:
+                logger.warning("Could not import ai.pipeline.process_building. Using mock data.")
+                process_building = None
+
+            # Wait for 50% progress
+            await supabase_service.update_job_status(db, job_id, "processing", 50, "Running AI Inference")
+
+            if process_building is None:
+                result = _get_mock_ai_result(parcel_id)
+            else:
+                try:
+                    # Execute CPU & network heavy process_building in a thread pool
+                    # so the async event loop remains unblocked.
+                    result = await asyncio.to_thread(
+                        process_building,
+                        parcel_id=parcel_id,
+                        building_name=building_name,
+                        address=address,
+                        latitude=latitude,
+                        longitude=longitude,
+                        height_meters=height_meters,
+                        floor_count=floor_count,
+                        parcel_boundary=parcel_boundary
+                    )
+                except Exception as pipeline_exc:
+                    # Surface the exact AI pipeline error to the frontend
+                    error_msg = f"AI pipeline crashed: {type(pipeline_exc).__name__}: {pipeline_exc}"
+                    logger.error(error_msg, exc_info=True)
+                    raise RuntimeError(error_msg) from pipeline_exc
 
                 # The AI pipeline reports expected processing failures as a
-                # structured result. Convert these into a job failure before
-                # any result fields are accessed, so the original cause is
-                # retained instead of being replaced by a KeyError.
+                # structured result dict with status != "success".
                 if result.get("status") != "success":
-                    raise RuntimeError(result.get("message", "AI pipeline returned an invalid result."))
-            except ImportError:
-                # Fallback mock for testing if AI module isn't fully ready
-                logger.warning("Could not import ai.pipeline.process_building. Using mock data.")
-                result = _get_mock_ai_result(parcel_id)
+                    raise RuntimeError(
+                        result.get("message") or "AI pipeline returned a non-success status."
+                    )
             
             # Update progress
             await supabase_service.update_job_status(db, job_id, "processing", 90, "Saving to Database")
@@ -194,16 +204,23 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
             logger.info(f"Job {job_id} completed successfully.")
 
         except Exception as e:
-            # Handle failure
-            logger.error(f"Job {job_id} failed: {e}")
-            await db.rollback()
-            await supabase_service.update_job_status(
-                db, 
-                job_id, 
-                "failed", 
-                error_message=str(e),
-                completed_at=datetime.now(timezone.utc)
-            )
+            logger.error(f"Job {job_id} failed: {type(e).__name__}: {e}", exc_info=True)
+            # Best-effort rollback — ignore if nothing was started
+            try:
+                await db.rollback()
+            except Exception:
+                pass
+            # Always attempt to record the failure so the frontend can show it
+            try:
+                await supabase_service.update_job_status(
+                    db,
+                    job_id,
+                    "failed",
+                    error_message=str(e),
+                    completed_at=datetime.now(timezone.utc)
+                )
+            except Exception as update_err:
+                logger.error(f"Could not update job failure status for {job_id}: {update_err}")
 
 def _get_mock_ai_result(parcel_id: str) -> dict:
     """Provides a mock result if the AI module is not available."""

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Float, Integer, Boolean, Text, TIMESTAMP, ForeignKey, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from geoalchemy2 import Geometry
@@ -14,7 +14,7 @@ class Parcel(Base):
     boundary = Column(Geometry(geometry_type="POLYGON", srid=4326))
     center_lat = Column(Float)
     center_lon = Column(Float)
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    created_at = Column(TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     buildings = relationship("Building", back_populates="parcel", cascade="all, delete-orphan")
 
@@ -31,8 +31,8 @@ class Building(Base):
     total_units = Column(Integer)
     centroid_lat = Column(Float)
     centroid_lon = Column(Float)
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
-    updated_at = Column(TIMESTAMP, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     parcel = relationship("Parcel", back_populates="buildings")
     units = relationship("Unit", back_populates="building", cascade="all, delete-orphan")
@@ -52,7 +52,7 @@ class Unit(Base):
     centroid_lat = Column(Float)
     centroid_lon = Column(Float)
     area_sqft = Column(Float)
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    created_at = Column(TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     building = relationship("Building", back_populates="units")
 
@@ -69,7 +69,7 @@ class Job(Base):
     progress_step = Column(String(200))
     result_json = Column(JSON)
     error_message = Column(Text)
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    created_at = Column(TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc))
     started_at = Column(TIMESTAMP)
     completed_at = Column(TIMESTAMP)
 
@@ -84,6 +84,6 @@ class ValidationLog(Base):
     out_of_bounds = Column(Integer, default=0)
     confidence_score = Column(Float)
     validation_report = Column(JSON)
-    checked_at = Column(TIMESTAMP, default=datetime.utcnow)
+    checked_at = Column(TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     building = relationship("Building", back_populates="validation")

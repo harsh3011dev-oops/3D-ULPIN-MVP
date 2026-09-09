@@ -151,9 +151,10 @@ export default function ExplorePage() {
         height_meters: building.height_meters,
         floor_count: building.floors,
       });
-      navigate(`/processing/${res.job_id || 'job-001'}`);
-    } catch {
-      setError('Could not start processing. Check if the backend is running.');
+      if (!res.job_id) throw new Error('Backend did not return a job ID.');
+      navigate(`/processing/${res.job_id}`);
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || err?.message || 'Could not start processing. Check if the backend is running.');
     } finally {
       setLoading(false);
     }
@@ -197,9 +198,10 @@ export default function ExplorePage() {
         height_meters: parseFloat(form.height),
         floor_count: parseInt(form.floors),
       });
-      navigate(`/processing/${res.job_id || 'job-001'}`);
+      if (!res.job_id) throw new Error('Backend did not return a job ID.');
+      navigate(`/processing/${res.job_id}`);
     } catch (err: any) {
-      setError('Could not start processing. Check if the backend is running.');
+      setError(err?.response?.data?.detail || err?.message || 'Could not start processing. Check if the backend is running.');
     } finally {
       setLoading(false);
     }

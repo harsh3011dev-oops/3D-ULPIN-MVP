@@ -16,15 +16,17 @@ export interface Extrusion3D {
 export interface Unit {
   unit_id: string;
   ulpin: string;
-  floor?: number;
-  floor_number: number;
+  /** Primary floor field returned by backend */
+  floor: number;
+  /** Alias for floor — used in some legacy components */
+  floor_number?: number;
   unit_name?: string;
-  z_min: number;
-  z_max: number;
+  z_min?: number | null;
+  z_max?: number | null;
   floor_height_m?: number;
   area_sqm?: number;
   area_sqft?: number;
-  centroid?: [number, number]; // [lon, lat] or [lat, lng]
+  centroid?: [number, number]; // [lat, lon]
   polygon_2d?: GeoJSONPolygon | any;
   status?: string;
   owner?: string;

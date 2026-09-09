@@ -28,7 +28,13 @@ except ModuleNotFoundError:
     from subsurface_validation import SubsurfaceValidator
 
 import uuid
+import logging
 from shapely.geometry import shape
+
+logger = logging.getLogger(__name__)
+
+# Default floor-to-ceiling height used when OSM data is unavailable
+DEFAULT_FLOOR_HEIGHT_M: float = 3.5
 
 def process_building(*args, **kwargs) -> dict:
     """
@@ -68,28 +74,28 @@ def process_building(*args, **kwargs) -> dict:
         latitude = input_data.get("latitude")
         longitude = input_data.get("longitude")
 
-        print(f"Processing building: {parcel_id}")
+        logger.info("Processing building: %s", parcel_id)
 
         # Step 1: GET GPS COORDINATES
         lat, lon = None, None
         if address and not parcel_boundary and not (latitude is not None and longitude is not None):
-            print(f"[STEP 1] Geocoding address: {address}")
+            logger.info("[STEP 1] Geocoding address: %s", address)
             try:
                 geo_info = geocode_address_robust(address)
                 if geo_info and "latitude" in geo_info:
                     lat, lon = geo_info["latitude"], geo_info["longitude"]
-                    print(f"[OK] Geocoded successfully: {lat}, {lon}")
+                    logger.info("[OK] Geocoded successfully: %s, %s", lat, lon)
                 else:
                     raise ValueError("Geocoding returned empty result")
             except Exception as e:
-                print(f"[WARN] Geocoding failed: {e}")
+                logger.warning("[WARN] Geocoding failed: %s", e)
                 if latitude is not None and longitude is not None:
-                    print(f"Using provided coordinates as fallback: {latitude}, {longitude}")
+                    logger.info("Using provided coordinates as fallback: %s, %s", latitude, longitude)
                     lat, lon = latitude, longitude
                 else:
                     raise ValueError(f"Geocoding failed and no backup coordinates: {e}")
         elif latitude is not None and longitude is not None and not parcel_boundary:
-            print(f"[STEP 1] Using provided coordinates: {latitude}, {longitude}")
+            logger.info("[STEP 1] Using provided coordinates: %s, %s", latitude, longitude)
             lat, lon = latitude, longitude
         elif parcel_boundary:
             pass # Use centroid later
@@ -116,7 +122,7 @@ def process_building(*args, **kwargs) -> dict:
         centroid = boundary_shape.centroid
         lon, lat = centroid.x, centroid.y
 
-        print(f"[STEP 2] Fetching comprehensive geographic & building metadata for {lat}, {lon} (name: {building_name})")
+        logger.info("[STEP 2] Fetching geographic & building metadata for %s, %s (name: %s)", lat, lon, building_name)
         osm_comp = fetch_osm_building_comprehensive(lat, lon, building_name=building_name) or {}
         osm_geom = osm_comp.get("footprint")
 
@@ -141,14 +147,53 @@ def process_building(*args, **kwargs) -> dict:
         elif osm_comp.get("height_meters"):
             height_meters = float(osm_comp["height_meters"])
         else:
-            height_meters = float(floor_count * 3.5)
+            height_meters = float(floor_count * DEFAULT_FLOOR_HEIGHT_M)
 
         if not building_name and osm_comp.get("building_name"):
             building_name = osm_comp["building_name"]
 
         image_path = download_satellite_image(parcel_boundary)
-        footprint_result = detect_building_footprint_hybrid(image_path, parcel_boundary, osm_footprint=osm_geom)
-        footprint_geojson = footprint_result.get("footprint", footprint_result)
+        
+        # ── GEMINI VISION INTEGRATION ──
+        logger.info("[STEP 2.5] Sending satellite image to Gemini Vision for analysis...")
+        import asyncio
+        from ai.gemini_vision_analyzer import analyze_building_image
+        try:
+            gemini_vision_data = asyncio.run(analyze_building_image(image_path))
+        except Exception as e:
+            logger.warning(f"Gemini Vision analysis failed: {e}")
+            gemini_vision_data = None
+
+        gemini_footprint = None
+        if gemini_vision_data and gemini_vision_data.get("confidence", 0) > 50:
+            logger.info("Gemini Vision returned a footprint with high confidence.")
+            pixel_coords = gemini_vision_data.get("footprint_pixels", [])
+            if len(pixel_coords) >= 3:
+                try:
+                    from ai.footprint_detection import _pixels_to_geo
+                    geo_coords = _pixels_to_geo(pixel_coords, image_path)
+                    if geo_coords[0] != geo_coords[-1]:
+                        geo_coords.append(geo_coords[0])
+                    gemini_footprint = {"type": "Polygon", "coordinates": [geo_coords]}
+                except Exception as e:
+                    logger.warning(f"Failed to convert Gemini pixels to geo: {e}")
+
+            # Override floor count if Gemini provided a reasonable estimate and we didn't have user input
+            if input_data.get("floor_count") is None and gemini_vision_data.get("estimated_floors"):
+                g_floors = int(gemini_vision_data["estimated_floors"])
+                if g_floors > 0:
+                    floor_count = g_floors
+                    floor_source = "Gemini Vision Estimate"
+                    height_meters = float(floor_count * DEFAULT_FLOOR_HEIGHT_M)
+                    is_floor_estimated = True
+                    logger.info(f"Using Gemini Vision estimated floors: {floor_count}")
+
+        # Fallback to Hybrid CV + OSM if Gemini didn't return a footprint
+        if gemini_footprint:
+            footprint_geojson = gemini_footprint
+        else:
+            footprint_result = detect_building_footprint_hybrid(image_path, parcel_boundary, osm_footprint=osm_geom)
+            footprint_geojson = footprint_result.get("footprint", footprint_result)
 
         extrusion = extrude_building(footprint_geojson, height_meters, floor_count)
         floors = divide_into_floors(footprint_geojson, height_meters, floor_count)
@@ -182,7 +227,7 @@ def process_building(*args, **kwargs) -> dict:
             validation_report["confidence_score"] = 100.0 if validation_report.get("valid") else 0.0
 
         # STEP 9: Underground Infrastructure Mapping
-        print("\\n[STEP 9] Underground Infrastructure Mapping...")
+        logger.info("[STEP 9] Underground Infrastructure Mapping...")
         
         # Initialize detectors
         detector = UndergroundDetector(lat=lat, lon=lon, building_height=height_meters, building_name=building_name)
@@ -256,17 +301,41 @@ def process_building(*args, **kwargs) -> dict:
         poly_area_sqm = round(float(footprint_poly.area * (111_000 ** 2)), 1)
         built_up_area_sqm = round(float(poly_area_sqm * floor_count), 1)
 
+        # Pricing constant: approximate cost per sqm in INR (configurable via env)
+        import os
+        PRICE_PER_SQM = float(os.getenv("ASSESSMENT_PRICE_PER_SQM", "5200"))
+
+        # Derive construction_type from OSM tags if available
+        building_tag = osm_comp.get("building_type") or osm_comp.get("building")
+        if building_tag and building_tag not in ("yes", "building"):
+            construction_type = building_tag.replace("_", " ").title()
+        else:
+            construction_type = None  # Unknown — don't fabricate
+
+        building_material = osm_comp.get("building_material")
+        roof_shape = osm_comp.get("roof", {}).get("shape")
+        building_color = osm_comp.get("building_color")
+        
+        if gemini_vision_data:
+            if not building_material and gemini_vision_data.get("building_material"):
+                building_material = gemini_vision_data["building_material"].title()
+            if not roof_shape and gemini_vision_data.get("roof_shape"):
+                roof_shape = gemini_vision_data["roof_shape"].title()
+            if not building_color and gemini_vision_data.get("building_color"):
+                building_color = gemini_vision_data["building_color"].title()
+
         assessment_data = {
-            "land_use": osm_comp.get("land_use", "Cadastral / Urban Parcel"),
+            "land_use": osm_comp.get("land_use") or osm_comp.get("amenity") or osm_comp.get("shop"),
             "built_up_area_sqm": built_up_area_sqm,
             "floor_area_sqm": poly_area_sqm,
             "parcel_area_sqm": round(float(shape(_normalize_geojson(parcel_boundary)).area * (111_000 ** 2)), 1),
-            "occupancy_type": osm_comp.get("land_use", "Commercial / Residential"),
-            "construction_type": "Reinforced Concrete / Architectural Frame",
-            "building_material": osm_comp.get("building_material", "Architectural Glass / Reinforced Concrete"),
-            "record_status": "Official 3D Cadastral Register",
-            "permit_status": "Compliant / Approved",
-            "assessment_value": f"₹ {int(built_up_area_sqm * 5200):,}" if built_up_area_sqm > 0 else "₹ 25,000,000"
+            "occupancy_type": osm_comp.get("amenity") or osm_comp.get("land_use") or osm_comp.get("shop"),
+            "construction_type": construction_type,
+            "building_material": building_material,
+            "roof_shape": roof_shape,
+            "record_status": "3D Cadastral Record Generated",
+            "permit_status": osm_comp.get("permit_status"),
+            "assessment_value": f"₹ {int(built_up_area_sqm * PRICE_PER_SQM):,}" if built_up_area_sqm > 0 else None
         }
 
         return {
