@@ -16,6 +16,7 @@ from backend.schemas import (
     BuildingValidationSummary
 )
 from backend.services.gemini_lookup import CACHE, cache_key, call_gemini_api
+from backend.services.gemini_architectural_inference import infer_architectural_metadata
 from backend.services.supabase_service import (
     create_job, 
     get_job, 
@@ -25,6 +26,16 @@ from backend.services.supabase_service import (
 from backend.services.ai_runner import execute_ai_pipeline_job
 
 router = APIRouter(tags=["3D ULPIN MVP"])
+
+@router.post("/ai/infer-building-metadata")
+async def infer_building_metadata_endpoint(request: dict):
+    """
+    Optional Gemini AI architectural inference endpoint.
+    Infers missing architectural metadata (roofShape, buildingType, etc.)
+    strictly from geometric shape metrics and OSM tags.
+    """
+    return await infer_architectural_metadata(request)
+
 
 # ── In-memory cache for auto-detect results ──────────────────────────────────
 _AUTODETECT_CACHE: dict = {}

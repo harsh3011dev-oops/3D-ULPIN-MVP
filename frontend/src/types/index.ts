@@ -256,3 +256,42 @@ export interface GeometryProviderResult {
   reason?: string;
 }
 
+export interface InferredArchitecturalMetadata {
+  confidence: number;
+  building_type?: string;
+  roof_shape?: string;
+  architectural_form?: string;
+  suggested_material?: string;
+  tower_probability?: number;
+  symmetry?: string;
+  inferred_fields: string[];
+  reasoning?: string;
+  provenance: {
+    source: string;
+    model?: string;
+    cached?: boolean;
+    status?: string;
+  };
+}
+
+export interface InferredMetadataRequest {
+  osm_id?: string;
+  building_name?: string;
+  osm_tags?: Record<string, any>;
+  footprint_metrics?: {
+    area_sqm: number;
+    circularity: number;
+    aspect_ratio: number;
+    vertex_count: number;
+    has_holes: boolean;
+    is_symmetric: boolean;
+  };
+  building_parts_count?: number;
+  known_height?: number;
+  known_levels?: number;
+  known_roof_shape?: string;
+  known_building_type?: string;
+  known_material?: string;
+}
+
+

@@ -79,3 +79,33 @@ export const buildingAPI = {
   },
 };
 
+const _geminiInferenceCache = new Map<string, any>();
+
+/**
+ * Optional Gemini AI architectural metadata inference.
+ * Only called when key architectural attributes are missing from OSM.
+ */
+export async function inferBuildingMetadata(
+  payload: any
+): Promise<any | null> {
+  const cacheKey = `${payload.osm_id || ''}_${payload.building_name || ''}_${payload.footprint_metrics?.area_sqm || 0}_${payload.footprint_metrics?.circularity || 0}`;
+  if (_geminiInferenceCache.has(cacheKey)) {
+    return _geminiInferenceCache.get(cacheKey)!;
+  }
+
+  try {
+    const response = await apiClient.post('/ai/infer-building-metadata', payload, {
+      timeout: 4000,
+    });
+    if (response.data && response.data.confidence > 0) {
+      _geminiInferenceCache.set(cacheKey, response.data);
+      return response.data;
+    }
+    return null;
+  } catch (err) {
+    console.debug('Optional Gemini inference skipped or unavailable:', err);
+    return null;
+  }
+}
+
+

@@ -25,6 +25,7 @@ import {
 import { fetchTerrainHeight } from '../../utils/reearth';
 import { fetchDetailedOSMData, OSMDataResponse } from '../../utils/osmFetcher';
 import { generate3DBuildingOSM2World, OSM2WorldResult } from '../../utils/osm2worldProvider';
+import { inferBuildingMetadata } from '../../api/api';
 import {
   RotateCw,
   Layers,
@@ -84,6 +85,23 @@ export interface ArchitecturalTelemetry {
   modelLoaded: boolean;
   modelVisible: boolean;
   hardcodedGeometry: boolean;
+  aiAssisted: boolean;
+  aiConfidence: number | null;
+  aiFieldsUsed: string[];
+  aiReasoning?: string;
+  sourceMetadata: {
+    roofShape?: string;
+    buildingMaterial?: string;
+    height?: number;
+    levels?: number;
+  };
+  inferredMetadata?: {
+    roofShape?: string;
+    buildingType?: string;
+    suggestedMaterial?: string;
+    architecturalForm?: string;
+    confidence: number;
+  };
   proportions: {
     platformM: number;
     wallM: number;
@@ -889,6 +907,7 @@ function constructMultiMassBuilding(
   totalHeight: number,
   floorHeight: number,
   wireframe: boolean,
+  inferredMetadata?: any,
 ): {
   exteriorMeshes: THREE.Mesh[];
   geometrySource: string;
@@ -905,16 +924,28 @@ function constructMultiMassBuilding(
 
   const materials = createArchitecturalMaterials(building, wireframe);
   const metrics = getShapeMetrics(building.footprint, centerLng, centerLat);
+
+  // STRICT RULE: REAL OSM DATA ALWAYS WINS.
+  // Real OSM tag > Gemini inference.
+  let effectiveRoofShape = building.roof?.shape;
+  if (!effectiveRoofShape && inferredMetadata?.roof_shape && inferredMetadata.confidence >= 0.75) {
+    effectiveRoofShape = inferredMetadata.roof_shape;
+  } else if (!effectiveRoofShape && inferredMetadata?.roof_shape && inferredMetadata.confidence >= 0.50) {
+    if (['flat', 'gabled', 'hipped', 'pyramidal'].includes(inferredMetadata.roof_shape)) {
+      effectiveRoofShape = inferredMetadata.roof_shape;
+    }
+  }
+
   const zoning = getProportionalZoning(
     totalHeight,
     metrics,
     building.roof?.height,
-    building.roof?.shape,
+    effectiveRoofShape,
   );
 
   const parts = building.building_parts || [];
   let geometrySource = 'Fallback';
-  let roofType = building.roof?.shape || 'flat';
+  let roofType = effectiveRoofShape || 'flat';
   let roofHeightM = zoning.roofHeight;
 
   if (parts.length > 0) {
@@ -1207,6 +1238,16 @@ export default function MapThreeJS({
     modelLoaded: true,
     modelVisible: true,
     hardcodedGeometry: false,
+    aiAssisted: false,
+    aiConfidence: null,
+    aiFieldsUsed: [],
+    sourceMetadata: {
+      roofShape: building?.roof?.shape,
+      buildingMaterial: building?.assessment?.building_material || building?.building_material,
+      height: building?.height_meters || building?.height,
+      levels: building?.floor_count,
+    },
+    inferredMetadata: undefined,
     proportions: {
       platformM: 0,
       wallM: 30,
@@ -1357,7 +1398,7 @@ export default function MapThreeJS({
     cadastralULPINGroupRef.current = cadastralULPINGroup;
 
     // Helper: Construct real procedural geometry from OSM vector polygon & parts
-    const applyProceduralReconstruction = () => {
+    const applyProceduralReconstruction = (inferredAiData?: any) => {
       const validation = validateBuildingData(building);
       if (!validation.isValid) {
         console.warn('Building data validation issue:', validation.error);
@@ -1378,6 +1419,7 @@ export default function MapThreeJS({
         buildingHeight,
         floorHeight,
         wireframeMode,
+        inferredAiData,
       );
       exteriorMeshesRef.current = reconResult.exteriorMeshes;
 
@@ -1396,6 +1438,7 @@ export default function MapThreeJS({
       const bBox = new THREE.Box3().setFromObject(visualBuildingGroup);
 
       const decision = evaluateBestGeometryProvider(building, false);
+      const isAiAssisted = Boolean(inferredAiData && inferredAiData.confidence >= 0.50);
 
       setTelemetry({
         provider: decision.provider,
@@ -1414,6 +1457,17 @@ export default function MapThreeJS({
         modelLoaded: true,
         modelVisible: true,
         hardcodedGeometry: false,
+        aiAssisted: isAiAssisted,
+        aiConfidence: isAiAssisted ? Math.round(inferredAiData.confidence * 100) : null,
+        aiFieldsUsed: isAiAssisted ? inferredAiData.inferred_fields || [] : [],
+        aiReasoning: isAiAssisted ? inferredAiData.reasoning : undefined,
+        sourceMetadata: {
+          roofShape: building.roof?.shape,
+          buildingMaterial: building.assessment?.building_material || building.building_material,
+          height: building.height_meters || building.height,
+          levels: building.floor_count,
+        },
+        inferredMetadata: isAiAssisted ? inferredAiData : undefined,
         proportions: reconResult.proportions || {
           platformM: 0,
           wallM: buildingHeight,
@@ -1432,6 +1486,8 @@ export default function MapThreeJS({
         provider: decision.provider,
         sourcePartCount: sourceParts,
         generatedMeshCount: genMeshes,
+        aiAssisted: isAiAssisted,
+        aiConfidence: isAiAssisted ? inferredAiData.confidence : null,
         modelVisible: true,
         modelPosition: visualBuildingGroup.position,
         modelScale: visualBuildingGroup.scale,
@@ -1443,6 +1499,40 @@ export default function MapThreeJS({
 
     // 1. Initial immediate render from available OSM vector data
     applyProceduralReconstruction();
+
+    // 2. Optional Gemini AI inference when key OSM metadata is missing
+    const hasExplicitRoofTag = Boolean(building.roof?.shape);
+    const hasExplicitParts = Boolean(building.building_parts && building.building_parts.length > 0);
+
+    if (!hasExplicitRoofTag && !hasExplicitParts) {
+      const shapeMetrics = getShapeMetrics(building.footprint, centerLng, centerLat);
+      inferBuildingMetadata({
+        osm_id: building.osm_id,
+        building_name: building.building_name,
+        osm_tags: building.raw_osm_data?.tags || {},
+        footprint_metrics: {
+          area_sqm: shapeMetrics.areaSqm,
+          circularity: shapeMetrics.circularity,
+          aspect_ratio: shapeMetrics.aspectRatio,
+          vertex_count: shapeMetrics.vertexCount,
+          has_holes: shapeMetrics.hasHoles,
+          is_symmetric: shapeMetrics.isSymmetric,
+        },
+        building_parts_count: building.building_parts?.length || 0,
+        known_height: building.height_meters || building.height,
+        known_levels: building.floor_count,
+        known_roof_shape: building.roof?.shape,
+        known_material: building.assessment?.building_material || building.building_material,
+      })
+        .then((inferredResult) => {
+          if (reqId === currentRequestIdRef.current && inferredResult && inferredResult.confidence >= 0.50) {
+            applyProceduralReconstruction(inferredResult);
+          }
+        })
+        .catch((err) => {
+          console.debug('Optional Gemini inference skipped:', err);
+        });
+    }
 
     // 2. Asynchronously fetch full Overpass data & convert with OSM2World
     (async () => {
@@ -1508,6 +1598,10 @@ export default function MapThreeJS({
             },
             hasHoles: getShapeMetrics(building.footprint).hasHoles,
             circularity: 0.85,
+            aiAssisted: false,
+            aiConfidence: 0,
+            aiFieldsUsed: [],
+            sourceMetadata: (building as any).raw_tags || building.raw_osm_data?.tags || {},
           });
 
           setFallbackNotice(null);
@@ -1991,8 +2085,22 @@ export default function MapThreeJS({
               <span className="hud-v font-bold text-emerald-300">{telemetry.generatedMeshCount} meshes</span>
             </div>
             <div className="hud-item">
+              <span className="hud-k">AI Assistance:</span>
+              <span className={`hud-v font-bold ${telemetry.aiAssisted ? 'text-indigo-400' : 'text-slate-400'}`}>
+                {telemetry.aiAssisted ? `YES (${telemetry.aiConfidence}% conf)` : 'NO (100% Real OSM)'}
+              </span>
+            </div>
+            {telemetry.aiAssisted && telemetry.aiFieldsUsed.length > 0 && (
+              <div className="hud-item">
+                <span className="hud-k">AI Inferred Fields:</span>
+                <span className="hud-v font-mono text-[11px] text-indigo-300">
+                  {telemetry.aiFieldsUsed.join(', ')}
+                </span>
+              </div>
+            )}
+            <div className="hud-item">
               <span className="hud-k">Hardcoded Geometry:</span>
-              <span className="hud-v font-bold text-emerald-400">NO (100% Real OSM)</span>
+              <span className="hud-v font-bold text-emerald-400">NO</span>
             </div>
             <div className="hud-item">
               <span className="hud-k">Model Loaded / Visible:</span>
@@ -2039,7 +2147,7 @@ export default function MapThreeJS({
           Provider: {telemetry.provider}
         </span>
         <span className="text-slate-400 text-[11px]">
-          · OSM Parts: {telemetry.sourcePartCount} · Meshes: {telemetry.generatedMeshCount} · Hardcoded: NO · Fallback: {telemetry.fallbackUsed ? 'YES' : 'NO'}
+          · OSM Parts: {telemetry.sourcePartCount} · Meshes: {telemetry.generatedMeshCount} · AI Assist: {telemetry.aiAssisted ? `YES (${telemetry.aiConfidence}%)` : 'NO'} · Fallback: {telemetry.fallbackUsed ? 'YES' : 'NO'}
         </span>
       </div>
     </div>
