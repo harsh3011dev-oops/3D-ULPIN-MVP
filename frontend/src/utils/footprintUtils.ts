@@ -357,10 +357,25 @@ export function getPartCenterOffset(
 }
 
 /**
- * Proportional Zoning:
- * Separates total monument/building height into realistic architectural masses
- * (Platform/Podium, Main Wall Body, Roof/Dome, and Finial/Spire)
- * rather than assuming total height == wall height.
+/**
+ * Unified geographic to local Cartesian meter conversion
+ */
+export function geoToLocal(
+  lon: number,
+  lat: number,
+  originLng: number,
+  originLat: number,
+  altitude: number = 0,
+): THREE.Vector3 {
+  const mLng = metersPerDegLng(originLat);
+  const x = (lon - originLng) * mLng;
+  const z = -(lat - originLat) * METERS_PER_DEG_LAT;
+  return new THREE.Vector3(x, altitude, z);
+}
+
+/**
+ * Proportional Zoning based purely on explicit OSM tags and geometry metrics.
+ * No hardcoded landmark/monument rules.
  */
 export interface ProportionalZoning {
   platformHeight: number;
@@ -377,67 +392,76 @@ export function getProportionalZoning(
   metrics: ShapeMetrics,
   explicitRoofHeight?: number,
   roofShape?: string,
-  isHistoricOrMonument?: boolean,
 ): ProportionalZoning {
   const normRoofShape = (roofShape || '').toLowerCase();
   const hasExplicitRoof = normRoofShape !== '' && normRoofShape !== 'flat';
 
-  let platformHeight = 0;
-  let finialHeight = 0;
   let roofHeight = 0;
-  let hasPlatform = false;
-  let hasSteppedTiers = false;
-
-  if (isHistoricOrMonument || (metrics.circularity > 0.75 && totalHeight > 20)) {
-    // Monumental / Classic proportions
-    hasPlatform = true;
-    platformHeight = Math.min(Math.max(totalHeight * 0.08, 2.0), 6.0);
-    const remainingH = totalHeight - platformHeight;
-
-    if (hasExplicitRoof || normRoofShape.includes('dome') || normRoofShape.includes('onion') || normRoofShape.includes('cone') || normRoofShape.includes('pyramid') || isHistoricOrMonument) {
-      roofHeight = explicitRoofHeight || Math.min(Math.max(remainingH * 0.32, 4.0), 24.0);
-      finialHeight = Math.min(Math.max(roofHeight * 0.25, 2.0), 6.0);
-    } else {
-      roofHeight = Math.min(remainingH * 0.15, 4.0);
-    }
-
-    const wallHeight = Math.max(remainingH - roofHeight - finialHeight, 3.5);
-    hasSteppedTiers = totalHeight > 30;
-
-    return {
-      platformHeight,
-      wallHeight,
-      roofHeight,
-      finialHeight,
-      visualTotalHeight: platformHeight + wallHeight + roofHeight + finialHeight,
-      hasPlatform,
-      hasSteppedTiers,
-    };
-  }
-
-  // Standard architectural structure
-  if (totalHeight > 25) {
-    platformHeight = Math.min(Math.max(totalHeight * 0.04, 1.2), 3.5);
-    hasPlatform = true;
-  }
-
   if (explicitRoofHeight && explicitRoofHeight > 0) {
-    roofHeight = explicitRoofHeight;
+    roofHeight = Math.min(explicitRoofHeight, totalHeight * 0.5);
   } else if (hasExplicitRoof) {
-    roofHeight = Math.min(Math.max(totalHeight * 0.20, 3.0), 12.0);
-  } else {
-    roofHeight = Math.min(Math.max(totalHeight * 0.06, 1.5), 3.5); // Parapet & elevator core zone
+    roofHeight = Math.min(Math.max(totalHeight * 0.20, 2.0), 15.0);
   }
 
-  const wallHeight = Math.max(totalHeight - platformHeight - roofHeight, 3.0);
+  const wallHeight = Math.max(totalHeight - roofHeight, 2.5);
 
   return {
-    platformHeight,
+    platformHeight: 0,
     wallHeight,
     roofHeight,
     finialHeight: 0,
-    visualTotalHeight: platformHeight + wallHeight + roofHeight,
-    hasPlatform,
-    hasSteppedTiers: totalHeight > 45,
+    visualTotalHeight: wallHeight + roofHeight,
+    hasPlatform: false,
+    hasSteppedTiers: false,
   };
 }
+
+export type GeometryProviderType =
+  | 'OSM2World'
+  | 'OSM building:part'
+  | 'OSM Polygon Extrusion'
+  | 'Procedural Extrusion'
+  | 'Fallback';
+
+export interface GeometryDecision {
+  provider: GeometryProviderType;
+  fallbackUsed: boolean;
+  reason?: string;
+}
+
+/**
+ * Determine the highest-fidelity geometry tier available for a given building.
+ * Priority:
+ * 1. OSM2World (when raw OSM nodes/ways available)
+ * 2. OSM building:part procedural reconstruction
+ * 3. Real OSM Polygon / MultiPolygon extrusion
+ * 4. Fallback extrusion
+ */
+export function evaluateBestGeometryProvider(
+  building: Building,
+  hasOSM2WorldData: boolean,
+): GeometryDecision {
+  if (hasOSM2WorldData) {
+    return { provider: 'OSM2World', fallbackUsed: false };
+  }
+  if (building.building_parts && building.building_parts.length > 0) {
+    return {
+      provider: 'OSM building:part',
+      fallbackUsed: true,
+      reason: 'OSM2World unavailable — using detailed OSM building:part procedural reconstruction',
+    };
+  }
+  if (building.footprint && getFootprintVertexCount(building.footprint) >= 3) {
+    return {
+      provider: 'OSM Polygon Extrusion',
+      fallbackUsed: true,
+      reason: 'Using real OSM vector polygon extrusion',
+    };
+  }
+  return {
+    provider: 'Fallback',
+    fallbackUsed: true,
+    reason: 'Detailed 3D geometry unavailable — using reconstructed building',
+  };
+}
+

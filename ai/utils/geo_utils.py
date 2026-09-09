@@ -399,6 +399,7 @@ def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 350, 
             "building_color": building_color,
             "land_use": landuse,
             "building_parts": parsed_parts,
+            "raw_osm_data": payload,
             "tags": tags
         }
         _OSM_CACHE[cache_key] = result_dict

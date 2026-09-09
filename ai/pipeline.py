@@ -297,6 +297,8 @@ def process_building(*args, **kwargs) -> dict:
             },
             "units": all_units,
             "validation": validation_report,
+            "osm_id": osm_comp.get("osm_id"),
+            "raw_osm_data": osm_comp.get("raw_osm_data"),
             "osm_source": osm_comp.get("osm_id") is not None,
             "underground": underground_data
         }

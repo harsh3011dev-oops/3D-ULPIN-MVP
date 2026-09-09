@@ -159,6 +159,8 @@ export interface Building {
   building_material?: string;
   building_color?: string;
   land_use?: string;
+  osm_id?: string;
+  raw_osm_data?: any;
 }
 
 export interface AutoDetectBuildingPayload {

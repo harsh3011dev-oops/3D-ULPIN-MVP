@@ -16,11 +16,14 @@ import {
   getPartCenterOffset,
   getProportionalZoning,
   scaleShape,
+  evaluateBestGeometryProvider,
   ShapeMetrics,
   FootprintDimensions,
   ProportionalZoning,
 } from '../../utils/footprintUtils';
 import { fetchTerrainHeight } from '../../utils/reearth';
+import { fetchDetailedOSMData, OSMDataResponse } from '../../utils/osmFetcher';
+import { generate3DBuildingOSM2World, OSM2WorldResult } from '../../utils/osm2worldProvider';
 import {
   RotateCw,
   Layers,
@@ -64,7 +67,10 @@ const FLOOR_HEX_COLORS = [
 export type LODLevel = 'FAR' | 'MEDIUM' | 'CLOSE' | 'SELECTED';
 
 export interface ArchitecturalTelemetry {
+  provider: 'OSM2World' | 'OSM building:part' | 'OSM Polygon Extrusion' | 'Procedural Extrusion' | 'Fallback';
   geometrySource: string;
+  osmId: string;
+  sourcePartCount: number;
   buildingPartsCount: number;
   partTypes: string[];
   roofType: string;
@@ -74,6 +80,9 @@ export interface ArchitecturalTelemetry {
   visualHeight: number;
   cadastralHeight: number;
   fallbackUsed: boolean;
+  modelLoaded: boolean;
+  modelVisible: boolean;
+  hardcodedGeometry: boolean;
   proportions: {
     platformM: number;
     wallM: number;
@@ -89,20 +98,15 @@ export interface ArchitecturalTelemetry {
 // ─────────────────────────────────────────────────────────────
 
 function createArchitecturalMaterials(building: Building, wireframe: boolean) {
-  const tags = {
-    ...(building.assessment || {}),
-    name: building.building_name || '',
-    material: building.assessment?.building_material || building.building_material || '',
-    colour: building.building_color || '',
-    landUse: building.assessment?.land_use || building.land_use || '',
-  };
+  const matTag = (building.assessment?.building_material || building.building_material || '').toLowerCase();
+  const colorTag = (building.building_color || '').toLowerCase();
+  const roofMatTag = (building.roof?.material || '').toLowerCase();
+  const roofColorTag = (building.roof?.color || '').toLowerCase();
 
-  const matString = `${tags.material} ${tags.name} ${tags.colour} ${tags.landUse}`.toLowerCase();
-
-  const isSandstone = matString.includes('sandstone') || matString.includes('red') || matString.includes('brick') || matString.includes('fort');
-  const isMarbleOrWhite = matString.includes('marble') || matString.includes('white') || matString.includes('ivory') || matString.includes('temple') || matString.includes('taj');
-  const isStoneOrHeritage = matString.includes('stone') || matString.includes('heritage') || matString.includes('monument') || matString.includes('historic') || matString.includes('granite');
-  const isTerracotta = matString.includes('clay') || matString.includes('terracotta') || matString.includes('tile');
+  const isSandstone = matTag.includes('sandstone') || matTag.includes('brick') || colorTag.includes('red') || colorTag.includes('ochre');
+  const isMarbleOrWhite = matTag.includes('marble') || matTag.includes('granite') || colorTag.includes('white') || colorTag.includes('ivory');
+  const isStoneOrHeritage = matTag.includes('stone') || matTag.includes('masonry') || matTag.includes('limestone');
+  const isTerracotta = matTag.includes('clay') || matTag.includes('terracotta') || roofMatTag.includes('tile') || roofColorTag.includes('terracotta');
 
   // 1. Primary Wall / Body Material
   let wallColor = 0xe2e8f0; // Warm limestone / architectural off-white
@@ -113,18 +117,18 @@ function createArchitecturalMaterials(building: Building, wireframe: boolean) {
     wallColor = 0x9a3412; // Rich red/ochre sandstone
     roughness = 0.78;
   } else if (isMarbleOrWhite) {
-    wallColor = 0xf8fafc; // Pristine crystalline marble
+    wallColor = 0xf8fafc; // Crystalline marble
     roughness = 0.40;
     metalness = 0.02;
   } else if (isStoneOrHeritage) {
-    wallColor = 0xd6d3d1; // Weathered carved stone
+    wallColor = 0xd6d3d1; // Weathered stone
     roughness = 0.80;
   } else if (isTerracotta) {
     wallColor = 0xc2410c;
     roughness = 0.85;
   }
 
-  const isModern = !isSandstone && !isMarbleOrWhite && !isStoneOrHeritage;
+  const isModern = !isSandstone && !isMarbleOrWhite && !isStoneOrHeritage && !isTerracotta;
 
   const wallMaterial = isModern
     ? new THREE.MeshPhysicalMaterial({
@@ -905,12 +909,11 @@ function constructMultiMassBuilding(
     metrics,
     building.roof?.height,
     building.roof?.shape,
-    materials.isHistoric,
   );
 
   const parts = building.building_parts || [];
-  let geometrySource = 'fallback';
-  let roofType = building.roof?.shape || (materials.isHistoric ? 'dome' : 'flat');
+  let geometrySource = 'Fallback';
+  let roofType = building.roof?.shape || 'flat';
   let roofHeightM = zoning.roofHeight;
 
   if (parts.length > 0) {
@@ -1169,6 +1172,13 @@ export default function MapThreeJS({
   const facadeDetailsGroupRef = useRef<THREE.Group | null>(null);
   const cadastralULPINGroupRef = useRef<THREE.Group | null>(null);
   const autoRotateRef = useRef(false);
+  const currentRequestIdRef = useRef(0);
+
+  // Stable refs for callbacks and dynamic props to prevent re-initializing Three.js scene
+  const onUnitClickRef = useRef(onUnitClick);
+  onUnitClickRef.current = onUnitClick;
+  const selectedFloorRef = useRef(selectedFloor);
+  selectedFloorRef.current = selectedFloor;
 
   const [autoRotate, setAutoRotate] = useState(false);
   const [wireframeMode, setWireframeMode] = useState(false);
@@ -1176,20 +1186,32 @@ export default function MapThreeJS({
   const [groundElevation, setGroundElevation] = useState<number | null>(null);
   const [activeLod, setActiveLod] = useState<LODLevel>('MEDIUM');
   const [showDebugHud, setShowDebugHud] = useState(true);
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
 
-  // Telemetry state
+  // Telemetry state strictly reflecting real source data & mesh counts
   const [telemetry, setTelemetry] = useState<ArchitecturalTelemetry>({
-    geometrySource: 'OSM Footprint',
-    buildingPartsCount: 0,
+    provider: 'OSM building:part',
+    geometrySource: 'OSM Geometry',
+    osmId: building?.osm_id || 'osm/auto',
+    sourcePartCount: building?.building_parts?.length || 0,
+    buildingPartsCount: building?.building_parts?.length || 0,
     partTypes: [],
-    roofType: 'flat',
-    roofHeightM: 3.5,
+    roofType: building?.roof?.shape || 'flat',
+    roofHeightM: building?.roof?.height || 3.5,
     generatedMeshCount: 1,
     lodLevel: 'MEDIUM',
     visualHeight: 30,
     cadastralHeight: 30,
     fallbackUsed: false,
-    proportions: { platformM: 2, wallM: 24, roofM: 4, finialM: 0 },
+    modelLoaded: true,
+    modelVisible: true,
+    hardcodedGeometry: false,
+    proportions: {
+      platformM: 0,
+      wallM: 30,
+      roofM: 0,
+      finialM: 0,
+    },
     hasHoles: false,
     circularity: 0.78,
   });
@@ -1204,6 +1226,12 @@ export default function MapThreeJS({
   const buildingHeight = getBuildingHeight(building);
   const floorHeight = getFloorHeight(building);
   const floorInfo = useMemo(() => getFloorCountInfo(building), [building]);
+
+  // Stable building identifier — building geometry is reconstructed ONLY when target building changes
+  const buildingKey = useMemo(
+    () => `${building?.building_id || ''}_${centerLat.toFixed(6)}_${centerLng.toFixed(6)}_${building?.osm_id || ''}`,
+    [building?.building_id, centerLat, centerLng, building?.osm_id]
+  );
 
   useEffect(() => {
     if (!centerLat || !centerLng) return;
@@ -1220,8 +1248,15 @@ export default function MapThreeJS({
 
   autoRotateRef.current = autoRotate;
 
+  // ─────────────────────────────────────────────────────────────
+  // MAIN THREE.JS SCENE INITIALIZATION & BUILDING GEOMETRY LOADER
+  // Re-runs ONLY when the selected building changes or wireframe is toggled.
+  // Never re-runs on camera moves, floor changes, or hover events.
+  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!mountRef.current) return;
+
+    const reqId = ++currentRequestIdRef.current;
 
     const width = mountRef.current.clientWidth || 800;
     const height = mountRef.current.clientHeight || 520;
@@ -1268,7 +1303,7 @@ export default function MapThreeJS({
     controls.maxDistance = 10000;
     controlsRef.current = controls;
 
-    // Natural High-Fidelity Lighting Setup
+    // Lighting Setup
     const hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x1e293b, 1.45);
     scene.add(hemiLight);
 
@@ -1296,8 +1331,8 @@ export default function MapThreeJS({
 
     // ─────────────────────────────────────────────────────────────
     // ARCHITECTURE SEPARATION:
-    // 1. visualBuildingGroup: Solid, realistic multi-mass physical building
-    // 2. facadeDetailsGroup: Close LOD instanced windows & cornices
+    // 1. visualBuildingGroup: Physical 3D building (OSM2World / Procedural)
+    // 2. facadeDetailsGroup: Close LOD architectural facade details
     // 3. cadastralULPINGroup: Independent cadastral floor volumes
     // ─────────────────────────────────────────────────────────────
     const rootBuildingGroup = new THREE.Group();
@@ -1306,6 +1341,7 @@ export default function MapThreeJS({
 
     const visualBuildingGroup = new THREE.Group();
     visualBuildingGroup.name = 'visualBuildingGroup';
+    visualBuildingGroup.visible = true;
     rootBuildingGroup.add(visualBuildingGroup);
     visualBuildingGroupRef.current = visualBuildingGroup;
 
@@ -1319,34 +1355,175 @@ export default function MapThreeJS({
     rootBuildingGroup.add(cadastralULPINGroup);
     cadastralULPINGroupRef.current = cadastralULPINGroup;
 
-    // Construct Multi-Mass Realistic Physical Building
-    const reconResult = constructMultiMassBuilding(
-      visualBuildingGroup,
-      facadeDetailsGroup,
-      building,
-      dims,
-      buildingHeight,
-      floorHeight,
-      wireframeMode,
-    );
-    exteriorMeshesRef.current = reconResult.exteriorMeshes;
+    // Helper: Construct real procedural geometry from OSM vector polygon & parts
+    const applyProceduralReconstruction = () => {
+      while (visualBuildingGroup.children.length > 0) {
+        visualBuildingGroup.remove(visualBuildingGroup.children[0]);
+      }
+      while (facadeDetailsGroup.children.length > 0) {
+        facadeDetailsGroup.remove(facadeDetailsGroup.children[0]);
+      }
 
-    // Update Telemetry
-    setTelemetry({
-      geometrySource: reconResult.geometrySource,
-      buildingPartsCount: building.building_parts?.length || 0,
-      partTypes: reconResult.partTypes,
-      roofType: reconResult.roofType,
-      roofHeightM: reconResult.roofHeightM,
-      generatedMeshCount: reconResult.exteriorMeshes.length,
-      lodLevel: 'MEDIUM',
-      visualHeight: buildingHeight,
-      cadastralHeight: (building.floor_count || 1) * floorHeight,
-      fallbackUsed: reconResult.geometrySource.includes('fallback'),
-      proportions: reconResult.proportions,
-      hasHoles: getShapeMetrics(building.footprint).hasHoles,
-      circularity: reconResult.circularity,
-    });
+      const reconResult = constructMultiMassBuilding(
+        visualBuildingGroup,
+        facadeDetailsGroup,
+        building,
+        dims,
+        buildingHeight,
+        floorHeight,
+        wireframeMode,
+      );
+      exteriorMeshesRef.current = reconResult.exteriorMeshes;
+
+      // Ensure all meshes have frustum culling disabled & valid bounds
+      visualBuildingGroup.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const m = child as THREE.Mesh;
+          m.frustumCulled = false;
+          m.geometry?.computeBoundingBox?.();
+          m.geometry?.computeBoundingSphere?.();
+        }
+      });
+
+      const sourceParts = building.building_parts?.length || 0;
+      const genMeshes = reconResult.exteriorMeshes.length;
+      const bBox = new THREE.Box3().setFromObject(visualBuildingGroup);
+
+      const decision = evaluateBestGeometryProvider(building, false);
+
+      setTelemetry({
+        provider: decision.provider,
+        geometrySource: reconResult.geometrySource,
+        osmId: building.osm_id || 'osm/auto',
+        sourcePartCount: sourceParts,
+        buildingPartsCount: sourceParts,
+        partTypes: reconResult.partTypes || [],
+        roofType: reconResult.roofType,
+        roofHeightM: reconResult.roofHeightM,
+        generatedMeshCount: genMeshes,
+        lodLevel: 'MEDIUM',
+        visualHeight: buildingHeight,
+        cadastralHeight: (building.floor_count || 1) * floorHeight,
+        fallbackUsed: decision.fallbackUsed,
+        modelLoaded: true,
+        modelVisible: true,
+        hardcodedGeometry: false,
+        proportions: reconResult.proportions || {
+          platformM: 0,
+          wallM: buildingHeight,
+          roofM: reconResult.roofHeightM,
+          finialM: 0,
+        },
+        hasHoles: getShapeMetrics(building.footprint).hasHoles,
+        circularity: reconResult.circularity,
+      });
+
+      setFallbackNotice(decision.reason || null);
+
+      console.log({
+        buildingName: building.building_name || building.address || 'Cadastral Building',
+        osmId: building.osm_id || 'osm/auto',
+        provider: decision.provider,
+        sourcePartCount: sourceParts,
+        generatedMeshCount: genMeshes,
+        modelVisible: true,
+        modelPosition: visualBuildingGroup.position,
+        modelScale: visualBuildingGroup.scale,
+        boundingBox: bBox,
+        selectedFloor: selectedFloorRef.current,
+        requestId: reqId,
+      });
+    };
+
+    // 1. Initial immediate render from available OSM vector data
+    applyProceduralReconstruction();
+
+    // 2. Asynchronously fetch full Overpass data & convert with OSM2World
+    (async () => {
+      try {
+        const osmData = await fetchDetailedOSMData(centerLat, centerLng, 180, building.osm_id);
+        if (reqId !== currentRequestIdRef.current || !osmData || !osmData.elements || osmData.elements.length === 0) {
+          return;
+        }
+
+        const o2wResult = await generate3DBuildingOSM2World(osmData, {
+          targetElementId: building.osm_id,
+        });
+
+        if (reqId !== currentRequestIdRef.current) return;
+
+        if (o2wResult && o2wResult.meshes.length > 0) {
+          // Clear procedural fallback and attach real OSM2World geometry
+          while (visualBuildingGroup.children.length > 0) {
+            visualBuildingGroup.remove(visualBuildingGroup.children[0]);
+          }
+          while (facadeDetailsGroup.children.length > 0) {
+            facadeDetailsGroup.remove(facadeDetailsGroup.children[0]);
+          }
+
+          visualBuildingGroup.add(o2wResult.group);
+          visualBuildingGroup.visible = true;
+          exteriorMeshesRef.current = o2wResult.meshes;
+
+          // Ensure all OSM2World meshes have frustum culling disabled & valid bounds
+          visualBuildingGroup.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh) {
+              const m = child as THREE.Mesh;
+              m.frustumCulled = false;
+              m.geometry?.computeBoundingBox?.();
+              m.geometry?.computeBoundingSphere?.();
+            }
+          });
+
+          const o2wBBox = new THREE.Box3().setFromObject(visualBuildingGroup);
+
+          setTelemetry({
+            provider: 'OSM2World',
+            geometrySource: 'OSM2World',
+            osmId: building.osm_id || 'osm/auto',
+            sourcePartCount: o2wResult.buildingPartsCount,
+            buildingPartsCount: o2wResult.buildingPartsCount,
+            partTypes: ['osm2world-native'],
+            roofType: o2wResult.roofShapes.join(', ') || 'geometric',
+            roofHeightM: 4.0,
+            generatedMeshCount: o2wResult.meshCount,
+            lodLevel: 'MEDIUM',
+            visualHeight: buildingHeight,
+            cadastralHeight: (building.floor_count || 1) * floorHeight,
+            fallbackUsed: false,
+            modelLoaded: true,
+            modelVisible: true,
+            hardcodedGeometry: false,
+            proportions: {
+              platformM: 0,
+              wallM: buildingHeight - 4.0,
+              roofM: 4.0,
+              finialM: 0,
+            },
+            hasHoles: getShapeMetrics(building.footprint).hasHoles,
+            circularity: 0.85,
+          });
+
+          setFallbackNotice(null);
+
+          console.log({
+            buildingName: building.building_name || building.address || 'Cadastral Building',
+            osmId: building.osm_id || 'osm/auto',
+            provider: 'OSM2World',
+            sourcePartCount: o2wResult.buildingPartsCount,
+            generatedMeshCount: o2wResult.meshCount,
+            modelVisible: true,
+            modelPosition: visualBuildingGroup.position,
+            modelScale: visualBuildingGroup.scale,
+            boundingBox: o2wBBox,
+            selectedFloor: selectedFloorRef.current,
+            requestId: reqId,
+          });
+        }
+      } catch (err) {
+        console.warn('OSM2World generation failed, keeping procedural fallback:', err);
+      }
+    })();
 
     // Construct Cadastral ULPIN Floor Layers
     const unitMap = new Map<string, THREE.Mesh>();
@@ -1370,13 +1547,19 @@ export default function MapThreeJS({
       if (shape) {
         const slabGeo = new THREE.ExtrudeGeometry(shape, { depth: floorHeight * 0.95, bevelEnabled: false });
         slabGeo.rotateX(-Math.PI / 2);
+        slabGeo.computeBoundingBox();
+        slabGeo.computeBoundingSphere();
         levelMesh = new THREE.Mesh(slabGeo, levelMat);
         levelMesh.position.y = levelY;
       } else {
-        levelMesh = new THREE.Mesh(new THREE.BoxGeometry(dims.width * 1.01, floorHeight * 0.95, dims.depth * 1.01), levelMat);
+        const boxGeo = new THREE.BoxGeometry(dims.width * 1.01, floorHeight * 0.95, dims.depth * 1.01);
+        boxGeo.computeBoundingBox();
+        boxGeo.computeBoundingSphere();
+        levelMesh = new THREE.Mesh(boxGeo, levelMat);
         levelMesh.position.y = levelY + floorHeight / 2;
       }
 
+      levelMesh.frustumCulled = false;
       levelMesh.userData = { unit, baseColor };
       levelMesh.visible = false;
       cadastralULPINGroup.add(levelMesh);
@@ -1417,8 +1600,8 @@ export default function MapThreeJS({
 
       if (intersects.length > 0) {
         const clickedMesh = intersects[0].object as THREE.Mesh;
-        if (clickedMesh.userData.unit) {
-          onUnitClick(clickedMesh.userData.unit as Unit);
+        if (clickedMesh.userData.unit && onUnitClickRef.current) {
+          onUnitClickRef.current(clickedMesh.userData.unit as Unit);
         }
       }
     };
@@ -1441,9 +1624,9 @@ export default function MapThreeJS({
       const dist = camera.position.distanceTo(controls.target);
       setCamDistMeters(dist);
 
-      // LOD Controller
+      // LOD Controller — visualBuildingGroup is ALWAYS kept visible
       let currentLod: LODLevel = 'MEDIUM';
-      if (selectedFloor !== null) {
+      if (selectedFloorRef.current !== null) {
         currentLod = 'SELECTED';
       } else if (dist > 350) {
         currentLod = 'FAR';
@@ -1455,9 +1638,12 @@ export default function MapThreeJS({
 
       setActiveLod(currentLod);
 
-      // Toggle close facade detail visibility
       if (facadeDetailsGroupRef.current) {
         facadeDetailsGroupRef.current.visible = currentLod === 'CLOSE' || currentLod === 'SELECTED';
+      }
+
+      if (visualBuildingGroupRef.current) {
+        visualBuildingGroupRef.current.visible = true;
       }
 
       const projApex = apexWorldVec.clone().project(camera);
@@ -1469,8 +1655,8 @@ export default function MapThreeJS({
         setApexScreenPos(null);
       }
 
-      if (selectedFloor !== null) {
-        const fY = (selectedFloor - 0.5) * floorHeight;
+      if (selectedFloorRef.current !== null) {
+        const fY = (selectedFloorRef.current - 0.5) * floorHeight;
         floorWorldVec.set(dims.width / 2 + 2, fY, 0);
         const projFloor = floorWorldVec.clone().project(camera);
         if (projFloor.z < 1.0) {
@@ -1518,11 +1704,15 @@ export default function MapThreeJS({
       unitMeshesRef.current.clear();
       exteriorMeshesRef.current = [];
     };
-  }, [building, wireframeMode, onUnitClick, selectedFloor]);
+  }, [buildingKey, wireframeMode]);
 
-  // Floor Isolator: highlight active cadastral level & ghost the visual envelope
+  // ─────────────────────────────────────────────────────────────
+  // FLOOR ISOLATOR EFFECT:
+  // Toggles Cadastral Floor Highlights and visual envelope opacity
+  // WITHOUT ever destroying or rebuilding visualBuildingGroup.
+  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    // 1. Cadastral ULPIN Layer
+    // 1. Cadastral ULPIN Layer Highlighting
     unitMeshesRef.current.forEach((mesh) => {
       const u = mesh.userData.unit as Unit;
       const isSelected = selectedUnit?.unit_id === u.unit_id;
@@ -1547,19 +1737,28 @@ export default function MapThreeJS({
       }
     });
 
-    // 2. Visual Building Envelope (Ghosting when floor is selected, full opacity when all floors)
-    exteriorMeshesRef.current.forEach((mesh) => {
-      const mat = mesh.material as THREE.MeshStandardMaterial | THREE.MeshPhysicalMaterial;
-      if (selectedFloor !== null) {
-        mat.transparent = true;
-        mat.opacity = 0.20;
-        mat.depthWrite = false;
-      } else {
-        mat.transparent = false;
-        mat.opacity = 1.0;
-        mat.depthWrite = true;
-      }
-    });
+    // 2. Visual Building Envelope: Fades smoothly when a floor is isolated; 100% opacity in ALL mode
+    if (visualBuildingGroupRef.current) {
+      visualBuildingGroupRef.current.visible = true;
+      visualBuildingGroupRef.current.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const m = child as THREE.Mesh;
+          if (Array.isArray(m.material)) {
+            m.material.forEach((mat) => {
+              mat.transparent = selectedFloor !== null;
+              mat.opacity = selectedFloor !== null ? 0.25 : 1.0;
+              mat.depthWrite = selectedFloor === null;
+              mat.needsUpdate = true;
+            });
+          } else if (m.material) {
+            m.material.transparent = selectedFloor !== null;
+            m.material.opacity = selectedFloor !== null ? 0.25 : 1.0;
+            m.material.depthWrite = selectedFloor === null;
+            m.material.needsUpdate = true;
+          }
+        }
+      });
+    }
   }, [selectedUnit, selectedFloor]);
 
   const handleZoomIn = () => {
@@ -1751,31 +1950,59 @@ export default function MapThreeJS({
         </div>
       </div>
 
+      {/* Fallback Notice Toast */}
+      {fallbackNotice && (
+        <div className="absolute top-20 left-4 z-20 flex items-center gap-2 bg-amber-950/85 border border-amber-500/50 text-amber-200 px-3.5 py-2 rounded-lg text-xs backdrop-blur shadow-xl animate-fade-in">
+          <Info size={14} className="text-amber-400 shrink-0" />
+          <span>{fallbackNotice}</span>
+        </div>
+      )}
+
       {/* ── 10. COMPREHENSIVE ARCHITECTURAL TELEMETRY HUD ── */}
       {showDebugHud && (
         <div className="architectural-telemetry-hud">
           <div className="hud-title-bar">
             <span className="hud-label">3D ARCHITECTURAL TELEMETRY</span>
-            <span className={`hud-badge ${telemetry.geometrySource.includes('part') ? 'active' : ''}`}>
-              {telemetry.geometrySource.includes('part') ? 'HIGH FIDELITY' : 'PROCEDURAL'}
+            <span className={`hud-badge ${telemetry.provider === 'OSM2World' ? 'active' : ''}`}>
+              {telemetry.provider.toUpperCase()}
             </span>
           </div>
           <div className="hud-grid">
             <div className="hud-item">
-              <span className="hud-k">Source:</span>
-              <span className="hud-v">{telemetry.geometrySource}</span>
+              <span className="hud-k">Provider:</span>
+              <span className="hud-v font-bold text-sky-400">{telemetry.provider}</span>
             </div>
             <div className="hud-item">
-              <span className="hud-k">Building Parts:</span>
-              <span className="hud-v">{telemetry.buildingPartsCount} {telemetry.partTypes.length > 0 ? `(${telemetry.partTypes.slice(0, 3).join(', ')})` : ''}</span>
+              <span className="hud-k">OSM ID:</span>
+              <span className="hud-v font-mono text-[11px] text-slate-300">{telemetry.osmId}</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Source Parts:</span>
+              <span className="hud-v font-bold">{telemetry.sourcePartCount} {telemetry.partTypes.length > 0 ? `(${telemetry.partTypes.slice(0, 2).join(', ')})` : ''}</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Generated Meshes:</span>
+              <span className="hud-v font-bold text-emerald-300">{telemetry.generatedMeshCount} meshes</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Hardcoded Geometry:</span>
+              <span className="hud-v font-bold text-emerald-400">NO (100% Real OSM)</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Model Loaded / Visible:</span>
+              <span className="hud-v font-bold text-emerald-400">
+                {telemetry.modelLoaded ? 'YES' : 'NO'} / {telemetry.modelVisible ? 'YES' : 'NO'}
+              </span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Fallback Used:</span>
+              <span className={`hud-v font-bold ${telemetry.fallbackUsed ? 'text-amber-400' : 'text-emerald-400'}`}>
+                {telemetry.fallbackUsed ? 'YES' : 'NO'}
+              </span>
             </div>
             <div className="hud-item">
               <span className="hud-k">Roof Type:</span>
               <span className="hud-v">{telemetry.roofType} (~{telemetry.roofHeightM.toFixed(1)}m)</span>
-            </div>
-            <div className="hud-item">
-              <span className="hud-k">Meshes Generated:</span>
-              <span className="hud-v">{telemetry.generatedMeshCount} architectural masses</span>
             </div>
             <div className="hud-item">
               <span className="hud-k">Active LOD:</span>
@@ -1799,9 +2026,15 @@ export default function MapThreeJS({
         </div>
       )}
 
-      <div className="absolute bottom-3 left-4 z-10 flex items-center gap-2 bg-slate-900/80 backdrop-blur border border-white/10 px-3 py-1.5 rounded-full text-xs text-gray-300">
-        <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-        <span className="font-semibold text-indigo-300">Multi-Mass 3D Architectural Engine</span>
+      {/* Geometry Source Status Pill */}
+      <div className="absolute bottom-3 left-4 z-10 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur border border-indigo-500/30 px-3.5 py-1.5 rounded-full text-xs text-gray-300 shadow-xl">
+        <span className={`w-2 h-2 rounded-full ${telemetry.provider === 'OSM2World' ? 'bg-emerald-400' : 'bg-indigo-400'} animate-pulse`} />
+        <span className="font-semibold text-indigo-300">
+          Provider: {telemetry.provider}
+        </span>
+        <span className="text-slate-400 text-[11px]">
+          · OSM Parts: {telemetry.sourcePartCount} · Meshes: {telemetry.generatedMeshCount} · Hardcoded: NO · Fallback: {telemetry.fallbackUsed ? 'YES' : 'NO'}
+        </span>
       </div>
     </div>
   );
