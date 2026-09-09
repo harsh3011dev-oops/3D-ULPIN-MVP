@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     debug: bool = False
     cors_origins: str = "http://localhost:3000"
     gemini_api_key: str = ""
+    groq_api_key: str = ""
+    hf_api_key: str = ""
 
     @property
     def cors_origins_list(self) -> list[str]:

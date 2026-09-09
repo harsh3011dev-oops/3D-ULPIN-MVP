@@ -1,0 +1,61 @@
+# ─────────────────────────────────────────────
+# 3D-ULPIN — Render.com Infrastructure Config
+# Docs: https://render.com/docs/render-yaml
+# ─────────────────────────────────────────────
+
+services:
+  - type: web
+    name: 3dulpin-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    branch: develop
+    region: oregon   # Free tier region
+
+    # ── Environment Variables ──────────────────
+    # Set these in the Render dashboard under "Environment"
+    # DO NOT hardcode real secrets here
+    envVars:
+      - key: PYTHONPATH
+        value: /app
+
+      - key: DEBUG
+        value: "False"
+
+      - key: CORS_ORIGINS
+        value: "https://3dulpin.vercel.app,http://localhost:3000"
+
+      # ── Database (Supabase) ──────────────────
+      - key: DATABASE_URL
+        sync: false   # Set this manually in Render dashboard
+
+      - key: SUPABASE_URL
+        sync: false
+
+      - key: SUPABASE_ANON_KEY
+        sync: false
+
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      - key: SUPABASE_STORAGE_BUCKET
+        value: aerial-images
+
+      # ── AI API Keys ──────────────────────────
+      - key: GEMINI_API_KEY
+        sync: false   # Set in Render dashboard
+
+      - key: GROQ_API_KEY
+        sync: false   # Set in Render dashboard
+
+      - key: HF_API_KEY
+        sync: false   # Set in Render dashboard
+
+      # ── App Settings ────────────────────────
+      - key: SECRET_KEY
+        generateValue: true  # Render auto-generates a random secret
+
+      - key: ASSESSMENT_PRICE_SQM
+        value: "5200"
+
+    # ── Health Check ──────────────────────────
+    healthCheckPath: /api/health
