@@ -115,9 +115,13 @@ async def get_job_status(job_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Job not found")
 
     # Prefer the dedicated building_id column; fall back to result_json for backward compat
-    building_id = getattr(job, 'building_id', None)
-    if not building_id and getattr(job, 'result_json', None) and isinstance(job.result_json, dict):
+    raw_bldg_id = getattr(job, 'building_id', None)
+    if isinstance(raw_bldg_id, str):
+        building_id = raw_bldg_id
+    elif getattr(job, 'result_json', None) and isinstance(job.result_json, dict):
         building_id = job.result_json.get("building_id")
+    else:
+        building_id = None
 
     return JobStatusResponse(
         job_id=job.job_id,
