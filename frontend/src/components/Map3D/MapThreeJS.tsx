@@ -17,6 +17,7 @@ import {
   getProportionalZoning,
   scaleShape,
   evaluateBestGeometryProvider,
+  validateBuildingData,
   ShapeMetrics,
   FootprintDimensions,
   ProportionalZoning,
@@ -1357,6 +1358,11 @@ export default function MapThreeJS({
 
     // Helper: Construct real procedural geometry from OSM vector polygon & parts
     const applyProceduralReconstruction = () => {
+      const validation = validateBuildingData(building);
+      if (!validation.isValid) {
+        console.warn('Building data validation issue:', validation.error);
+      }
+
       while (visualBuildingGroup.children.length > 0) {
         visualBuildingGroup.remove(visualBuildingGroup.children[0]);
       }

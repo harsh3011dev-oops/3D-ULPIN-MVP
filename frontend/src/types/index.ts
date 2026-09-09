@@ -220,3 +220,39 @@ export interface PresetBuilding {
   lat: number;
   lon: number;
 }
+
+export interface UnifiedBuildingData {
+  id: string;
+  osm_id?: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  source: 'osm' | 'cadastral' | 'user' | 'catalog';
+  footprint?: GeoJSONPolygon | any;
+  buildingParts: BuildingPart[];
+  height: number;
+  levels: number;
+  minHeight?: number;
+  roofShape?: string;
+  roofHeight?: number;
+  roofLevels?: number;
+  material?: string;
+  color?: string;
+  roofMaterial?: string;
+  roofColor?: string;
+  tags?: Record<string, any>;
+  isLimitedSourceGeometry?: boolean;
+}
+
+export interface GeometryProviderResult {
+  providerName: 'OSM2World' | 'OSM building:part' | 'OSM Polygon Extrusion' | 'Procedural Extrusion' | 'Fallback';
+  group: any; // THREE.Group
+  meshes: any[]; // THREE.Mesh[]
+  sourcePartCount: number;
+  generatedMeshCount: number;
+  roofShapes: string[];
+  fallbackUsed: boolean;
+  limitedSourceGeometry?: boolean;
+  reason?: string;
+}
+

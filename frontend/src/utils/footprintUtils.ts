@@ -465,3 +465,29 @@ export function evaluateBestGeometryProvider(
   };
 }
 
+/**
+ * Validates building data prior to Three.js geometry construction.
+ * Checks for finite numbers, valid coordinates, and non-degenerate polygons.
+ */
+export function validateBuildingData(data: Building | any): { isValid: boolean; error?: string } {
+  if (!data) {
+    return { isValid: false, error: 'Building data is null or undefined' };
+  }
+  const lat = data.latitude;
+  const lng = data.longitude;
+  if (lat != null && (!Number.isFinite(lat) || Math.abs(lat) > 90)) {
+    return { isValid: false, error: `Invalid latitude: ${lat}` };
+  }
+  if (lng != null && (!Number.isFinite(lng) || Math.abs(lng) > 180)) {
+    return { isValid: false, error: `Invalid longitude: ${lng}` };
+  }
+  if (data.footprint) {
+    const vCount = getFootprintVertexCount(data.footprint);
+    if (vCount > 0 && vCount < 3) {
+      return { isValid: false, error: `Footprint has fewer than 3 vertices (${vCount})` };
+    }
+  }
+  return { isValid: true };
+}
+
+
