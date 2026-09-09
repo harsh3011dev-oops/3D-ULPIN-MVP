@@ -225,7 +225,7 @@ export async function generate3DBuildingOSM2World(
 
           osmData.elements.forEach((el) => {
             if (el.tags) {
-              if (el.tags['building:part'] || el.tags['building']) {
+              if (el.tags['building:part'] || el.tags['building'] === 'part') {
                 buildingPartsCount++;
               }
               if (el.tags['roof:shape']) {
@@ -233,6 +233,10 @@ export async function generate3DBuildingOSM2World(
               }
             }
           });
+
+          if (buildingPartsCount === 0) {
+            buildingPartsCount = osmData.elements.filter((e) => e.tags && e.tags['building']).length;
+          }
 
           const result: OSM2WorldResult = {
             group,
