@@ -158,7 +158,7 @@ def process_building(*args, **kwargs) -> dict:
         logger.info("[STEP 2.5] Sending satellite image to Gemini Vision for analysis...")
         import asyncio
         import concurrent.futures
-        from ai.vision_analyzer import analyze_building_image
+        from ai.gemini_vision_analyzer import analyze_building_image
 
         gemini_vision_data = None
         try:
@@ -360,9 +360,11 @@ def process_building(*args, **kwargs) -> dict:
             "underground_floors": osm_comp.get("underground_floors", 0),
             "built_up_area_sqm": built_up_area_sqm,
             "building_parts": osm_comp.get("building_parts", []),
-            "roof": osm_comp.get("roof", {}),
-            "building_material": osm_comp.get("building_material"),
-            "building_color": osm_comp.get("building_color"),
+            "roof": {"shape": roof_shape} if roof_shape else osm_comp.get("roof", {}),
+            "building_material": building_material,
+            "building_color": building_color,
+            "aerial_image_url": f"/sample_data/{os.path.basename(image_path)}" if image_path and os.path.exists(image_path) else None,
+            "gemini_vision_data": gemini_vision_data,
             "assessment": assessment_data,
             "extrusion_3d": {
                 "type": "Building3D",

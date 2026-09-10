@@ -52,7 +52,7 @@ async def call_gemini(b64_image: str, mime_type: str, prompt: str) -> Optional[d
     if not api_key:
         return None
 
-    models = ["gemini-3.6-flash", "gemini-1.5-flash"]
+    models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
     url_template = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     payload = {
         "contents": [{"parts": [{"text": prompt}, {"inlineData": {"mimeType": mime_type, "data": b64_image}}]}],

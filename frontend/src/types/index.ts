@@ -163,6 +163,7 @@ export interface Building {
   land_use?: string;
   osm_id?: string;
   raw_osm_data?: any;
+  gemini_vision_data?: any;
 }
 
 export interface AutoDetectBuildingPayload {

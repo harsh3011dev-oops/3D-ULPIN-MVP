@@ -1497,8 +1497,20 @@ export default function MapThreeJS({
       });
     };
 
-    // 1. Initial immediate render from available OSM vector data
-    applyProceduralReconstruction();
+    // 1. Initial render from available OSM vector data + Satellite Vision Data
+    const initialVisionInference = building.gemini_vision_data ? {
+      confidence: (building.gemini_vision_data.confidence || 80) / 100,
+      building_type: building.gemini_vision_data.architectural_form || 'mixed_use',
+      roof_shape: (building.gemini_vision_data.roof_shape || '').toLowerCase(),
+      architectural_form: building.gemini_vision_data.architectural_form || 'central_mass',
+      suggested_material: building.gemini_vision_data.building_material || building.building_material,
+      symmetry: building.gemini_vision_data.symmetry || 'bilateral',
+      inferred_fields: ['satellite_vision', 'roof_shape', 'building_material'],
+      reasoning: 'Derived from high-res satellite image via Gemini Vision',
+      provenance: { source: 'gemini_vision', model: 'gemini-vision', cached: true }
+    } : undefined;
+
+    applyProceduralReconstruction(initialVisionInference);
 
     // 2. Optional Gemini AI inference when key OSM metadata is missing
     const hasExplicitRoofTag = Boolean(building.roof?.shape);
