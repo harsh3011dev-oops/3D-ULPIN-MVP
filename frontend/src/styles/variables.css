@@ -1,82 +1,84 @@
 :root {
-  /* ── Premium White & Pastel Palette ── */
-  --bg-primary:   #ffffff;
-  --bg-secondary: #f8f8fc;
-  --bg-tertiary:  #f2f2f8;
-  --bg-card:      #ffffff;
+  /* ── Architectural Canvas Palette ── */
+  --bg-primary:   #F5F5F2;
+  --bg-secondary: #FAFAF8;
+  --bg-tertiary:  #EFEFEA;
+  --bg-card:      #FFFFFF;
 
-  --surface:                   #ffffff;
-  --surface-container-lowest:  #ffffff;
-  --surface-container-low:     #f8f8fc;
-  --surface-container:         #f2f2f8;
-  --surface-container-high:    #eeeef6;
-  --surface-elevated:          #ffffff;
+  --surface:                   #FFFFFF;
+  --surface-container-lowest:  #FFFFFF;
+  --surface-container-low:     #FAFAF8;
+  --surface-container:         #F5F5F2;
+  --surface-container-high:    #EAEAE4;
+  --surface-elevated:          #FFFFFF;
 
-  /* ── Pastel Accent Highlights ── */
-  --accent-lavender:       #7c6fe0;
-  --accent-lavender-soft:  rgba(124, 111, 224, 0.12);
-  --accent-lavender-glow:  rgba(124, 111, 224, 0.25);
+  /* ── Dark Technical 3D Stages ── */
+  --bg-dark-stage:       #090D12;
+  --bg-dark-surface:     #0D1117;
+  --bg-dark-card:        #161B22;
+  --border-dark:         #21262D;
+  --border-dark-subtle:  #30363D;
+  --text-dark-primary:   #F0F6FC;
+  --text-dark-secondary: #8B949E;
+  --text-dark-muted:     #6E7681;
 
-  --accent-rose:           #e06f8f;
-  --accent-rose-soft:      rgba(224, 111, 143, 0.12);
+  /* ── Cadastral & Functional Accents (Restrained Cyan/Teal, NO Purple) ── */
+  --accent-teal:         #0D9488;
+  --accent-teal-soft:    rgba(13, 148, 136, 0.12);
+  --accent-teal-glow:    rgba(13, 148, 136, 0.22);
+  --accent-cyan:         #0891B2;
+  --accent-cyan-soft:    rgba(8, 145, 178, 0.12);
+  --accent-cyan-glow:    rgba(8, 145, 178, 0.25);
+  
+  --accent-green:        #10B981;
+  --accent-green-soft:   rgba(16, 185, 129, 0.12);
+  --accent-green-glow:   rgba(16, 185, 129, 0.2);
 
-  --accent-sage:           #6fad9b;
-  --accent-sage-soft:      rgba(111, 173, 155, 0.12);
+  --accent-amber:        #D97706;
+  --accent-amber-soft:   rgba(217, 119, 6, 0.12);
 
-  --accent-amber:          #d9960a;
-  --accent-amber-soft:     rgba(217, 150, 10, 0.12);
-  --accent-amber-glow:     rgba(217, 150, 10, 0.25);
+  --accent-red:          #DC2626;
+  --accent-red-soft:     rgba(220, 38, 38, 0.12);
 
-  --accent-blue:           #5b8dee;
-  --accent-blue-soft:      rgba(91, 141, 238, 0.12);
-  --accent-cyan:           #3bb8c8;
-  --accent-green:          #4fb88a;
-  --accent-green-glow:     rgba(79, 184, 138, 0.2);
-  --accent-red:            #e05c72;
-  --accent-orange:         #e08b4b;
-  --accent-purple:         #9b6fe0;
+  /* ── Primary & Text Hierarchy ── */
+  --primary:             #111827;
+  --primary-hover:       #1F2937;
+  --on-primary:          #FFFFFF;
 
-  /* ── Primary ── */
-  --primary:    #1a1a2e;
-  --on-primary: #ffffff;
+  --text-primary:        #111827;
+  --text-secondary:      #4B5563;
+  --text-muted:          #6B7280;
+  --text-code:           #0D9488;
 
-  /* ── Gradients ── */
-  --grad-brand:   linear-gradient(135deg, #7c6fe0 0%, #e06f8f 100%);
-  --grad-primary: linear-gradient(135deg, #1a1a2e 0%, #2d2b55 100%);
-  --grad-glass:   linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(248,248,252,0.7) 100%);
+  /* ── Borders & Structural Grids ── */
+  --border-color:        #E5E7EB;
+  --border-subtle:       #E2E8F0;
+  --border-strong:       #D1D5DB;
+  --border-cadastral:    #0D9488;
 
-  /* ── Text ── */
-  --text-primary:   #1a1a2e;
-  --text-secondary: #4a4a6a;
-  --text-muted:     #8888aa;
-  --text-code:      #7c6fe0;
+  /* ── Shadows (Restrained, Architectural) ── */
+  --shadow-xs:           0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm:           0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md:           0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg:           0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  --shadow-xl:           0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 
-  /* ── Borders & Shadows ── */
-  --border-color:      rgba(124, 111, 224, 0.12);
-  --border-glass:      rgba(124, 111, 224, 0.15);
-  --border-subtle:     rgba(180, 180, 210, 0.2);
-  --shadow-sm:  0 1px 4px rgba(26, 26, 46, 0.06);
-  --shadow-md:  0 4px 20px rgba(26, 26, 46, 0.09);
-  --shadow-lg:  0 12px 40px rgba(26, 26, 46, 0.12);
-  --shadow-glow-lavender: 0 4px 24px rgba(124, 111, 224, 0.22);
-  --shadow-glow-rose:     0 4px 24px rgba(224, 111, 143, 0.22);
-
-  /* ── Radii ── */
-  --radius-xs:   2px;
-  --radius-sm:   6px;
-  --radius-md:   12px;
-  --radius-lg:   18px;
-  --radius-xl:   24px;
-  --radius-full: 9999px;
+  /* ── Radii (Sleek Engineering Lines) ── */
+  --radius-xs:           2px;
+  --radius-sm:           4px;
+  --radius-md:           8px;
+  --radius-lg:           12px;
+  --radius-xl:           16px;
+  --radius-full:         9999px;
 
   /* ── Typography ── */
-  --font-display: 'Playfair Display', 'Georgia', serif;
-  --font-sans:    'Inter', system-ui, -apple-system, sans-serif;
-  --font-body:    'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono:    'JetBrains Mono', monospace;
+  --font-display:        'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans:           'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body:           'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono:           'JetBrains Mono', 'Fira Code', monospace;
 
   /* ── Transitions ── */
-  --transition-fast:   0.15s ease;
-  --transition-normal: 0.25s ease;
-  --transition-slow:   0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast:     0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal:   0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow:     0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }

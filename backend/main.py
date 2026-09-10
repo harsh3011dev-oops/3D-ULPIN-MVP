@@ -72,6 +72,15 @@ app.include_router(api_router, prefix="/api")
 app.include_router(api_router, prefix="/v1")
 app.include_router(api_router)
 
+# ── Static Files ─────────────────────────────────────────────────────────────
+import os
+from fastapi.staticfiles import StaticFiles
+
+_sample_data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../sample_data"))
+os.makedirs(_sample_data_dir, exist_ok=True)
+app.mount("/sample_data", StaticFiles(directory=_sample_data_dir), name="sample_data")
+app.mount("/api/sample_data", StaticFiles(directory=_sample_data_dir), name="api_sample_data")
+
 
 # ── Root ──────────────────────────────────────────────────────────────────────
 @app.get("/", tags=["root"])

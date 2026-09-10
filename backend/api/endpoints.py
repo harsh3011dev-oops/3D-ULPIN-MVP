@@ -211,7 +211,11 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
                 floor_source=(disk_result or {}).get("floor_source", None),
                 is_floor_estimated=(disk_result or {}).get("is_floor_estimated", None),
                 underground_floors=(disk_result or {}).get("underground_floors", None),
-                built_up_area_sqm=(disk_result or {}).get("built_up_area_sqm", None)
+                built_up_area_sqm=(disk_result or {}).get("built_up_area_sqm", None),
+                building_material=(disk_result or {}).get("building_material", None),
+                building_color=(disk_result or {}).get("building_color", None),
+                aerial_image_url=(disk_result or {}).get("aerial_image_url", None),
+                gemini_vision_data=(disk_result or {}).get("gemini_vision_data", None)
             )
         except Exception as exc:
             import logging
@@ -294,7 +298,11 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
         floor_source=result.get("floor_source", None),
         is_floor_estimated=result.get("is_floor_estimated", None),
         underground_floors=result.get("underground_floors", None),
-        built_up_area_sqm=result.get("built_up_area_sqm", None)
+        built_up_area_sqm=result.get("built_up_area_sqm", None),
+        building_material=result.get("building_material", None),
+        building_color=result.get("building_color", None),
+        aerial_image_url=result.get("aerial_image_url", None),
+        gemini_vision_data=result.get("gemini_vision_data", None)
     )
 
 @router.get("/buildings/{building_id}/units", response_model=list[UnitResponse])

@@ -86,6 +86,10 @@ class BuildingResponse(BaseModel):
     is_floor_estimated: Optional[bool] = None
     underground_floors: Optional[int] = None
     built_up_area_sqm: Optional[float] = None
+    building_material: Optional[str] = None
+    building_color: Optional[str] = None
+    aerial_image_url: Optional[str] = None
+    gemini_vision_data: Optional[Dict[str, Any]] = None
 
 class ValidationResponse(BaseModel):
     building_id: str

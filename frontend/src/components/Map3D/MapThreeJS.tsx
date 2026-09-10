@@ -461,7 +461,7 @@ export type BuildingPartClassification =
   | 'entrance'
   | 'generic_extrusion';
 
-export function classifyBuildingPart(part: BuildingPart, metrics: ShapeMetrics): BuildingPartClassification {
+function classifyBuildingPart(part: BuildingPart, metrics: ShapeMetrics): BuildingPartClassification {
   const pType = (part.part_type || '').toLowerCase();
   const rShape = (part.roof_shape || '').toLowerCase();
   const tags = part.tags || {};
@@ -1580,8 +1580,20 @@ export default function MapThreeJS({
       });
     };
 
-    // 1. Initial immediate render from available OSM vector data
-    applyProceduralReconstruction();
+    // 1. Initial render from available OSM vector data + Satellite Vision Data
+    const initialVisionInference = building.gemini_vision_data ? {
+      confidence: (building.gemini_vision_data.confidence || 80) / 100,
+      building_type: building.gemini_vision_data.architectural_form || 'mixed_use',
+      roof_shape: (building.gemini_vision_data.roof_shape || '').toLowerCase(),
+      architectural_form: building.gemini_vision_data.architectural_form || 'central_mass',
+      suggested_material: building.gemini_vision_data.building_material || building.building_material,
+      symmetry: building.gemini_vision_data.symmetry || 'bilateral',
+      inferred_fields: ['satellite_vision', 'roof_shape', 'building_material'],
+      reasoning: 'Derived from high-res satellite image via Gemini Vision',
+      provenance: { source: 'gemini_vision', model: 'gemini-vision', cached: true }
+    } : undefined;
+
+    applyProceduralReconstruction(initialVisionInference);
 
     // 2. Optional Gemini AI inference when key OSM metadata is missing
     const hasExplicitRoofTag = Boolean(building.roof?.shape);
@@ -1963,8 +1975,8 @@ export default function MapThreeJS({
         mat.needsUpdate = true;
       } else if (isFloorActive) {
         mesh.visible = true;
-        mat.color.setHex(0x7c6fe0);
-        mat.emissive.setHex(0x4338ca);
+        mat.color.setHex(0x0d9488);
+        mat.emissive.setHex(0x042f2e);
         mat.emissiveIntensity = 0.8;
         mat.opacity = 0.88;
         mat.needsUpdate = true;
