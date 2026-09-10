@@ -46,10 +46,13 @@ def geocode_address(address: str) -> dict:
 
 
 OSM_OVERPASS_ENDPOINTS = [
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
     "https://lz4.overpass-api.de/api/interpreter",
     "https://z.overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
-    "https://overpass-api.de/api/interpreter"
+    "https://overpass.osm.ch/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
 ]
 OSM_HEADERS = {
     "User-Agent": "3D-ULPIN-Cadastral-Engine/2.0 (research@cadastral3d.gov.in)"
@@ -182,7 +185,7 @@ def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 350, 
     for endpoint in OSM_OVERPASS_ENDPOINTS:
         try:
             print(f"Fetching comprehensive OSM data from {endpoint} near [{lat}, {lon}]...")
-            response = requests.post(endpoint, data={"data": query}, headers=OSM_HEADERS, timeout=9)
+            response = requests.post(endpoint, data={"data": query}, headers=OSM_HEADERS, timeout=15)
             if response.status_code == 200:
                 payload = response.json()
                 break

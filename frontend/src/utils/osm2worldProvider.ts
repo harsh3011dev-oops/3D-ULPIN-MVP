@@ -192,8 +192,11 @@ export async function generate3DBuildingOSM2World(
 
   return new Promise((resolve) => {
     const convertOptions: any = {};
-    if (options?.targetElementId) {
-      convertOptions.filterIds = [String(options.targetElementId)];
+    // Only pass filterIds when we have a real OSM element ID (e.g. 'way/12345', 'relation/67890').
+    // 'osm/auto' is NOT a valid OSM ID and will crash the OSM2World Java engine.
+    const rawId = options?.targetElementId ? String(options.targetElementId) : '';
+    if (rawId && rawId !== 'osm/auto' && rawId.includes('/')) {
+      convertOptions.filterIds = [rawId];
     }
 
     try {
@@ -254,8 +257,11 @@ export async function generate3DBuildingOSM2World(
         filteredData = { ...osmData, elements: filteredElements };
       }
 
+      // Ensure the OSM data has the required 'version' field (OSM2World validates this)
+      const dataToConvert = { version: 0.6, ...filteredData };
+
       converter.convertJson(
-        JSON.stringify(filteredData),
+        JSON.stringify(dataToConvert),
         (rawMeshes: any[]) => {
           if (!rawMeshes || rawMeshes.length === 0) {
             console.warn('[OSM2World] Converter returned 0 meshes');

@@ -22,11 +22,15 @@ export interface OSMDataResponse {
   elements: OSMElement[];
 }
 
+// Primary and fallback Overpass API mirrors (ordered by reliability from browser)
 const OVERPASS_ENDPOINTS = [
-  'https://lz4.overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
   'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.osm.ch/api/interpreter',
+  'https://lz4.overpass-api.de/api/interpreter',
   'https://z.overpass-api.de/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
 ];
 
 const _OSM_CLIENT_CACHE = new Map<string, OSMDataResponse>();
@@ -92,16 +96,25 @@ out body;
 
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20_000);
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': '3D-ULPIN-OSM2World-Client/2.0 (contact@3dulpin.gov.in)',
         },
         body: 'data=' + encodeURIComponent(query),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       if (response.ok) {
+        const contentType = response.headers.get('Content-Type') || '';
+        // Skip endpoints returning HTML (rate-limit pages)
+        if (!contentType.includes('json') && !contentType.includes('osm') && !contentType.includes('text/plain')) {
+          console.warn(`[OSM Fetcher] ${endpoint} returned non-JSON content-type: ${contentType}`);
+          continue;
+        }
         const text = await response.text();
         if (text.startsWith('{')) {
           const data: OSMDataResponse = JSON.parse(text);
