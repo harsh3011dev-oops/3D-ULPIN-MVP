@@ -31,12 +31,22 @@ interface FormState {
 
 type EntryMode = 'select' | 'search' | 'manual';
 
+// Fallback presets — clicking triggers a live AI search, no coords hardcoded
 const PRESET_LANDMARKS = [
-  { name: 'Burj Khalifa', city: 'Dubai', lat: '25.19729°N', lon: '55.27450°E', height: '828', floors: '163' },
-  { name: 'Taj Mahal', city: 'Agra', lat: '27.17510°N', lon: '78.04210°E', height: '73', floors: '2' },
-  { name: 'India Gate', city: 'New Delhi', lat: '28.61290°N', lon: '77.22950°E', height: '42', floors: '1' },
-  { name: 'Empire State Building', city: 'New York', lat: '40.74840°N', lon: '73.98570°W', height: '380', floors: '102' },
+  { name: 'Burj Khalifa', city: 'Dubai' },
+  { name: 'Rashtrapati Bhavan', city: 'New Delhi' },
+  { name: 'India Gate', city: 'New Delhi' },
+  { name: 'Taj Mahal', city: 'Agra' },
 ];
+
+/** Build an ESRI World Imagery thumbnail URL for a lat/lon point */
+function getSatelliteThumbnail(lat: number, lon: number, zoom = 17): string {
+  const n = Math.pow(2, zoom);
+  const tx = Math.floor((lon + 180) / 360 * n);
+  const latRad = lat * Math.PI / 180;
+  const ty = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${ty}/${tx}`;
+}
 
 /**
  * Parses coordinates in various standard and geodetic formats:
@@ -107,6 +117,8 @@ export default function ExplorePage() {
   const [searchName, setSearchName] = useState('');
   const [searchCity, setSearchCity] = useState('');
   const [detectedBuilding, setDetectedBuilding] = useState<AutoDetectBuildingResult | null>(null);
+  const [satelliteUrl, setSatelliteUrl] = useState<string | null>(null);
+  const [presetLoading, setPresetLoading] = useState<string | null>(null);
 
   // Manual Form State
   const [step, setStep] = useState(1);
@@ -160,18 +172,47 @@ export default function ExplorePage() {
     setLoading(true);
     setError('');
     setDetectedBuilding(null);
+    setSatelliteUrl(null);
     try {
       const result = await autoDetectBuilding({
         building_name: searchName.trim(),
         city: searchCity.trim(),
       });
       setDetectedBuilding(result);
+      if (result.latitude != null && result.longitude != null) {
+        setSatelliteUrl(getSatelliteThumbnail(result.latitude, result.longitude));
+      }
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       setError(typeof detail === 'string' ? detail : 'Building lookup failed. You can use manual coordinates instead.');
       setDetectedBuilding(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPresetDynamic = async (preset: { name: string; city: string }) => {
+    setPresetLoading(preset.name);
+    setError('');
+    setDetectedBuilding(null);
+    setSatelliteUrl(null);
+    setSearchName(preset.name);
+    setSearchCity(preset.city);
+    setEntryMode('search');
+    try {
+      const result = await autoDetectBuilding({
+        building_name: preset.name,
+        city: preset.city,
+      });
+      setDetectedBuilding(result);
+      if (result.latitude != null && result.longitude != null) {
+        setSatelliteUrl(getSatelliteThumbnail(result.latitude, result.longitude));
+      }
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      setError(typeof detail === 'string' ? detail : `Could not fetch "${preset.name}". Try searching manually.`);
+    } finally {
+      setPresetLoading(null);
     }
   };
 
@@ -274,19 +315,6 @@ export default function ExplorePage() {
     }
   };
 
-  const loadPreset = (preset: typeof PRESET_LANDMARKS[0]) => {
-    setSearchName(preset.name);
-    setSearchCity(preset.city);
-    setForm({
-      buildingName: preset.name,
-      location: preset.city,
-      latitude: preset.lat,
-      longitude: preset.lon,
-      height: preset.height,
-      floors: preset.floors,
-    });
-    setEntryMode('search');
-  };
 
   // Parsed coordinates for live HUD indicator
   const parsedLat = parseCoordinate(form.latitude, 'lat');
@@ -329,24 +357,24 @@ export default function ExplorePage() {
 
                 <div className="hud-corner bottom-left font-mono">
                   <span>
-                    LAT: {detectedBuilding?.latitude
+                    LAT: {detectedBuilding?.latitude != null
                       ? `${detectedBuilding.latitude.toFixed(5)}°`
                       : !isNaN(parsedLat)
                       ? `${parsedLat.toFixed(5)}°`
-                      : '28.6129° N'}
+                      : '—'}
                   </span>
                   <span>
-                    LON: {detectedBuilding?.longitude
+                    LON: {detectedBuilding?.longitude != null
                       ? `${detectedBuilding.longitude.toFixed(5)}°`
                       : !isNaN(parsedLon)
                       ? `${parsedLon.toFixed(5)}°`
-                      : '77.2295° E'}
+                      : '—'}
                   </span>
                 </div>
 
                 <div className="hud-corner bottom-right font-mono">
-                  <span>H: {detectedBuilding?.height_meters || form.height || '42.0'}m</span>
-                  <span>FL: {detectedBuilding?.floors || form.floors || '12'}</span>
+                  <span>H: {detectedBuilding?.height_meters != null ? `${detectedBuilding.height_meters}m` : form.height ? `${form.height}m` : '—'}</span>
+                  <span>FL: {detectedBuilding?.floors != null ? detectedBuilding.floors : form.floors || '—'}</span>
                 </div>
               </div>
 
@@ -360,10 +388,13 @@ export default function ExplorePage() {
                     <button
                       key={idx}
                       type="button"
-                      className="preset-tag-btn"
-                      onClick={() => loadPreset(p)}
+                      className={`preset-tag-btn ${presetLoading === p.name ? 'loading' : ''}`}
+                      disabled={presetLoading !== null}
+                      onClick={() => loadPresetDynamic(p)}
                     >
-                      <Building2 size={12} color="#0D9488" />
+                      {presetLoading === p.name
+                        ? <Loader2 size={12} className="animate-spin" color="#0D9488" />
+                        : <Building2 size={12} color="#0D9488" />}
                       <span>{p.name}</span>
                     </button>
                   ))}
@@ -506,6 +537,21 @@ export default function ExplorePage() {
                           CONFIDENCE: {detectedBuilding.confidence}%
                         </span>
                       </div>
+
+                      {/* Live Satellite Thumbnail from ESRI World Imagery */}
+                      {satelliteUrl && (
+                        <div className="satellite-thumbnail-container">
+                          <img
+                            src={satelliteUrl}
+                            alt={`${detectedBuilding.building_name} satellite view`}
+                            className="satellite-thumbnail"
+                            onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }}
+                          />
+                          <div className="satellite-overlay-label font-mono">
+                            ESRI WORLD IMAGERY · ZOOM 17 · {detectedBuilding.building_name.toUpperCase()}
+                          </div>
+                        </div>
+                      )}
 
                       <div className="detected-fields-grid">
                         <div className="detected-field">
