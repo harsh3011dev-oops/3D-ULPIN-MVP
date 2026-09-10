@@ -266,7 +266,9 @@ def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 350, 
         if nom_geom:
             nom_vcount = len(nom_geom.get("coordinates", [[]])[0]) if nom_geom.get("type") == "Polygon" else sum(len(p[0]) for p in nom_geom.get("coordinates", []))
             curr_vcount = len(main_coords) if main_coords else 0
-            if curr_vcount < 5 or nom_vcount > curr_vcount:
+            # Only use Nominatim fallback if Overpass returned no valid polygon, or if Nominatim polygon is similarly sized.
+            # Do NOT override if Nominatim returned a massive estate polygon (thousands of vertices).
+            if curr_vcount < 4 or (nom_vcount > curr_vcount and nom_vcount < curr_vcount * 3):
                 main_footprint = nom_geom
 
         if not main_footprint:
@@ -329,15 +331,42 @@ def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 350, 
 
         # Parse Building Parts & Auxiliary Structures
         parsed_parts = []
-        all_part_candidates = list(part_elements)
+        all_part_candidates = []
 
-        # Also add any secondary building structures in the compound (e.g. detached towers, pavilions, minarets, wings)
+        # Main building centroid for proximity filtering
+        main_cx = sum(p[0] for p in main_coords[:-1]) / (len(main_coords) - 1) if main_coords else lon
+        main_cy = sum(p[1] for p in main_coords[:-1]) / (len(main_coords) - 1) if main_coords else lat
+
+        # Filter ALL parts (including explicitly tagged building:parts) by distance 
+        # to ensure we don't include parts of neighboring unrelated buildings.
+        compound_threshold_deg = 0.00065  # ~65-70 meters
+        
+        for el in part_elements:
+            el_c = _elem_to_coords(el)
+            if el_c:
+                el_cx = sum(p[0] for p in el_c[:-1]) / (len(el_c) - 1)
+                el_cy = sum(p[1] for p in el_c[:-1]) / (len(el_c) - 1)
+                dist_sq = (el_cx - main_cx)**2 + (el_cy - main_cy)**2
+                # Only include parts within the compound radius
+                if dist_sq < (compound_threshold_deg ** 2 * 1.5): # generous radius for massive complexes
+                    all_part_candidates.append(el)
+
         for el in building_elements:
             if el != main_elem and el.get("id") != main_elem.get("id"):
                 el_tags = el.get("tags", {})
                 b_val = el_tags.get("building", "")
-                if b_val not in ["no", ""]:
-                    all_part_candidates.append(el)
+                el_name = el_tags.get("name") or el_tags.get("name:en")
+                # Skip if it has a separate distinct name from the main building
+                if el_name and building_name and el_name.lower() not in building_name.lower() and building_name.lower() not in el_name.lower():
+                    continue
+
+                el_c = _elem_to_coords(el)
+                if el_c and b_val not in ["no", ""]:
+                    el_cx = sum(p[0] for p in el_c[:-1]) / (len(el_c) - 1)
+                    el_cy = sum(p[1] for p in el_c[:-1]) / (len(el_c) - 1)
+                    dist_sq = (el_cx - main_cx)**2 + (el_cy - main_cy)**2
+                    if dist_sq < (compound_threshold_deg ** 2):
+                        all_part_candidates.append(el)
 
         for idx, part in enumerate(all_part_candidates):
             p_tags = part.get("tags", {})

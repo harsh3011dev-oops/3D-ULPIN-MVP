@@ -90,6 +90,7 @@ class BuildingResponse(BaseModel):
     building_color: Optional[str] = None
     aerial_image_url: Optional[str] = None
     gemini_vision_data: Optional[Dict[str, Any]] = None
+    osm_id: Optional[str] = None
 
 class ValidationResponse(BaseModel):
     building_id: str

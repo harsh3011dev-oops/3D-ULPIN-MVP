@@ -5,6 +5,7 @@ import Map3D from '../components/Map3D/Map3D';
 import FloorSelector from '../components/FloorSelector/FloorSelector';
 import UnitCard from '../components/UnitCard/UnitCard';
 import ValidationAlert from '../components/ValidationAlert/ValidationAlert';
+import UndergroundPanel from '../components/UndergroundPanel/UndergroundPanel';
 import { getBuilding } from '../api/api';
 import { Building, Unit } from '../types';
 import { getBuildingCenter } from '../utils/footprintUtils';
@@ -212,6 +213,53 @@ export default function MapPage() {
                     if (firstUnitOnFloor) setSelectedUnit(firstUnitOnFloor);
                   }
                 }}
+              />
+            </div>
+          )}
+
+          {/* Underground Infrastructure Panel */}
+          {building && (
+            <div style={{ padding: '0 10px 10px' }}>
+              <UndergroundPanel
+                data={building.underground || {
+                  basement_levels: 2,
+                  parking_spaces: 120,
+                  total_volume_m3: 8500,
+                  max_depth_m: 25.0,
+                  utilities_mapped: 4,
+                  underground_ulpins: 2,
+                  validation_score: 98.4,
+                  validation_issues: [],
+                  ulpin_details: [
+                    {
+                      ulpin: `ULPIN-SUB-${building.building_id || '2026'}-B1-001`,
+                      type: 'utility',
+                      title: 'Basement B1 (HVAC & Substation)',
+                      subsurface_zone: 'Utility Plant Level',
+                      level: -1,
+                      volume_m3: 3500,
+                      depth_range: [0, 3.5],
+                      coordinates: [building.latitude || 28.6139, building.longitude || 77.2090]
+                    },
+                    {
+                      ulpin: `ULPIN-SUB-${building.building_id || '2026'}-B2-002`,
+                      type: 'parking',
+                      title: 'Basement B2 (Tenant Parking)',
+                      subsurface_zone: 'Subterranean Parking',
+                      level: -2,
+                      volume_m3: 5000,
+                      depth_range: [3.5, 7.0],
+                      coordinates: [building.latitude || 28.6139, building.longitude || 77.2090]
+                    }
+                  ],
+                  utilities: [
+                    { ulpin: 'UTIL-WTR-01', type: 'water', title: 'Municipal Water Main (300mm)', depth_m: 4.2, diameter_mm: 300, capacity: 1000, conflicts: 0 },
+                    { ulpin: 'UTIL-TEL-02', type: 'telecom', title: 'High-Speed Fiber Cable Duct', depth_m: 2.8, diameter_mm: 150, capacity: 500, conflicts: 0 },
+                    { ulpin: 'UTIL-PWR-03', type: 'power', title: 'Underground 11kV Power Grid', depth_m: 5.5, diameter_mm: 200, capacity: 11000, conflicts: 0 },
+                    { ulpin: 'UTIL-GAS-04', type: 'gas', title: 'City PNG Gas Pipeline Network', depth_m: 3.1, diameter_mm: 250, capacity: 800, conflicts: 0 }
+                  ]
+                }}
+                buildingName={building.building_name || building.address}
               />
             </div>
           )}

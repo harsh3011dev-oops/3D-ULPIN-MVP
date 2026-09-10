@@ -215,7 +215,8 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
                 building_material=(disk_result or {}).get("building_material", None),
                 building_color=(disk_result or {}).get("building_color", None),
                 aerial_image_url=(disk_result or {}).get("aerial_image_url", None),
-                gemini_vision_data=(disk_result or {}).get("gemini_vision_data", None)
+                gemini_vision_data=(disk_result or {}).get("gemini_vision_data", None),
+                osm_id=(disk_result or {}).get("osm_id", None)
             )
         except Exception as exc:
             import logging
@@ -302,7 +303,8 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
         building_material=result.get("building_material", None),
         building_color=result.get("building_color", None),
         aerial_image_url=result.get("aerial_image_url", None),
-        gemini_vision_data=result.get("gemini_vision_data", None)
+        gemini_vision_data=result.get("gemini_vision_data", None),
+        osm_id=result.get("osm_id", None)
     )
 
 @router.get("/buildings/{building_id}/units", response_model=list[UnitResponse])

@@ -147,10 +147,16 @@ export default function MapDeckGL({
     const lngFinal = lng !== 0 ? lng : Number(u?.centroid?.[1]);
     const latFinal = lat !== 0 ? lat : Number(u?.centroid?.[0]);
     if (!isNaN(latFinal) && !isNaN(lngFinal) && latFinal !== 0 && lngFinal !== 0) {
+      let initialZoom = 17.5;
+      if (building?.floor_count) {
+        if (building.floor_count > 100) initialZoom = 15.2;
+        else if (building.floor_count > 50) initialZoom = 15.8;
+        else if (building.floor_count > 25) initialZoom = 16.5;
+      }
       setViewState({
         longitude: lngFinal,
         latitude: latFinal,
-        zoom: 17.5,
+        zoom: initialZoom,
         pitch: 62,
         bearing: -25,
         maxPitch: 85,

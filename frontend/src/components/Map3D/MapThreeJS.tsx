@@ -951,6 +951,42 @@ function constructMultiMassBuilding(
   if (parts.length > 0) {
     geometrySource = 'OSM building:part';
 
+    // IMPORTANT: OSM mappers often only map the roof domes/towers as `building:part`
+    // and leave the massive main building base as just the footprint.
+    // If we only render parts, the main building disappears!
+    // We must render the main footprint up to the lowest elevated part to act as the base body.
+    let baseBodyHeight = 0;
+    const elevatedParts = parts.filter(p => p.min_height !== undefined && p.min_height > 0);
+    if (elevatedParts.length > 0) {
+      baseBodyHeight = Math.min(...elevatedParts.map(p => p.min_height!));
+    } else {
+      // If parts exist but none are elevated, they might not cover the whole footprint.
+      // Default to 1 floor height just in case, or maybe 40% of total height.
+      baseBodyHeight = floorHeight;
+    }
+
+    if (baseBodyHeight > 0) {
+      const baseShapes = footprintToShapes(building.footprint, centerLng, centerLat);
+      baseShapes.forEach((shape) => {
+        const baseGeo = new THREE.ExtrudeGeometry(shape, { depth: baseBodyHeight, bevelEnabled: false });
+        baseGeo.rotateX(-Math.PI / 2);
+        const baseMesh = new THREE.Mesh(baseGeo, materials.wallMaterial);
+        baseMesh.position.y = 0;
+        baseMesh.castShadow = true;
+        baseMesh.receiveShadow = true;
+        // Use polygonOffset to prevent z-fighting with parts that start at 0
+        baseMesh.material.polygonOffset = true;
+        baseMesh.material.polygonOffsetFactor = 1;
+        baseMesh.material.polygonOffsetUnits = 1;
+        visualGroup.add(baseMesh);
+        exteriorMeshes.push(baseMesh);
+
+        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(baseGeo, 30), materials.edgeMaterial);
+        edges.position.y = 0;
+        visualGroup.add(edges);
+      });
+    }
+
     parts.forEach((part: BuildingPart) => {
       const partShapes = part.footprint
         ? footprintToShapes(part.footprint, centerLng, centerLat)
@@ -1137,18 +1173,26 @@ function constructMultiMassBuilding(
         roughness: 0.5,
         metalness: 0.6,
       });
-      for (let f = 1; f < floors; f++) {
-        const bandY = currentElev + (f / floors) * wallBodyH - spandrelH / 2;
-        shapes.forEach((shape) => {
-          const bandShape = scaleShape(shape, 1.008);
-          const bandGeo = new THREE.ExtrudeGeometry(bandShape, { depth: spandrelH, bevelEnabled: false });
-          bandGeo.rotateX(-Math.PI / 2);
-          const bandMesh = new THREE.Mesh(bandGeo, spandrelMat);
-          bandMesh.position.y = bandY;
-          bandMesh.castShadow = false;
-          visualGroup.add(bandMesh);
-        });
-      }
+      shapes.forEach((shape) => {
+        const bandShape = scaleShape(shape, 1.008);
+        const bandGeo = new THREE.ExtrudeGeometry(bandShape, { depth: spandrelH, bevelEnabled: false });
+        bandGeo.rotateX(-Math.PI / 2);
+        
+        const instanceCount = floors - 1;
+        if (instanceCount > 0) {
+          const instancedMesh = new THREE.InstancedMesh(bandGeo, spandrelMat, instanceCount);
+          const dummy = new THREE.Object3D();
+          for (let f = 1; f < floors; f++) {
+            const bandY = currentElev + (f / floors) * wallBodyH - spandrelH / 2;
+            dummy.position.set(0, bandY, 0);
+            dummy.updateMatrix();
+            instancedMesh.setMatrixAt(f - 1, dummy.matrix);
+          }
+          instancedMesh.instanceMatrix.needsUpdate = true;
+          instancedMesh.castShadow = false;
+          visualGroup.add(instancedMesh);
+        }
+      });
 
       currentElev += wallBodyH;
 
@@ -1236,14 +1280,34 @@ function constructMultiMassBuilding(
       buildCloseDetailFacade(facadeDetailsGroup, shapes, podiumH, wallBodyH, floorHeight);
     }
   } else {
-    // Universal fallback
-    const fallbackGeo = new THREE.BoxGeometry(dims.width, totalHeight, dims.depth);
-    const fallbackMesh = new THREE.Mesh(fallbackGeo, materials.wallMaterial);
-    fallbackMesh.position.y = totalHeight / 2;
-    fallbackMesh.castShadow = true;
-    fallbackMesh.receiveShadow = true;
-    visualGroup.add(fallbackMesh);
-    exteriorMeshes.push(fallbackMesh);
+    // Universal fallback for buildings with a footprint but no parts
+    geometrySource = 'Procedural footprint';
+    const baseShapes = footprintToShapes(building.footprint, centerLng, centerLat);
+    
+    // Extrude the actual footprint instead of a generic box
+    baseShapes.forEach((shape) => {
+      const fallbackGeo = new THREE.ExtrudeGeometry(shape, { depth: totalHeight, bevelEnabled: false });
+      fallbackGeo.rotateX(-Math.PI / 2);
+      const fallbackMesh = new THREE.Mesh(fallbackGeo, materials.wallMaterial);
+      fallbackMesh.position.y = 0;
+      fallbackMesh.castShadow = true;
+      fallbackMesh.receiveShadow = true;
+      visualGroup.add(fallbackMesh);
+      exteriorMeshes.push(fallbackMesh);
+
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(fallbackGeo, 30), materials.edgeMaterial);
+      edges.position.y = 0;
+      visualGroup.add(edges);
+    });
+
+    // Add roof if not flat
+    if (roofType && roofType !== 'flat') {
+      generatePolygonalRoof(
+        visualGroup, baseShapes, roofType, totalHeight,
+        Math.max(zoning.roofHeight, 4), dims,
+        materials.roofMaterial, materials.goldAccentMat, materials.edgeMaterial,
+      );
+    }
   }
 
   return {
@@ -1401,9 +1465,10 @@ export default function MapThreeJS({
     const skyDome = new THREE.Mesh(skyDomeGeo, skyDomeMat);
     scene.add(skyDome);
 
-    const camera = new THREE.PerspectiveCamera(40, width / height, 0.5, 50000);
-    const camDist = Math.max(maxDim * 1.9, buildingHeight * 1.0, 35);
-    camera.position.set(camDist, buildingHeight * 0.5 + maxDim * 0.4, camDist);
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.5, 100000);
+    const heightFactor = buildingHeight > 500 ? 1.6 : buildingHeight > 250 ? 1.4 : 1.1;
+    const targetCamDist = Math.max(maxDim * 2.2, buildingHeight * heightFactor, 45);
+    camera.position.set(targetCamDist * 0.9, buildingHeight * 0.55 + maxDim * 0.25, targetCamDist * 0.9);
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -1418,34 +1483,42 @@ export default function MapThreeJS({
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    const targetY = buildingHeight / 2;
+    const targetY = buildingHeight * (buildingHeight > 300 ? 0.42 : 0.45);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.target.set(0, targetY, 0);
     controls.maxPolarAngle = Math.PI / 2 - 0.02;
     controls.minDistance = Math.max(4, maxDim * 0.3);
-    controls.maxDistance = 10000;
+    controls.maxDistance = Math.max(25000, buildingHeight * 15);
     controlsRef.current = controls;
 
     // Lighting Setup
-    const hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x1e293b, 1.45);
+    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x334155, 1.8);
     scene.add(hemiLight);
 
     const sunLight = new THREE.DirectionalLight(0xfffaf0, 2.9);
-    sunLight.position.set(sceneExtent * 0.7, buildingHeight * 2.2, sceneExtent * 0.6);
+    sunLight.position.set(sceneExtent * 0.8, buildingHeight * 1.5 + sceneExtent, sceneExtent * 0.8);
+    sunLight.target.position.set(0, targetY, 0);
+    scene.add(sunLight.target);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
-    sunLight.shadow.bias = -0.0001;
-    sunLight.shadow.camera.near = 0.5;
-    sunLight.shadow.camera.far = sceneExtent * 5;
-    const d = sceneExtent * 1.5;
+    sunLight.shadow.bias = -0.0002;
+    sunLight.shadow.normalBias = 0.08;
+    sunLight.shadow.camera.near = 1;
+    sunLight.shadow.camera.far = Math.max(sceneExtent * 4, buildingHeight * 3.5);
+    const d = Math.max(sceneExtent * 1.2, buildingHeight * 0.7);
     sunLight.shadow.camera.left = -d;
     sunLight.shadow.camera.right = d;
     sunLight.shadow.camera.top = d;
     sunLight.shadow.camera.bottom = -d;
     scene.add(sunLight);
+    
+    // Fill light to bring out architectural detail on shadowed sides of tall models
+    const fillLight = new THREE.DirectionalLight(0x94a3b8, 1.4);
+    fillLight.position.set(-sceneExtent * 0.8, buildingHeight * 0.6, -sceneExtent * 0.8);
+    scene.add(fillLight);
 
     const rimLight = new THREE.PointLight(0x818cf8, 3.5, sceneExtent * 2.5);
     rimLight.position.set(-maxDim * 1.5, buildingHeight * 0.8, -maxDim * 1.5);
@@ -1453,6 +1526,78 @@ export default function MapThreeJS({
 
     // Surrounding Plaza & Landscaping
     buildSurroundingContext(scene, dims, sceneExtent);
+
+    // ─────────────────────────────────────────────────────────────
+    // UNDERGROUND VISUALIZATION LAYER
+    // Renders basement levels below the ground plane as transparent
+    // volumetric blocks with colored-coded type indicators.
+    // ─────────────────────────────────────────────────────────────
+    const undergroundData = building.underground;
+    if (undergroundData?.ulpin_details?.length) {
+      const ugGroup = new THREE.Group();
+      ugGroup.name = 'undergroundGroup';
+      scene.add(ugGroup);
+
+      const TYPE_COLORS: Record<string, number> = {
+        basement: 0x6366f1,
+        parking: 0xf59e0b,
+        utility: 0x06b6d4,
+        metro: 0xec4899,
+        museum: 0x8b5cf6,
+        mixed: 0x10b981,
+      };
+
+      const baseShapes = footprintToShapes(building.footprint, dims.centerLng, dims.centerLat);
+
+      undergroundData.ulpin_details
+        .filter(u => u.level < 0)
+        .forEach((level) => {
+          const depthTop = -(level.depth_range[0] || 0);
+          const depthBot = -(level.depth_range[1] || level.depth_range[0] + 3.5);
+          const slabHeight = Math.abs(depthBot - depthTop);
+          const color = TYPE_COLORS[level.type] || 0x6366f1;
+
+          baseShapes.forEach((shape) => {
+            // Transparent solid slab
+            const ugGeo = new THREE.ExtrudeGeometry(shape, { depth: slabHeight, bevelEnabled: false });
+            ugGeo.rotateX(-Math.PI / 2);
+            const ugMat = new THREE.MeshStandardMaterial({
+              color,
+              transparent: true,
+              opacity: 0.18,
+              roughness: 0.8,
+              metalness: 0.3,
+              side: THREE.DoubleSide,
+            });
+            const ugMesh = new THREE.Mesh(ugGeo, ugMat);
+            ugMesh.position.y = depthTop; // negative = below ground
+            ugGroup.add(ugMesh);
+
+            // Wireframe outline for clarity
+            const edgesMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.6 });
+            const edges = new THREE.LineSegments(new THREE.EdgesGeometry(ugGeo, 30), edgesMat);
+            edges.position.y = depthTop;
+            ugGroup.add(edges);
+
+            // Floor label strip at the ceiling of each level
+            const stripGeo = new THREE.ExtrudeGeometry(shape, { depth: 0.25, bevelEnabled: false });
+            stripGeo.rotateX(-Math.PI / 2);
+            const stripMat = new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.6, transparent: true, opacity: 0.55 });
+            const stripMesh = new THREE.Mesh(stripGeo, stripMat);
+            stripMesh.position.y = depthTop + 0.01;
+            ugGroup.add(stripMesh);
+          });
+        });
+
+      // Vertical dotted shaft from ground to deepest level
+      if (undergroundData.max_depth_m > 0) {
+        const shaftGeo = new THREE.CylinderGeometry(0.25, 0.25, undergroundData.max_depth_m, 12);
+        const shaftMat = new THREE.MeshStandardMaterial({ color: 0x818cf8, transparent: true, opacity: 0.4, metalness: 0.8 });
+        const shaftMesh = new THREE.Mesh(shaftGeo, shaftMat);
+        shaftMesh.position.set(0, -(undergroundData.max_depth_m / 2), 0);
+        ugGroup.add(shaftMesh);
+      }
+    }
 
     // ─────────────────────────────────────────────────────────────
     // ARCHITECTURE SEPARATION:

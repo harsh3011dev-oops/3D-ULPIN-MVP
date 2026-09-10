@@ -197,8 +197,65 @@ export async function generate3DBuildingOSM2World(
     }
 
     try {
+      // 1. Filter out unrelated buildings to avoid massive neighborhood complexes taking over the camera
+      let filteredData = { ...osmData };
+      if (options?.targetElementId && String(options.targetElementId) !== 'osm/auto') {
+        const targetId = String(options.targetElementId);
+        // Find the target element
+        const targetEl = osmData.elements.find((el) => {
+          if (targetId.includes('/')) {
+            const [type, idStr] = targetId.split('/');
+            return el.type === type && String(el.id) === idStr;
+          }
+          return String(el.id) === targetId;
+        });
+        
+        if (targetEl) {
+          // Keep target element and its parts/members, plus any node references
+          const allowedIds = new Set<string>();
+          allowedIds.add(`${targetEl.type}/${targetEl.id}`);
+          
+          const isRelation = targetEl.type === 'relation';
+          if (isRelation && targetEl.members) {
+             targetEl.members.forEach((m: any) => allowedIds.add(`${m.type}/${m.ref}`));
+          }
+          
+          osmData.elements.forEach(el => {
+            if (el.tags && (el.tags['building:part'] || el.tags['building'] === 'part')) {
+              allowedIds.add(`${el.type}/${el.id}`);
+            }
+          });
+
+          // Build filtered elements
+          const filteredElements = osmData.elements.filter(el => {
+             // Let nodes through as they are used by ways
+             if (el.type === 'node') return true; 
+             if (allowedIds.has(`${el.type}/${el.id}`)) return true;
+             // Reject other buildings
+             if (el.tags && el.tags['building'] && el.tags['building'] !== 'no') {
+               return false;
+             }
+             return true; 
+          });
+          filteredData = { ...osmData, elements: filteredElements };
+        }
+      } else {
+        // If no target ID, try to find the main building and strip other named standalone buildings
+        const filteredElements = osmData.elements.filter(el => {
+          if (el.type === 'node') return true;
+          if (el.tags && el.tags['building:part']) return true;
+          // Filter out explicitly named foreign buildings that aren't parts
+          if (el.tags && el.tags['building'] && el.tags['name']) {
+             // Keep it if it has no name, but strip if it has a foreign name
+             return false;
+          }
+          return true;
+        });
+        filteredData = { ...osmData, elements: filteredElements };
+      }
+
       converter.convertJson(
-        JSON.stringify(osmData),
+        JSON.stringify(filteredData),
         (rawMeshes: any[]) => {
           if (!rawMeshes || rawMeshes.length === 0) {
             console.warn('[OSM2World] Converter returned 0 meshes');
