@@ -58,8 +58,8 @@ def download_satellite_image(
         print(f"Downloading high-res zoomed-in building satellite tiles (Zoom {zoom}) for [{lat:.4f}, {lon:.4f}]...")
 
         tile_size = 256
-        grid_size = 2
-        half = grid_size // 2
+        grid_size = 3
+        half = 1
         stitched = Image.new("RGB", (tile_size * grid_size, tile_size * grid_size))
 
         # Compute geographic bounds of the stitched image

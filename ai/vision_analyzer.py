@@ -37,6 +37,15 @@ def _extract_json(text: str) -> Optional[dict]:
     cleaned = text.strip()
     cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
     cleaned = re.sub(r"\s*```$", "", cleaned)
+    try:
+        data = json.loads(cleaned)
+        if isinstance(data, dict):
+            return data
+        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
+            return data[0]
+    except Exception:
+        pass
+
     match = re.search(r"\{.*\}", cleaned, re.DOTALL)
     if not match:
         return None
@@ -52,11 +61,16 @@ async def call_gemini(b64_image: str, mime_type: str, prompt: str) -> Optional[d
     if not api_key:
         return None
 
-    models = ["gemini-3.6-flash", "gemini-1.5-flash"]
+    models = ["gemini-3-flash-preview", "gemini-flash-latest", "gemini-flash-lite-latest"]
     url_template = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     payload = {
         "contents": [{"parts": [{"text": prompt}, {"inlineData": {"mimeType": mime_type, "data": b64_image}}]}],
-        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 512},
+        "generationConfig": {
+            "temperature": 0.1,
+            "maxOutputTokens": 4096,
+            "responseMimeType": "application/json",
+            "thinkingConfig": {"thinkingBudget": 0},
+        },
     }
 
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -66,12 +80,14 @@ async def call_gemini(b64_image: str, mime_type: str, prompt: str) -> Optional[d
                 resp = await client.post(url, params={"key": api_key}, json=payload)
                 if resp.status_code == 200:
                     raw_text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-                    logger.info("Gemini Vision Success!")
-                    return _extract_json(raw_text)
+                    logger.info("Gemini Vision Success with %s!", model)
+                    extracted = _extract_json(raw_text)
+                    if extracted:
+                        return extracted
                 else:
-                    logger.warning("Gemini API failed: %s", resp.status_code)
+                    logger.warning("Gemini API (%s) returned status %s: %s", model, resp.status_code, resp.text[:120])
             except Exception as e:
-                logger.warning("Gemini Error: %s", e)
+                logger.warning("Gemini Error with %s: %s", model, e)
     return None
 
 

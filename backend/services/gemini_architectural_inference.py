@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 _INFERENCE_CACHE: dict[str, dict[str, Any]] = {}
 
 GEMINI_MODELS = (
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
+    "gemini-3-flash-preview",
+    "gemini-flash-latest",
+    "gemini-flash-lite-latest",
 )
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
@@ -164,15 +164,16 @@ Respond with strict JSON in this exact format:
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "temperature": 0.1,
-            "maxOutputTokens": 300,
+            "maxOutputTokens": 2048,
             "responseMimeType": "application/json",
+            "thinkingConfig": {"thinkingBudget": 0},
         },
     }
 
     inferred_result = None
     model_used = None
 
-    async with httpx.AsyncClient(timeout=4.0) as client:
+    async with httpx.AsyncClient(timeout=12.0) as client:
         for model in GEMINI_MODELS:
             url = GEMINI_URL.format(model=model)
             try:

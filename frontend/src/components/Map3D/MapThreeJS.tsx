@@ -1078,37 +1078,48 @@ function constructMultiMassBuilding(
     });
   } else if (building.footprint) {
     // ─────────────────────────────────────────────────────────────
-    // SINGLE FOOTPRINT MULTI-MASS PROCEDURAL RECONSTRUCTION
-    // Decomposes single footprint into realistic architectural masses
-    // (Podium Platform + Main Wall Body + Cornice + Crown/Roof)
+    // SINGLE FOOTPRINT — PREMIUM PROCEDURAL MULTI-MASS RECONSTRUCTION
+    // Generates: Stepped Podium + Per-Floor Spandrel Bands + Cornice + Roof Crown
     // ─────────────────────────────────────────────────────────────
     geometrySource = 'OSM Footprint (Procedural Mass Decomposition)';
     const shapes = footprintToShapes(building.footprint, centerLng, centerLat);
+    const floors = building.floor_count || Math.max(Math.round(totalHeight / floorHeight), 3);
 
     if (shapes.length > 0) {
-      // 1. Platform / Plinth Base
-      let currentElev = 0;
-      if (zoning.hasPlatform) {
-        shapes.forEach((shape) => {
-          const podiumShape = scaleShape(shape, 1.04);
-          const podGeo = new THREE.ExtrudeGeometry(podiumShape, { depth: zoning.platformHeight, bevelEnabled: false });
-          podGeo.rotateX(-Math.PI / 2);
-          const podMesh = new THREE.Mesh(podGeo, materials.podiumMaterial);
-          podMesh.position.y = 0;
-          podMesh.castShadow = true;
-          podMesh.receiveShadow = true;
-          visualGroup.add(podMesh);
-          exteriorMeshes.push(podMesh);
-
-          const edges = new THREE.LineSegments(new THREE.EdgesGeometry(podGeo, 30), materials.edgeMaterial);
-          visualGroup.add(edges);
-        });
-        currentElev += zoning.platformHeight;
-      }
-
-      // 2. Main Wall Body
+      // 1. ── Raised Podium Base (always present for all buildings > 2 floors) ──
+      const podiumH = Math.max(floorHeight * 0.9, 2.5);
+      const podiumElev = 0;
       shapes.forEach((shape) => {
-        const bodyGeo = new THREE.ExtrudeGeometry(shape, { depth: zoning.wallHeight, bevelEnabled: false });
+        const podShape = scaleShape(shape, 1.035);
+        const podGeo = new THREE.ExtrudeGeometry(podShape, { depth: podiumH, bevelEnabled: false });
+        podGeo.rotateX(-Math.PI / 2);
+        const podMesh = new THREE.Mesh(podGeo, materials.podiumMaterial);
+        podMesh.position.y = podiumElev;
+        podMesh.castShadow = true;
+        podMesh.receiveShadow = true;
+        visualGroup.add(podMesh);
+        exteriorMeshes.push(podMesh);
+        const podEdges = new THREE.LineSegments(new THREE.EdgesGeometry(podGeo, 25), materials.edgeMaterial);
+        podEdges.position.y = podiumElev;
+        visualGroup.add(podEdges);
+      });
+
+      // Podium Cornice Cap
+      shapes.forEach((shape) => {
+        const capShape = scaleShape(shape, 1.05);
+        const capGeo = new THREE.ExtrudeGeometry(capShape, { depth: 0.5, bevelEnabled: false });
+        capGeo.rotateX(-Math.PI / 2);
+        const capMesh = new THREE.Mesh(capGeo, materials.trimMaterial);
+        capMesh.position.y = podiumH - 0.05;
+        visualGroup.add(capMesh);
+      });
+
+      let currentElev = podiumH;
+      const wallBodyH = Math.max(totalHeight - podiumH - floorHeight * 0.6, floorHeight * 2);
+
+      // 2. ── Main Wall Body (full glass/concrete facade) ──
+      shapes.forEach((shape) => {
+        const bodyGeo = new THREE.ExtrudeGeometry(shape, { depth: wallBodyH, bevelEnabled: false });
         bodyGeo.rotateX(-Math.PI / 2);
         const bodyMesh = new THREE.Mesh(bodyGeo, materials.wallMaterial);
         bodyMesh.position.y = currentElev;
@@ -1116,41 +1127,113 @@ function constructMultiMassBuilding(
         bodyMesh.receiveShadow = true;
         visualGroup.add(bodyMesh);
         exteriorMeshes.push(bodyMesh);
-
-        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(bodyGeo, 30), materials.edgeMaterial);
-        edges.position.y = currentElev;
-        visualGroup.add(edges);
       });
 
-      // 3. String Course / Attic Cornice
-      if (zoning.hasSteppedTiers) {
+      // 3. ── Per-Floor Spandrel Band Lines (horizontal separation between every floor) ──
+      // These give the building the critical "multi-story" look — visible horizontal floor bands
+      const spandrelH = 0.28;
+      const spandrelMat = new THREE.MeshStandardMaterial({
+        color: materials.isHistoric ? 0x7c2d12 : 0x1e293b,
+        roughness: 0.5,
+        metalness: 0.6,
+      });
+      for (let f = 1; f < floors; f++) {
+        const bandY = currentElev + (f / floors) * wallBodyH - spandrelH / 2;
         shapes.forEach((shape) => {
-          const corniceShape = scaleShape(shape, 1.02);
-          const cGeo = new THREE.ExtrudeGeometry(corniceShape, { depth: 0.8, bevelEnabled: false });
-          cGeo.rotateX(-Math.PI / 2);
-          const cMesh = new THREE.Mesh(cGeo, materials.trimMaterial);
-          cMesh.position.y = currentElev + zoning.wallHeight - 0.8;
-          visualGroup.add(cMesh);
+          const bandShape = scaleShape(shape, 1.008);
+          const bandGeo = new THREE.ExtrudeGeometry(bandShape, { depth: spandrelH, bevelEnabled: false });
+          bandGeo.rotateX(-Math.PI / 2);
+          const bandMesh = new THREE.Mesh(bandGeo, spandrelMat);
+          bandMesh.position.y = bandY;
+          bandMesh.castShadow = false;
+          visualGroup.add(bandMesh);
         });
       }
 
-      currentElev += zoning.wallHeight;
+      currentElev += wallBodyH;
 
-      // 4. Crown / Roof / Dome System
-      generatePolygonalRoof(
-        visualGroup,
-        shapes,
-        roofType,
-        currentElev,
-        zoning.roofHeight,
-        dims,
-        materials.roofMaterial,
-        materials.goldAccentMat,
-        materials.edgeMaterial,
+      // 4. ── Setback Crown / Mechanical Penthouse Floor ──
+      const penthouseH = Math.max(floorHeight * 0.7, 2.2);
+      shapes.forEach((shape) => {
+        const pentShape = scaleShape(shape, 0.88); // Setback inward
+        const pentGeo = new THREE.ExtrudeGeometry(pentShape, { depth: penthouseH, bevelEnabled: false });
+        pentGeo.rotateX(-Math.PI / 2);
+        const pentMesh = new THREE.Mesh(pentGeo, materials.roofMaterial);
+        pentMesh.position.y = currentElev;
+        pentMesh.castShadow = true;
+        visualGroup.add(pentMesh);
+        exteriorMeshes.push(pentMesh);
+        const pentEdges = new THREE.LineSegments(new THREE.EdgesGeometry(pentGeo, 25), materials.edgeMaterial);
+        pentEdges.position.y = currentElev;
+        visualGroup.add(pentEdges);
+      });
+
+      // Penthouse step-in cornice line
+      shapes.forEach((shape) => {
+        const stepShape = scaleShape(shape, 1.01);
+        const stepGeo = new THREE.ExtrudeGeometry(stepShape, { depth: 0.4, bevelEnabled: false });
+        stepGeo.rotateX(-Math.PI / 2);
+        const stepMesh = new THREE.Mesh(stepGeo, materials.trimMaterial);
+        stepMesh.position.y = currentElev - 0.05;
+        visualGroup.add(stepMesh);
+      });
+
+      currentElev += penthouseH;
+
+      // 5. ── Flat Roof Parapet + HVAC Core + Mast ──
+      const cx = 0;
+      const cz = 0;
+      const parapetH = 1.1;
+      shapes.forEach((shape) => {
+        const paraGeo = new THREE.ExtrudeGeometry(shape, { depth: parapetH, bevelEnabled: false });
+        paraGeo.rotateX(-Math.PI / 2);
+        const paraMesh = new THREE.Mesh(paraGeo, materials.trimMaterial);
+        paraMesh.position.y = currentElev;
+        visualGroup.add(paraMesh);
+        const paraEdges = new THREE.LineSegments(new THREE.EdgesGeometry(paraGeo, 30), materials.edgeMaterial);
+        paraEdges.position.y = currentElev;
+        visualGroup.add(paraEdges);
+      });
+
+      // Rooftop HVAC / mechanical core box
+      const coreW = Math.max(dims.width * 0.32, 4);
+      const coreD = Math.max(dims.depth * 0.32, 4);
+      const coreH = Math.max(2.8, floorHeight * 0.5);
+      const coreMesh = new THREE.Mesh(new THREE.BoxGeometry(coreW, coreH, coreD), materials.roofMaterial);
+      coreMesh.position.set(cx, currentElev + parapetH + coreH / 2, cz);
+      coreMesh.castShadow = true;
+      visualGroup.add(coreMesh);
+
+      // HVAC unit on top of core
+      const hvacMesh = new THREE.Mesh(new THREE.BoxGeometry(coreW * 0.8, 1.2, coreD * 0.8), materials.trimMaterial);
+      hvacMesh.position.set(cx, currentElev + parapetH + coreH + 0.6, cz);
+      visualGroup.add(hvacMesh);
+
+      // Communication mast
+      const mastH = Math.max(4.5, totalHeight * 0.12);
+      const mastMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.2, mastH, 8), materials.trimMaterial);
+      mastMesh.position.set(cx, currentElev + parapetH + coreH + 1.2 + mastH / 2, cz);
+      visualGroup.add(mastMesh);
+
+      // Beacon light at mast tip
+      const beaconMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.32, 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 2.8 }),
       );
+      beaconMesh.position.set(cx, currentElev + parapetH + coreH + 1.2 + mastH, cz);
+      visualGroup.add(beaconMesh);
 
-      // 5. Close LOD Facade Details (Instanced windows)
-      buildCloseDetailFacade(facadeDetailsGroup, shapes, zoning.hasPlatform ? zoning.platformHeight : 0, zoning.wallHeight, floorHeight);
+      // If non-flat roof shape specified, add on top
+      if (roofType && roofType !== 'flat') {
+        generatePolygonalRoof(
+          visualGroup, shapes, roofType, currentElev + parapetH,
+          Math.max(zoning.roofHeight, 4), dims,
+          materials.roofMaterial, materials.goldAccentMat, materials.edgeMaterial,
+        );
+      }
+
+      // 6. ── Close LOD Facade Details (Instanced windows) ──
+      buildCloseDetailFacade(facadeDetailsGroup, shapes, podiumH, wallBodyH, floorHeight);
     }
   } else {
     // Universal fallback
