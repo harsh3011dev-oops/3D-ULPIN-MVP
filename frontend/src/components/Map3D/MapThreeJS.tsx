@@ -204,11 +204,11 @@ function createArchitecturalMaterials(building: Building, wireframe: boolean) {
     wireframe,
   });
 
-  // 6. Subtle Architectural Pen Outline Material
+  // 6. Crisp Architectural Pen Outline Material (Prevents camouflage on black background)
   const edgeMaterial = new THREE.LineBasicMaterial({
-    color: 0x0f172a,
+    color: 0x64748b,
     transparent: true,
-    opacity: 0.40,
+    opacity: 0.65,
   });
 
   return {
@@ -1309,10 +1309,10 @@ export default function MapThreeJS({
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // Atmospheric Sky Dome Background
+    // Atmospheric Pure Black Background Sky Dome
     const skyDomeGeo = new THREE.SphereGeometry(sceneExtent * 4, 32, 32);
     const skyDomeMat = new THREE.MeshBasicMaterial({
-      color: 0x080e1a,
+      color: 0x000000,
       side: THREE.BackSide,
     });
     const skyDome = new THREE.Mesh(skyDomeGeo, skyDomeMat);

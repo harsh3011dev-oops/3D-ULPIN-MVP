@@ -110,17 +110,17 @@ function CadastralContext({
     <group>
       {/* ── Ground Cadastral Grid ── */}
       <gridHelper
-        args={[54, 54, '#0D9488', '#1E293B']}
+        args={[60, 60, '#00F5D4', '#263445']}
         position={[5.4, 0, 0]}
       />
 
       {/* ── Dark Reflective Ground Plane ── */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[5.4, -0.01, 0]} receiveShadow>
-        <planeGeometry args={[80, 80]} />
+        <planeGeometry args={[90, 90]} />
         <meshStandardMaterial
-          color="#060A12"
-          roughness={0.4}
-          metalness={0.6}
+          color="#020408"
+          roughness={0.3}
+          metalness={0.7}
         />
       </mesh>
 
@@ -711,17 +711,17 @@ function SceneController({
 
   return (
     <>
-      {/* ── ATMOSPHERIC FOG & BACKGROUND ── */}
-      <color attach="background" args={['#080E1A']} />
-      <fog attach="fog" args={['#080E1A', 12, 38]} />
+      {/* ── ATMOSPHERIC PURE BLACK BACKGROUND & FOG ── */}
+      <color attach="background" args={['#000000']} />
+      <fog attach="fog" args={['#000000', 16, 52]} />
 
-      {/* ── CINEMATIC ARCHITECTURAL LIGHTING ── */}
-      <ambientLight intensity={0.75} color="#E2E8F0" />
+      {/* ── HIGH-CONTRAST CINEMATIC ARCHITECTURAL LIGHTING ── */}
+      <ambientLight intensity={1.1} color="#F1F5F9" />
 
       {/* Primary Key Architectural Sun Light */}
       <directionalLight
         position={[16, 22, 14]}
-        intensity={1.65}
+        intensity={2.3}
         color="#FFFBEB"
         castShadow
         shadow-mapSize-width={1024}
@@ -733,18 +733,18 @@ function SceneController({
         shadow-camera-bottom={-14}
       />
 
-      {/* Sky Blue Reflection Fill Light */}
+      {/* Sky Blue Crisp Fill / Rim Light */}
       <directionalLight
         position={[-12, 12, -8]}
-        intensity={0.85}
-        color="#93C5FD"
+        intensity={1.2}
+        color="#38BDF8"
       />
 
       {/* Cadastral Cyan Ground Bounce */}
       <directionalLight
         position={[5, -4, 6]}
-        intensity={0.4}
-        color="#14B8A6"
+        intensity={0.7}
+        color="#00F5D4"
       />
 
       {/* ── 3D SCENE CONTENT ── */}

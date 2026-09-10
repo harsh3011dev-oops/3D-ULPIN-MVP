@@ -1,26 +1,26 @@
 :root {
-  /* ── Architectural Canvas Palette ── */
-  --bg-primary:   #F5F5F2;
-  --bg-secondary: #FAFAF8;
-  --bg-tertiary:  #EFEFEA;
-  --bg-card:      #FFFFFF;
+  /* ── Architectural Canvas Palette (Pure Black Theme) ── */
+  --bg-primary:   #000000;
+  --bg-secondary: #05070B;
+  --bg-tertiary:  #0B0F17;
+  --bg-card:      #0D1117;
 
-  --surface:                   #FFFFFF;
-  --surface-container-lowest:  #FFFFFF;
-  --surface-container-low:     #FAFAF8;
-  --surface-container:         #F5F5F2;
-  --surface-container-high:    #EAEAE4;
-  --surface-elevated:          #FFFFFF;
+  --surface:                   #0D1117;
+  --surface-container-lowest:  #000000;
+  --surface-container-low:     #05070B;
+  --surface-container:         #0A0E15;
+  --surface-container-high:    #111822;
+  --surface-elevated:          #161E2E;
 
   /* ── Dark Technical 3D Stages ── */
-  --bg-dark-stage:       #090D12;
-  --bg-dark-surface:     #0D1117;
-  --bg-dark-card:        #161B22;
-  --border-dark:         #21262D;
-  --border-dark-subtle:  #30363D;
-  --text-dark-primary:   #F0F6FC;
-  --text-dark-secondary: #8B949E;
-  --text-dark-muted:     #6E7681;
+  --bg-dark-stage:       #000000;
+  --bg-dark-surface:     #080C12;
+  --bg-dark-card:        #0F1622;
+  --border-dark:         #1E293B;
+  --border-dark-subtle:  #2D3748;
+  --text-dark-primary:   #F8FAFC;
+  --text-dark-secondary: #94A3B8;
+  --text-dark-muted:     #64748B;
 
   /* ── Cadastral & Functional Accents (Restrained Cyan/Teal, NO Purple) ── */
   --accent-teal:         #0D9488;
