@@ -19,10 +19,9 @@ CACHE: dict[str, dict[str, Any]] = {}
 
 
 GEMINI_MODELS = (
-    "gemini-3.6-flash",
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
+    "gemini-3-flash-preview",
+    "gemini-flash-latest",
+    "gemini-flash-lite-latest",
 )
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
@@ -138,7 +137,9 @@ Rules:
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
                 "temperature": 0.1,
+                "maxOutputTokens": 2048,
                 "responseMimeType": "application/json",
+                "thinkingConfig": {"thinkingBudget": 0},
             },
         }
 
