@@ -1,37 +1,31 @@
-# ─────────────────────────────────────────────
-# 3D-ULPIN — Combined Requirements (Backend + AI Pipeline)
-# Used for deployment on Render.com
-# ─────────────────────────────────────────────
+# 3D ULPIN MVP — Combined Root Requirements for Cloud Deployment (Render / AWS)
 
-# ── Web Framework ──────────────────────────────
+# ── Web Framework & API ──────────────────────────────
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
 
-# ── Database ──────────────────────────────────
+# ── Database & ORM ──────────────────────────────────
 sqlalchemy==2.0.30
 asyncpg==0.29.0
 geoalchemy2==0.15.1
-alembic==1.13.1
 psycopg2-binary==2.9.9
 
-# ── Supabase SDK ──────────────────────────────
+# ── Supabase & Storage ─────────────────────────────
 supabase==2.5.1
 
-# ── Schema & Validation ───────────────────────
+# ── Schema & Settings ──────────────────────────────
 pydantic==2.7.1
 pydantic-settings==2.3.1
-
-# ── Utilities ─────────────────────────────────
 python-dotenv==1.0.1
 python-multipart==0.0.9
 httpx==0.27.0
-shapely==2.0.4
-
-# ── AI / Computer Vision Pipeline ─────────────
-opencv-python-headless==4.9.0.80
-numpy==1.26.4
-scikit-image==0.22.0
-pyproj==3.6.1
-pygeohash==1.2.0
-rasterio>=1.3.9
 requests==2.31.0
+
+# ── AI, Computer Vision & Spatial Math ─────────────
+opencv-python-headless>=4.9.0.80
+shapely==2.0.4
+numpy==1.26.4
+pyproj==3.6.1
+rasterio>=1.3.9
+scikit-image==0.22.0
+pygeohash==1.2.0

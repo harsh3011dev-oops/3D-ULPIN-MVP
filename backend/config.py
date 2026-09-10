@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     # ── App ───────────────────────────────────
     secret_key: str = "change-me"
     debug: bool = False
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "http://localhost:3000,http://localhost:5173,https://*.vercel.app,*"
     gemini_api_key: str = ""
     groq_api_key: str = ""
     hf_api_key: str = ""
