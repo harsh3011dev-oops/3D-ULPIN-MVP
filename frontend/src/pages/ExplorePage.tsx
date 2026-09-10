@@ -96,10 +96,117 @@ export function parseCoordinate(val: string, type?: 'lat' | 'lon'): number {
   return fallback;
 }
 
+export interface ParsedCoordinates {
+  lat: number;
+  lon: number;
+  isValid: boolean;
+  formattedLat?: string;
+  formattedLon?: string;
+}
+
+/**
+ * Parses a combined coordinate input containing latitude and longitude or coordinates in any standard format:
+ * - Comma separated: "25.19729, 55.27450"
+ * - Directional degree notation: "25.19729°N, 55.27450°E" or "55.27450°E, 25.19729°N"
+ * - Directional suffixes/prefixes: "25.19729N, 55.27450E" or "25.19729N 55.27450E"
+ * - DMS notation: "25° 11' 50.2\" N, 55° 16' 28.2\" E"
+ * - Space separated: "25.19729 55.27450"
+ */
+export function parseCoordinatePair(input: string): ParsedCoordinates {
+  if (!input || !input.trim()) {
+    return { lat: NaN, lon: NaN, isValid: false };
+  }
+
+  const raw = input.trim();
+
+  // Try parsing named/tagged formats like "lat: 25.19729, lon: 55.27450"
+  const latNamedMatch = raw.match(/lat(?:itude)?[:\s=]+([+-]?[0-9.]+[°\s]*[NSEWnsew]?)/i);
+  const lonNamedMatch = raw.match(/lon(?:gitude)?[:\s=]+([+-]?[0-9.]+[°\s]*[NSEWnsew]?)/i);
+  if (latNamedMatch && lonNamedMatch) {
+    const lat = parseCoordinate(latNamedMatch[1], 'lat');
+    const lon = parseCoordinate(lonNamedMatch[1], 'lon');
+    const isValid = !isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+    return {
+      lat,
+      lon,
+      isValid,
+      formattedLat: !isNaN(lat) ? `${Math.abs(lat).toFixed(6)}° ${lat >= 0 ? 'N' : 'S'}` : undefined,
+      formattedLon: !isNaN(lon) ? `${Math.abs(lon).toFixed(6)}° ${lon >= 0 ? 'E' : 'W'}` : undefined,
+    };
+  }
+
+  // Split by comma, semicolon, slash, or pipe
+  let parts = raw.split(/[,;/|]+/).map(p => p.trim()).filter(Boolean);
+
+  // If no comma/semicolon, check if there are directional letters N/S/E/W to split by or whitespace
+  if (parts.length < 2) {
+    const dirSplit = raw.match(/([0-9.°'"\s]+[NSns])\s*[,/ ]*\s*([0-9.°'"\s]+[EWew])/i) ||
+                     raw.match(/([0-9.°'"\s]+[EWew])\s*[,/ ]*\s*([0-9.°'"\s]+[NSns])/i);
+    if (dirSplit) {
+      parts = [dirSplit[1].trim(), dirSplit[2].trim()];
+    } else {
+      const spaceParts = raw.trim().split(/\s+/);
+      if (spaceParts.length === 2) {
+        parts = spaceParts;
+      }
+    }
+  }
+
+  if (parts.length >= 2) {
+    const p1 = parts[0];
+    const p2 = parts[1];
+
+    // Check if p1 is longitude (E/W) and p2 is latitude (N/S)
+    const p1IsLon = /[EWew]$/i.test(p1) || /[EWew]\b/i.test(p1);
+    const p1IsLat = /[NSns]$/i.test(p1) || /[NSns]\b/i.test(p1);
+    const p2IsLat = /[NSns]$/i.test(p2) || /[NSns]\b/i.test(p2);
+    const p2IsLon = /[EWew]$/i.test(p2) || /[EWew]\b/i.test(p2);
+
+    let lat = NaN;
+    let lon = NaN;
+
+    if (p1IsLon && p2IsLat) {
+      lon = parseCoordinate(p1, 'lon');
+      lat = parseCoordinate(p2, 'lat');
+    } else if (p1IsLat && p2IsLon) {
+      lat = parseCoordinate(p1, 'lat');
+      lon = parseCoordinate(p2, 'lon');
+    } else {
+      // Default standard order: Latitude, Longitude
+      lat = parseCoordinate(p1, 'lat');
+      lon = parseCoordinate(p2, 'lon');
+    }
+
+    const isValid = !isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+    return {
+      lat,
+      lon,
+      isValid,
+      formattedLat: !isNaN(lat) ? `${Math.abs(lat).toFixed(6)}° ${lat >= 0 ? 'N' : 'S'}` : undefined,
+      formattedLon: !isNaN(lon) ? `${Math.abs(lon).toFixed(6)}° ${lon >= 0 ? 'E' : 'W'}` : undefined,
+    };
+  }
+
+  // Single number fallback: check if only one coordinate was provided
+  const single = parseCoordinate(raw);
+  return { lat: single, lon: NaN, isValid: false };
+}
+
+interface FormState {
+  buildingName: string;
+  location: string;
+  coordinates: string;
+  latitude: string;
+  longitude: string;
+  height: string;
+  floors: string;
+}
+
 function emptyForm(): FormState {
   return {
     buildingName: '',
     location: '',
+    coordinates: '',
     latitude: '',
     longitude: '',
     height: '',
@@ -129,39 +236,16 @@ export default function ExplorePage() {
     setForm((f) => ({ ...f, [key]: e.target.value }));
   };
 
-  const handleLatChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoordinatesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError('');
     const val = e.target.value;
-    // Auto-detect combined paste e.g. "25.19729°N, 55.27450°E" or "25.19729, 55.27450"
-    if (val.includes(',')) {
-      const parts = val.split(',');
-      if (parts.length >= 2) {
-        setForm((f) => ({
-          ...f,
-          latitude: parts[0].trim(),
-          longitude: parts[1].trim(),
-        }));
-        return;
-      }
-    }
-    setForm((f) => ({ ...f, latitude: val }));
-  };
-
-  const handleLonChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setError('');
-    const val = e.target.value;
-    if (val.includes(',')) {
-      const parts = val.split(',');
-      if (parts.length >= 2) {
-        setForm((f) => ({
-          ...f,
-          latitude: parts[0].trim(),
-          longitude: parts[1].trim(),
-        }));
-        return;
-      }
-    }
-    setForm((f) => ({ ...f, longitude: val }));
+    const parsed = parseCoordinatePair(val);
+    setForm((f) => ({
+      ...f,
+      coordinates: val,
+      latitude: !isNaN(parsed.lat) ? String(parsed.lat) : f.latitude,
+      longitude: !isNaN(parsed.lon) ? String(parsed.lon) : f.longitude,
+    }));
   };
 
   const handleSearch = async () => {
@@ -268,14 +352,17 @@ export default function ExplorePage() {
       if (!form.location.trim())     { setError('Enter city or location address.'); return false; }
     }
     if (step === 2) {
-      const lat = parseCoordinate(form.latitude, 'lat');
-      const lon = parseCoordinate(form.longitude, 'lon');
-      if (isNaN(lat) || lat < -90 || lat > 90) {
-        setError('Enter valid latitude (-90° to 90° or standard format e.g. 25.19729°N).');
+      const parsed = parseCoordinatePair(form.coordinates || `${form.latitude}, ${form.longitude}`);
+      if (!parsed.isValid || isNaN(parsed.lat) || isNaN(parsed.lon)) {
+        setError('Please enter valid coordinates (e.g. 25.19729°N, 55.27450°E or 25.19729, 55.27450).');
         return false;
       }
-      if (isNaN(lon) || lon < -180 || lon > 180) {
-        setError('Enter valid longitude (-180° to 180° or standard format e.g. 55.27450°E).');
+      if (parsed.lat < -90 || parsed.lat > 90) {
+        setError('Latitude must be between -90° and 90°.');
+        return false;
+      }
+      if (parsed.lon < -180 || parsed.lon > 180) {
+        setError('Longitude must be between -180° and 180°.');
         return false;
       }
     }
@@ -294,8 +381,9 @@ export default function ExplorePage() {
     setLoading(true);
     setError('');
     try {
-      const lat = parseCoordinate(form.latitude, 'lat');
-      const lon = parseCoordinate(form.longitude, 'lon');
+      const parsed = parseCoordinatePair(form.coordinates || `${form.latitude}, ${form.longitude}`);
+      const lat = parsed.lat;
+      const lon = parsed.lon;
       const parcelId = `PARCEL_${form.buildingName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 18)}_${Date.now().toString(36).toUpperCase()}`;
       const res = await createBuilding({
         parcel_id: parcelId,
@@ -316,9 +404,10 @@ export default function ExplorePage() {
   };
 
 
-  // Parsed coordinates for live HUD indicator
-  const parsedLat = parseCoordinate(form.latitude, 'lat');
-  const parsedLon = parseCoordinate(form.longitude, 'lon');
+  // Parsed coordinates for live HUD indicator & badges
+  const parsedCoord = parseCoordinatePair(form.coordinates || (form.latitude && form.longitude ? `${form.latitude}, ${form.longitude}` : ''));
+  const parsedLat = parsedCoord.lat;
+  const parsedLon = parsedCoord.lon;
 
   return (
     <div className="explore-page-wrapper">
@@ -674,52 +763,53 @@ export default function ExplorePage() {
                     </div>
                   )}
 
-                  {/* Step 2: Coordinates with Standard Form & Paste Support */}
+                  {/* Step 2: Combined Coordinates Input */}
                   {step === 2 && (
                     <div className="step-panel">
                       <div className="coord-format-tip font-mono">
                         <Compass size={14} color="#0D9488" />
-                        <span>Accepts standard geodetic (<strong>25.19729°N, 55.27450°E</strong>), DMS, or decimal notation.</span>
+                        <span>Accepts combined geodetic (<strong>25.19729°N, 55.27450°E</strong>), decimal (<strong>25.19729, 55.27450</strong>), or DMS notation.</span>
                       </div>
 
                       <div className="form-group">
                         <div className="form-label-row font-mono">
-                          <label>LATITUDE (NORTH / SOUTH)</label>
-                          {!isNaN(parsedLat) && (
+                          <label>ENTER LONGITUDE AND LATITUDE OR ENTER COORDINATES</label>
+                          {parsedCoord.isValid && (
                             <span className="parsed-badge">
                               <Check size={11} />
-                              <span>WGS84: {parsedLat.toFixed(6)}°</span>
+                              <span>WGS84 VALID</span>
                             </span>
                           )}
                         </div>
                         <input
                           type="text"
-                          placeholder="e.g. 25.19729°N or 25.19729"
-                          value={form.latitude}
-                          onChange={handleLatChange}
+                          placeholder="e.g. 25.19729°N, 55.27450°E or 25.19729, 55.27450"
+                          value={form.coordinates}
+                          onChange={handleCoordinatesChange}
+                          autoFocus
                         />
                       </div>
 
-                      <div className="form-group">
-                        <div className="form-label-row font-mono">
-                          <label>LONGITUDE (EAST / WEST)</label>
-                          {!isNaN(parsedLon) && (
-                            <span className="parsed-badge">
-                              <Check size={11} />
-                              <span>WGS84: {parsedLon.toFixed(6)}°</span>
-                            </span>
-                          )}
+                      {/* Live Parsed Telemetry Chips */}
+                      {parsedCoord.isValid && (
+                        <div className="parsed-coord-chips font-mono">
+                          <div className="coord-chip">
+                            <span className="chip-label">LATITUDE:</span>
+                            <span className="chip-val">{parsedCoord.formattedLat || `${parsedCoord.lat.toFixed(6)}°`}</span>
+                          </div>
+                          <div className="coord-chip">
+                            <span className="chip-label">LONGITUDE:</span>
+                            <span className="chip-val">{parsedCoord.formattedLon || `${parsedCoord.lon.toFixed(6)}°`}</span>
+                          </div>
+                          <div className="coord-chip">
+                            <span className="chip-label">DATUM:</span>
+                            <span className="chip-val">WGS84 / EPSG:4326</span>
+                          </div>
                         </div>
-                        <input
-                          type="text"
-                          placeholder="e.g. 55.27450°E or 55.27450"
-                          value={form.longitude}
-                          onChange={handleLonChange}
-                        />
-                      </div>
+                      )}
 
                       <div className="paste-helper-hint font-mono">
-                        <span>Tip: You can paste a combined pair (e.g. <code>25.19729°N, 55.27450°E</code>) directly into Latitude to auto-fill both.</span>
+                        <span>Tip: Type or paste both coordinates together into this single box in any format (e.g. <code>25.19729°N, 55.27450°E</code>, <code>25.19729, 55.27450</code>, or DMS).</span>
                       </div>
                     </div>
                   )}
@@ -756,22 +846,15 @@ export default function ExplorePage() {
                         <div className="review-grid font-mono">
                           <div className="rev-item"><span>NAME:</span> <strong>{form.buildingName}</strong></div>
                           <div className="rev-item"><span>LOCATION:</span> <strong>{form.location}</strong></div>
-                          <div className="rev-item">
-                            <span>LATITUDE:</span>{' '}
+                          <div className="rev-item" style={{ gridColumn: 'span 2' }}>
+                            <span>COORDINATES:</span>{' '}
                             <strong>
-                              {form.latitude}{' '}
-                              <span style={{ color: 'var(--accent-teal)', fontWeight: 600 }}>
-                                ({parsedLat.toFixed(5)}°)
-                              </span>
-                            </strong>
-                          </div>
-                          <div className="rev-item">
-                            <span>LONGITUDE:</span>{' '}
-                            <strong>
-                              {form.longitude}{' '}
-                              <span style={{ color: 'var(--accent-teal)', fontWeight: 600 }}>
-                                ({parsedLon.toFixed(5)}°)
-                              </span>
+                              {form.coordinates || `${form.latitude}, ${form.longitude}`}{' '}
+                              {parsedCoord.isValid && (
+                                <span style={{ color: 'var(--accent-teal)', fontWeight: 600 }}>
+                                  ({parsedCoord.lat.toFixed(5)}°, {parsedCoord.lon.toFixed(5)}°)
+                                </span>
+                              )}
                             </strong>
                           </div>
                           <div className="rev-item"><span>HEIGHT:</span> <strong>{form.height} m</strong></div>

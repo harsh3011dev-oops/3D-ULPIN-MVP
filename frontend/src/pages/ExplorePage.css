@@ -556,6 +556,34 @@
   border: 1px solid rgba(16, 185, 129, 0.25);
 }
 
+.parsed-coord-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.coord-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  padding: 5px 9px;
+  border-radius: var(--radius-xs);
+  font-size: 0.72rem;
+}
+
+.coord-chip .chip-label {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.coord-chip .chip-val {
+  color: var(--accent-teal);
+  font-weight: 700;
+}
+
 .paste-helper-hint {
   font-size: 0.68rem;
   color: var(--text-muted);
