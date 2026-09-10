@@ -245,10 +245,10 @@ export async function generate3DBuildingOSM2World(
           if (el.type === 'node') return true;
           if (el.tags && el.tags['building:part']) return true;
           // Filter out explicitly named foreign buildings that aren't parts
-          if (el.tags && el.tags['building'] && el.tags['name']) {
-             // Keep it if it has no name, but strip if it has a foreign name
-             return false;
-          }
+          // REMOVED: This was incorrectly stripping the main famous building since it has a name.
+          // if (el.tags && el.tags['building'] && el.tags['name']) {
+          //    return false;
+          // }
           return true;
         });
         filteredData = { ...osmData, elements: filteredElements };
