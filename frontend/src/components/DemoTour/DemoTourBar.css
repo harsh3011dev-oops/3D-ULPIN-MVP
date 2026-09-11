@@ -1,0 +1,270 @@
+/* ── Floating Launch Button (Collapsed) ── */
+.demo-tour-collapsed {
+  position: absolute;
+  top: 14px;
+  left: 20px;
+  z-index: 100;
+}
+
+.demo-tour-launch-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.9);
+  color: #f8fafc;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 12px rgba(245, 158, 11, 0.2);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(8px);
+}
+
+.demo-tour-launch-btn:hover {
+  background: #0f172a;
+  border-color: #f59e0b;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(245, 158, 11, 0.35);
+}
+
+.demo-badge {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-family: var(--font-mono, monospace);
+}
+
+/* ── Expanded Demo Tour Banner ── */
+.demo-tour-banner {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 92%;
+  max-width: 820px;
+  z-index: 100;
+  animation: slideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translate(-50%, -10px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.demo-tour-content {
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(13, 148, 136, 0.4);
+  border-radius: 12px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 0 20px rgba(13, 148, 136, 0.15);
+  padding: 14px 18px;
+  backdrop-filter: blur(12px);
+  color: #f8fafc;
+}
+
+/* Header */
+.demo-tour-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.demo-title-cluster {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.demo-trophy-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.demo-super-badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #0D9488;
+  letter-spacing: 0.8px;
+}
+
+.demo-step-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin: 1px 0 0;
+  color: #ffffff;
+}
+
+/* Step Pills */
+.demo-step-pills {
+  display: flex;
+  gap: 6px;
+}
+
+.step-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.step-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+}
+
+.step-pill.active {
+  background: #0D9488;
+  border-color: #0D9488;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.step-pill.completed {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.4);
+}
+
+.pill-num {
+  font-family: var(--font-mono, monospace);
+  font-weight: 800;
+}
+
+.demo-close-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.demo-close-btn:hover {
+  color: #ffffff;
+}
+
+/* Narrative Row */
+.demo-narrative-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+
+.demo-script-text {
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  line-height: 1.45;
+  margin: 0;
+  flex: 1;
+}
+
+.demo-script-text strong {
+  color: #f59e0b;
+}
+
+.demo-metric-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #a7f3d0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+/* Actions Footer */
+.demo-action-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.demo-step-counter {
+  font-size: 0.68rem;
+  color: #64748b;
+  letter-spacing: 0.6px;
+}
+
+.demo-nav-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.demo-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+}
+
+.demo-nav-btn.primary {
+  background: #0D9488;
+  color: #ffffff;
+}
+
+.demo-nav-btn.primary:hover {
+  background: #0f766e;
+}
+
+.demo-nav-btn.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+.demo-nav-btn.secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.demo-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .demo-tour-banner {
+    width: 96%;
+  }
+  .demo-step-pills {
+    display: none;
+  }
+  .demo-narrative-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

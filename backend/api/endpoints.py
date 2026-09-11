@@ -95,7 +95,8 @@ async def create_building_request(
         height_meters=request.height_meters,
         floor_count=request.floor_count,
         aerial_image_url=request.aerial_image_path,
-        parcel_boundary=request.parcel_boundary
+        parcel_boundary=request.parcel_boundary,
+        osm_id=request.osm_id,
     )
 
     # 5. Return immediately

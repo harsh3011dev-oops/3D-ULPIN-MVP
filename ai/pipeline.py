@@ -123,7 +123,9 @@ def process_building(*args, **kwargs) -> dict:
         lon, lat = centroid.x, centroid.y
 
         logger.info("[STEP 2] Fetching geographic & building metadata for %s, %s (name: %s)", lat, lon, building_name)
-        osm_comp = fetch_osm_building_comprehensive(lat, lon, building_name=building_name) or {}
+        # Use the Gemini-provided osm_id for a targeted Overpass query when available
+        frontend_osm_id = input_data.get("osm_id")
+        osm_comp = fetch_osm_building_comprehensive(lat, lon, building_name=building_name, osm_id=frontend_osm_id) or {}
         osm_geom = osm_comp.get("footprint")
 
         # Determine generic floor count and source

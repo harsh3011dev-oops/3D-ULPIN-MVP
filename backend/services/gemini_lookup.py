@@ -83,6 +83,16 @@ def _normalize(data: dict[str, Any], city: str) -> Optional[dict[str, Any]]:
     if not name:
         return None
 
+    # Extract OSM element ID if provided by AI
+    osm_element_id = data.get("osm_element_id")
+    if osm_element_id and isinstance(osm_element_id, str):
+        # Validate format: must be "type/id" where id is numeric
+        parts = osm_element_id.split("/")
+        if len(parts) == 2 and parts[0] in ("way", "relation", "node") and parts[1].isdigit():
+            pass  # valid
+        else:
+            osm_element_id = None
+
     return {
         "building_name": name,
         "city": str(data.get("city") or city).strip(),
@@ -92,9 +102,32 @@ def _normalize(data: dict[str, Any], city: str) -> Optional[dict[str, Any]]:
         "floors": floors,
         "confidence": confidence,
         "source": "gemini",
+        "osm_id": osm_element_id,
+        "wikidata": data.get("wikidata"),
     }
 
 
+
+
+async def _lookup_osm_id_nominatim(name: str, lat: float, lon: float) -> Optional[str]:
+    """Look up OpenStreetMap element ID via Nominatim search."""
+    try:
+        url = "https://nominatim.openstreetmap.org/search"
+        params = {"q": name, "format": "jsonv2", "limit": 1}
+        headers = {"User-Agent": "3D-ULPIN-MVP/1.0 (Geospatial Lookup)"}
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            resp = await client.get(url, params=params, headers=headers)
+            if resp.status_code == 200:
+                results = resp.json()
+                if results and isinstance(results, list) and len(results) > 0:
+                    item = results[0]
+                    osm_type = item.get("osm_type")
+                    osm_id = item.get("osm_id")
+                    if osm_type and osm_id:
+                        return f"{osm_type}/{osm_id}"
+    except Exception as e:
+        logger.debug("Nominatim OSM ID lookup failed: %s", e)
+    return None
 
 
 async def call_gemini_api(building_name: str, city: str) -> Optional[dict[str, Any]]:
@@ -103,7 +136,7 @@ async def call_gemini_api(building_name: str, city: str) -> Optional[dict[str, A
     if ckey in CACHE:
         return CACHE[ckey]
 
-    prompt = f"""You are a geospatial lookup tool for well-known buildings.
+    prompt = f"""You are a geospatial lookup tool for well-known buildings and landmarks.
 
 Get exact building info for: {building_name}, {city}
 
@@ -115,11 +148,14 @@ Return ONLY JSON (no markdown, no extra text):
   "longitude": <float WGS84>,
   "height_meters": <number or null>,
   "floors": <integer or null>,
-  "confidence": <0-100 integer>
+  "confidence": <0-100 integer>,
+  "osm_element_id": <"relation/NNNN" or "way/NNNN" or null>,
+  "wikidata": <"Q123456" or null>
 }}
 
 Rules:
-- Use the real-world location of this named building in that city.
+- Use the EXACT real-world coordinates of this named building in that city.
+- For osm_element_id: provide the OpenStreetMap element ID for this specific building if you know it (e.g. "relation/1283980" for Burj Khalifa). Set null if unknown.
 - If the building is unknown, fictional, or you are not at least 50% confident, return {{"found": false, "confidence": 0}}.
 - Do not invent coordinates for unknown places.
 """
@@ -179,6 +215,10 @@ Rules:
                         if parsed:
                             normalized = _normalize(parsed, city)
                             if normalized:
+                                if not normalized.get("osm_id") and normalized.get("latitude"):
+                                    nom_osm_id = await _lookup_osm_id_nominatim(normalized["building_name"], normalized["latitude"], normalized["longitude"])
+                                    if nom_osm_id:
+                                        normalized["osm_id"] = nom_osm_id
                                 CACHE[ckey] = normalized
                                 return normalized
                     except (KeyError, IndexError, TypeError) as exc:
@@ -214,6 +254,10 @@ Rules:
                             normalized = _normalize(parsed, city)
                             if normalized:
                                 normalized["source"] = "groq"
+                                if not normalized.get("osm_id") and normalized.get("latitude"):
+                                    nom_osm_id = await _lookup_osm_id_nominatim(normalized["building_name"], normalized["latitude"], normalized["longitude"])
+                                    if nom_osm_id:
+                                        normalized["osm_id"] = nom_osm_id
                                 CACHE[ckey] = normalized
                                 logger.info("Groq successfully returned location data.")
                                 return normalized
@@ -250,6 +294,10 @@ Rules:
                         normalized = _normalize(parsed, city)
                         if normalized:
                             normalized["source"] = "huggingface"
+                            if not normalized.get("osm_id") and normalized.get("latitude"):
+                                nom_osm_id = await _lookup_osm_id_nominatim(normalized["building_name"], normalized["latitude"], normalized["longitude"])
+                                if nom_osm_id:
+                                    normalized["osm_id"] = nom_osm_id
                             CACHE[ckey] = normalized
                             logger.info("Hugging Face successfully returned location data.")
                             return normalized
@@ -273,6 +321,7 @@ Rules:
             "floors": 1,
             "confidence": 95,
             "source": "fallback",
+            "osm_id": "relation/7397895",
         }
     elif "taj mahal" in bname_lower:
         mock = {
@@ -284,6 +333,7 @@ Rules:
             "floors": 2,
             "confidence": 95,
             "source": "fallback",
+            "osm_id": "relation/6072622",
         }
     elif "burj" in bname_lower:
         mock = {
@@ -295,6 +345,7 @@ Rules:
             "floors": 163,
             "confidence": 99,
             "source": "fallback",
+            "osm_id": "way/134613752",
         }
     else:
         mock = {

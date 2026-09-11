@@ -30,6 +30,7 @@ class BuildingCreateRequest(BaseModel):
     height_meters: float = Field(..., gt=0, description="Total height of the building in meters")
     floor_count: int = Field(..., gt=0, description="Total number of floors")
     aerial_image_path: Optional[str] = Field(None, description="Path or URL to the aerial image")
+    osm_id: Optional[str] = Field(None, description="OpenStreetMap element ID (e.g. 'way/12345')")
 
 class JobStatusRequest(BaseModel):
     job_id: str

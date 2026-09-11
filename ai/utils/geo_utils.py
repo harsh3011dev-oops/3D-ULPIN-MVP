@@ -155,19 +155,28 @@ def fetch_osm_building_geometry(lat: float, lon: float, radius: int = 150) -> di
     return None
 
 
-def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 350, building_name: str = None) -> dict | None:
+def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 350, building_name: str = None, osm_id: str = None) -> dict | None:
     """
     Query OpenStreetMap (Overpass API + Nominatim) to fetch complete architectural and cadastral
     building information: footprint polygon, building parts, levels, underground levels,
     heights, roof shapes, materials, landuse, and metadata.
     """
-    cache_key = f"{round(lat, 4)}_{round(lon, 4)}_comp_{building_name or ''}"
+    cache_key = f"{round(lat, 4)}_{round(lon, 4)}_comp_{building_name or ''}_{osm_id or ''}"
     if cache_key in _OSM_CACHE:
         return _OSM_CACHE[cache_key]
+
+    specific_clause = ""
+    if osm_id and "/" in osm_id:
+        parts = osm_id.split("/")
+        if len(parts) == 2 and parts[0] in ["relation", "way", "node"] and parts[1].isdigit():
+            specific_clause = f"{parts[0]}({parts[1]}); >;"
+    elif osm_id and osm_id.isdigit():
+        specific_clause = f"relation({osm_id}); way({osm_id}); >;"
 
     query = f"""
     [out:json][timeout:15];
     (
+      {specific_clause}
       way["building"](around:{radius},{lat},{lon});
       relation["building"](around:{radius},{lat},{lon});
       way["building:part"](around:{radius},{lat},{lon});
@@ -184,7 +193,7 @@ def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 350, 
     payload = None
     for endpoint in OSM_OVERPASS_ENDPOINTS:
         try:
-            print(f"Fetching comprehensive OSM data from {endpoint} near [{lat}, {lon}]...")
+            print(f"Fetching comprehensive OSM data from {endpoint} near [{lat}, {lon}] (osm_id: {osm_id})...")
             response = requests.post(endpoint, data={"data": query}, headers=OSM_HEADERS, timeout=15)
             if response.status_code == 200:
                 payload = response.json()
@@ -243,18 +252,34 @@ def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 350, 
             building_elements = elements
 
         main_elem = None
-        # Find the main element closest to coordinates
-        best_dist = float("inf")
-        for el in building_elements:
-            coords = _elem_to_coords(el)
-            if coords:
-                # Calculate approximate centroid
-                cx = sum(p[0] for p in coords[:-1]) / (len(coords) - 1)
-                cy = sum(p[1] for p in coords[:-1]) / (len(coords) - 1)
-                d = (cx - lon)**2 + (cy - lat)**2
-                if d < best_dist:
-                    best_dist = d
+
+        # If osm_id was specified, find exact matching element first
+        target_type, target_num = None, None
+        if osm_id and "/" in osm_id:
+            target_type, raw_num = osm_id.split("/", 1)
+            target_num = int(raw_num) if raw_num.isdigit() else None
+        elif osm_id and osm_id.isdigit():
+            target_num = int(osm_id)
+
+        if target_num is not None:
+            for el in elements:
+                if el.get("id") == target_num and (not target_type or el.get("type") == target_type):
                     main_elem = el
+                    break
+
+        # If not found by ID, find the main element closest to coordinates
+        if not main_elem:
+            best_dist = float("inf")
+            for el in building_elements:
+                coords = _elem_to_coords(el)
+                if coords:
+                    # Calculate approximate centroid
+                    cx = sum(p[0] for p in coords[:-1]) / (len(coords) - 1)
+                    cy = sum(p[1] for p in coords[:-1]) / (len(coords) - 1)
+                    d = (cx - lon)**2 + (cy - lat)**2
+                    if d < best_dist:
+                        best_dist = d
+                        main_elem = el
 
         main_footprint = None
         tags = main_elem.get("tags", {}) if main_elem else {}

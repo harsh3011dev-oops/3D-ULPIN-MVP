@@ -843,11 +843,14 @@ function buildCloseDetailFacade(
   wallHeight: number,
   floorHeight: number,
 ) {
-  const windowGeo = new THREE.BoxGeometry(1.2, 1.8, 0.15);
-  const windowMat = new THREE.MeshStandardMaterial({
+  // Premium glass with slight reflectivity
+  const windowGeo = new THREE.BoxGeometry(1.6, floorHeight * 0.65, 0.2);
+  const windowMat = new THREE.MeshPhysicalMaterial({
     color: 0x0f172a,
     roughness: 0.1,
     metalness: 0.9,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.1,
   });
 
   const floors = Math.floor(wallHeight / floorHeight);
@@ -858,18 +861,23 @@ function buildCloseDetailFacade(
     if (pts.length < 3) return;
 
     const windowTransforms: THREE.Matrix4[] = [];
+    const windowColors: THREE.Color[] = [];
+
+    const baseColor = new THREE.Color(0x0f172a); // dark glass
+    const litColor1 = new THREE.Color(0xfde047); // warm interior light
+    const litColor2 = new THREE.Color(0xe0f2fe); // cool interior light
 
     for (let i = 0; i < pts.length - 1; i++) {
       const p1 = pts[i];
       const p2 = pts[i + 1];
       const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-      if (segLen < 3.5) continue;
+      if (segLen < 4.0) continue;
 
-      const numBays = Math.floor(segLen / 4.0);
+      const numBays = Math.floor(segLen / 4.5);
       const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
 
       for (let f = 0; f < floors; f++) {
-        const winY = baseY + f * floorHeight + floorHeight * 0.45;
+        const winY = baseY + f * floorHeight + floorHeight * 0.5;
 
         for (let b = 1; b <= numBays; b++) {
           const t = b / (numBays + 1);
@@ -880,15 +888,31 @@ function buildCloseDetailFacade(
           mat.makeRotationY(-angle);
           mat.setPosition(wx, winY, wz);
           windowTransforms.push(mat);
+
+          // Add random "lights on" effect to make buildings look alive and premium
+          const rand = Math.random();
+          if (rand > 0.85) {
+            windowColors.push(rand > 0.92 ? litColor1 : litColor2);
+          } else {
+            windowColors.push(baseColor);
+          }
         }
       }
     }
 
     if (windowTransforms.length > 0) {
       const instancedMesh = new THREE.InstancedMesh(windowGeo, windowMat, windowTransforms.length);
+      const colorArray = new Float32Array(windowTransforms.length * 3);
+      
       windowTransforms.forEach((matrix, idx) => {
         instancedMesh.setMatrixAt(idx, matrix);
+        const col = windowColors[idx];
+        colorArray[idx * 3] = col.r;
+        colorArray[idx * 3 + 1] = col.g;
+        colorArray[idx * 3 + 2] = col.b;
       });
+      
+      instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(colorArray, 3);
       instancedMesh.instanceMatrix.needsUpdate = true;
       facadeGroup.add(instancedMesh);
     }
@@ -1164,6 +1188,10 @@ function constructMultiMassBuilding(
         visualGroup.add(bodyMesh);
         exteriorMeshes.push(bodyMesh);
       });
+
+      // Add detailed 3D instanced windows to make the local building look premium
+      buildCloseDetailFacade(facadeDetailsGroup, shapes, currentElev, wallBodyH, floorHeight);
+
 
       // 3. ── Per-Floor Spandrel Band Lines (horizontal separation between every floor) ──
       // These give the building the critical "multi-story" look — visible horizontal floor bands

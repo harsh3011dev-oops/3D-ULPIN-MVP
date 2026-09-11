@@ -180,6 +180,8 @@ export interface AutoDetectBuildingResult {
   floors: number | null;
   confidence: number;
   source: string;
+  osm_id?: string | null;
+  wikidata?: string | null;
 }
 
 export interface CreateBuildingPayload {
@@ -192,6 +194,7 @@ export interface CreateBuildingPayload {
   height_meters: number;
   floor_count: number;
   parcel_boundary?: GeoJSONPolygon | any;
+  osm_id?: string | null;
 }
 
 export interface JobStatus {

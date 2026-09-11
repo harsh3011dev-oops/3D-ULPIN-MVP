@@ -62,7 +62,7 @@ def _load_result_by_building_id(building_id: str) -> dict | None:
         pass
     return None
 
-async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, height_meters: float, floor_count: int, latitude: float = None, longitude: float = None, units_per_floor: int = 4, aerial_image_url: str = None, parcel_boundary: dict = None, building_name: str = None) -> None:
+async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, height_meters: float, floor_count: int, latitude: float = None, longitude: float = None, units_per_floor: int = 4, aerial_image_url: str = None, parcel_boundary: dict = None, building_name: str = None, osm_id: str = None) -> None:
     """Background task to run the AI pipeline and store results in Supabase."""
     logger.info(f"Starting AI pipeline for job {job_id}")
     
@@ -99,7 +99,8 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
                         longitude=longitude,
                         height_meters=height_meters,
                         floor_count=floor_count,
-                        parcel_boundary=parcel_boundary
+                        parcel_boundary=parcel_boundary,
+                        osm_id=osm_id,
                     )
                 except Exception as pipeline_exc:
                     # Surface the exact AI pipeline error to the frontend

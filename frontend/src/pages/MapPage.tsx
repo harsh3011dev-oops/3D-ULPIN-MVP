@@ -6,6 +6,8 @@ import FloorSelector from '../components/FloorSelector/FloorSelector';
 import UnitCard from '../components/UnitCard/UnitCard';
 import ValidationAlert from '../components/ValidationAlert/ValidationAlert';
 import UndergroundPanel from '../components/UndergroundPanel/UndergroundPanel';
+import DemoTourBar from '../components/DemoTour/DemoTourBar';
+import CertificateModal from '../components/CertificateModal/CertificateModal';
 import { getBuilding } from '../api/api';
 import { Building, Unit } from '../types';
 import { getBuildingCenter } from '../utils/footprintUtils';
@@ -23,6 +25,7 @@ export default function MapPage() {
   const [selectedUnit, setSelectedUnit]   = useState<Unit | null>(null);
   const [isLoading, setIsLoading]         = useState(true);
   const [loadError, setLoadError]         = useState<string | null>(null);
+  const [showGlobalCert, setShowGlobalCert] = useState(false);
 
   const navigate = useNavigate();
 
@@ -67,6 +70,36 @@ export default function MapPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Handler for Interactive Demo Tour Steps
+  const handleDemoTourStep = (stepId: number) => {
+    if (!building) return;
+
+    if (stepId === 1) {
+      // Step 1: Overall Surface & Multi-Storey Volume
+      setSelectedFloor(null);
+      setIsRightOpen(true);
+    } else if (stepId === 2) {
+      // Step 2: Vertical Apartment Isolation
+      const midFloor = Math.max(Math.min(3, building.floor_count || 3), 1);
+      setSelectedFloor(midFloor);
+      const targetUnit = building.units?.find((u) => (u.floor_number ?? u.floor) === midFloor) || building.units?.[0];
+      if (targetUnit) setSelectedUnit(targetUnit);
+      setIsRightOpen(true);
+    } else if (stepId === 3) {
+      // Step 3: Subsurface Infrastructure & Utilities
+      setSelectedFloor(null);
+      setIsRightOpen(true);
+      // Scroll underground panel into focus
+      setTimeout(() => {
+        const panel = document.getElementById('underground-infrastructure-panel');
+        if (panel) panel.scrollIntoView({ behavior: 'smooth' });
+      }, 200);
+    } else if (stepId === 4) {
+      // Step 4: Digital 3D Title Deed Certificate
+      setShowGlobalCert(true);
+    }
+  };
+
   return (
     <div className="map-page">
       <Header />
@@ -102,6 +135,14 @@ export default function MapPage() {
 
         {/* ── 3D Viewport (Full Width) ── */}
         <div className="map-viewport">
+          {/* SIH Interactive Demo Tour Bar */}
+          <DemoTourBar
+            onStepChange={handleDemoTourStep}
+            onOpenCertificate={() => setShowGlobalCert(true)}
+            currentFloor={selectedFloor}
+            totalFloors={building?.floor_count || 1}
+          />
+
           <Map3D
             building={building}
             selectedFloor={selectedFloor}
@@ -266,7 +307,7 @@ export default function MapPage() {
 
           {/* Unit Cards & Structural Integrity */}
           <div className="unit-list-area">
-            {selectedUnit && <UnitCard unit={selectedUnit} />}
+            {selectedUnit && <UnitCard unit={selectedUnit} building={building} />}
 
             {/* Structural Score */}
             <div style={{
@@ -300,6 +341,28 @@ export default function MapPage() {
         </aside>
 
       </div>
+      )}
+
+      {/* Global 3D Title Deed Certificate Modal (from Demo Tour or Toolbar) */}
+      {showGlobalCert && (
+        <CertificateModal
+          unit={selectedUnit || (building?.units?.[0] ?? {
+            unit_id: 'UA-001',
+            floor: selectedFloor || 1,
+            floor_number: selectedFloor || 1,
+            ulpin: `ULPIN-DEL-${building?.building_id || '789012'}-F${String(selectedFloor || 1).padStart(2, '0')}-U101`,
+            owner: 'Ministry of Housing & Urban Affairs (Govt of India)',
+            status: 'Registered',
+            use_type: 'Residential Volumetric Unit',
+            area_sqm: 125.4,
+            floor_height_m: 3.5,
+            z_min: ((selectedFloor || 1) - 1) * 3.5,
+            z_max: (selectedFloor || 1) * 3.5,
+            centroid: [building?.latitude || 28.6139, building?.longitude || 77.2090]
+          })}
+          building={building}
+          onClose={() => setShowGlobalCert(false)}
+        />
       )}
     </div>
   );
