@@ -91,12 +91,26 @@ export default function Map3D({
     obj += `o Building_${(building.building_id || 'Cadastre').replace(/[^a-zA-Z0-9]/g, '_')}\n`;
 
     const h = building.height || (building.floor_count ? building.floor_count * 3.5 : 25);
-    const coords: [number, number][] = (building.footprint as [number, number][]) || [
-      [-0.00015, -0.00015],
-      [0.00015, -0.00015],
-      [0.00015, 0.00015],
-      [-0.00015, 0.00015],
-    ];
+    
+    // Extract coordinates from GeoJSON footprint (Polygon or MultiPolygon)
+    let coords: [number, number][] = [];
+    if (building.footprint) {
+      const fp = building.footprint as any;
+      if (fp.type === 'Polygon' && fp.coordinates?.[0]) {
+        coords = fp.coordinates[0] as [number, number][];
+      } else if (fp.type === 'MultiPolygon' && fp.coordinates?.[0]?.[0]) {
+        coords = fp.coordinates[0][0] as [number, number][];
+      }
+    }
+    // Fallback to small default square around building centroid
+    if (!coords.length) {
+      coords = [
+        [-0.00015, -0.00015],
+        [0.00015, -0.00015],
+        [0.00015, 0.00015],
+        [-0.00015, 0.00015],
+      ];
+    }
 
     // Scale footprint points into local metric coordinates
     const pts: [number, number][] = coords.map(([lon, lat]: [number, number]) => [
