@@ -22,6 +22,7 @@ import {
   FootprintDimensions,
   ProportionalZoning,
 } from '../../utils/footprintUtils';
+import { getBuildingUtilityPipelines } from '../../utils/utilityNetworkHelper';
 import { fetchTerrainHeight } from '../../utils/reearth';
 import { fetchDetailedOSMData, OSMDataResponse } from '../../utils/osmFetcher';
 import { generate3DBuildingOSM2World, OSM2WorldResult } from '../../utils/osm2worldProvider';
@@ -1555,16 +1556,16 @@ export default function MapThreeJS({
     buildSurroundingContext(scene, dims, sceneExtent);
 
     // ─────────────────────────────────────────────────────────────
-    // UNDERGROUND VISUALIZATION LAYER
+    // UNDERGROUND VISUALIZATION & 3D UTILITY PIPELINES
     // Renders basement levels below the ground plane as transparent
-    // volumetric blocks with colored-coded type indicators.
+    // volumetric blocks and glowing subterranean utility pipes (Water, Sewage, Gas, Power, Telecom).
     // ─────────────────────────────────────────────────────────────
+    const ugGroup = new THREE.Group();
+    ugGroup.name = 'undergroundGroup';
+    scene.add(ugGroup);
+
     const undergroundData = building.underground;
     if (undergroundData?.ulpin_details?.length) {
-      const ugGroup = new THREE.Group();
-      ugGroup.name = 'undergroundGroup';
-      scene.add(ugGroup);
-
       const TYPE_COLORS: Record<string, number> = {
         basement: 0x6366f1,
         parking: 0xf59e0b,
@@ -1624,6 +1625,55 @@ export default function MapThreeJS({
         shaftMesh.position.set(0, -(undergroundData.max_depth_m / 2), 0);
         ugGroup.add(shaftMesh);
       }
+    }
+
+    // ── Render 3D Subterranean Utility Pipelines (Water, Sewage, Gas, Power, Telecom) ──
+    try {
+      const utilityPipelines = getBuildingUtilityPipelines(building);
+      utilityPipelines.forEach((pipe) => {
+        if (pipe.pathLocal3D && pipe.pathLocal3D.length >= 2) {
+          const curve = new THREE.CatmullRomCurve3(pipe.pathLocal3D);
+          const pipeRadius = Math.max((pipe.diameter_mm / 1000) * 0.9, 0.28);
+          const tubeGeo = new THREE.TubeGeometry(curve, 32, pipeRadius, 12, false);
+          const tubeMat = new THREE.MeshStandardMaterial({
+            color: pipe.hexColor,
+            emissive: pipe.hexColor,
+            emissiveIntensity: 0.55,
+            roughness: 0.2,
+            metalness: 0.85,
+            transparent: true,
+            opacity: 0.95,
+          });
+          const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
+          tubeMesh.name = `utility_pipe_${pipe.type}`;
+          ugGroup.add(tubeMesh);
+
+          // Junction chambers at each bend/node
+          pipe.pathLocal3D.forEach((pt) => {
+            const nodeGeo = new THREE.CylinderGeometry(pipeRadius * 1.7, pipeRadius * 1.7, pipeRadius * 2.2, 12);
+            const nodeMat = new THREE.MeshStandardMaterial({
+              color: pipe.hexColor,
+              emissive: pipe.hexColor,
+              emissiveIntensity: 0.65,
+              roughness: 0.2,
+              metalness: 0.9,
+            });
+            const nodeMesh = new THREE.Mesh(nodeGeo, nodeMat);
+            nodeMesh.position.copy(pt);
+            ugGroup.add(nodeMesh);
+          });
+
+          // Riser feeder connections up to foundation
+          pipe.riserConnections.forEach(({ from, to }) => {
+            const riserCurve = new THREE.LineCurve3(from, to);
+            const riserGeo = new THREE.TubeGeometry(riserCurve, 8, pipeRadius * 0.7, 8, false);
+            const riserMesh = new THREE.Mesh(riserGeo, tubeMat);
+            ugGroup.add(riserMesh);
+          });
+        }
+      });
+    } catch (pipeErr) {
+      console.warn('Could not construct 3D utility pipes:', pipeErr);
     }
 
     // ─────────────────────────────────────────────────────────────

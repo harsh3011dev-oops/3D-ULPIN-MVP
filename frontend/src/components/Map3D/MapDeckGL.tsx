@@ -9,6 +9,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { Building, Unit } from '../../types';
 import { getBuildingCenter, getBuildingHeight, getFloorCountInfo, getFootprintDimensions } from '../../utils/footprintUtils';
+import { getBuildingUtilityPipelines } from '../../utils/utilityNetworkHelper';
 import { REEARTH, setupReearthTerrain } from '../../utils/reearth';
 import {
   getBestBuildingGeometry,
@@ -302,60 +303,41 @@ export default function MapDeckGL({
     });
   }, [undergroundUnitsGeoJSON]);
 
+  const utilityPipelines = useMemo(() => {
+    return getBuildingUtilityPipelines(building);
+  }, [building]);
+
   const undergroundPipesData = useMemo(() => {
-    const utils: any[] = building?.underground?.utilities || [];
-    if (!utils.length) return [];
     const columns: any[] = [];
-
-    utils.forEach((util: any) => {
-      const z = -(util.depth_m || 3.0) * SCALE_ELEVATION;
-      const r = Math.max(((util.diameter_mm || 100) / 1000) * 2.8, 1.2);
-      const color = UTILITY_PIPE_COLORS[util.type] || [250, 204, 21, 255];
-      const ulpin = util.ulpin;
-      const title = util.title || `${util.type.toUpperCase()} Pipeline`;
-      const path: [number, number, number][] = Array.isArray(util.path) ? util.path : [];
-
-      if (path.length >= 2) {
-        for (let i = 0; i < path.length - 1; i++) {
-          const p1 = path[i];
-          const p2 = path[i + 1];
-          const steps = 7;
-          for (let s = 0; s <= steps; s++) {
-            const frac = s / steps;
-            const lat = p1[0] + (p2[0] - p1[0]) * frac;
-            const lon = p1[1] + (p2[1] - p1[1]) * frac;
-            const depth = p1[2] + (p2[2] - p1[2]) * frac || util.depth_m || 3.0;
-            columns.push({
-              position: [lon, lat, -depth * SCALE_ELEVATION],
-              radius: r,
-              color,
-              ulpin,
-              title,
-              type: util.type,
-              depth_m: depth,
-              diameter_mm: util.diameter_mm || 100,
-              capacity: util.capacity,
-            });
-          }
-        }
+    utilityPipelines.forEach((util) => {
+      const r = Math.max((util.diameter_mm / 1000) * 4.5, 2.0);
+      const path = util.pathGeodetic;
+      for (let i = 0; i < path.length; i++) {
+        const [lon, lat, depth] = path[i];
+        columns.push({
+          position: [lon, lat, -depth * SCALE_ELEVATION],
+          radius: r,
+          color: util.color,
+          ulpin: util.ulpin,
+          title: util.title,
+          type: util.type,
+          depth_m: depth,
+          diameter_mm: util.diameter_mm,
+          capacity: util.capacity,
+        });
       }
     });
-
     return columns;
-  }, [building?.underground?.utilities, SCALE_ELEVATION]);
+  }, [utilityPipelines, SCALE_ELEVATION]);
 
   const undergroundPathsData = useMemo(() => {
-    const utils: any[] = building?.underground?.utilities || [];
-    if (!utils.length) return [];
-    return utils
-      .filter((u: any) => Array.isArray(u.path) && u.path.length >= 2)
-      .map((u: any) => ({
-        path: u.path.map((p: [number, number, number]) => [p[1], p[0], -(p[2] || u.depth_m || 3.0) * SCALE_ELEVATION]),
-        color: UTILITY_PIPE_COLORS[u.type] || [250, 204, 21, 255],
-        width: Math.max((u.diameter_mm || 100) / 40, 2.0),
-        util: u,
-      }));
-  }, [building?.underground?.utilities, SCALE_ELEVATION]);
+    return utilityPipelines.map((u) => ({
+      path: u.pathGeodetic.map(([lng, lat, depth]) => [lng, lat, -depth * SCALE_ELEVATION]),
+      color: u.color,
+      width: Math.max(u.diameter_mm / 35, 3.5),
+      util: u,
+    }));
+  }, [utilityPipelines, SCALE_ELEVATION]);
 
   const footprintBaseGeoJSON = building?.footprint
     ? {
@@ -898,28 +880,6 @@ export default function MapDeckGL({
               : `${floorInfo.countText} · ${buildingHeight.toFixed(1)}m · ${floorInfo.sourceText}`}
           </span>
         </div>
-      </div>
-
-      {/* ── Photorealistic 3D Tiles Status Pill ── */}
-      <div className="photorealistic-status-pill">
-        {google3DStatus === 'loading' && (
-          <span className="flex items-center gap-1.5 text-sky-400">
-            <Loader2 size={12} className="animate-spin" />
-            <span>Loading realistic 3D geometry...</span>
-          </span>
-        )}
-        {google3DStatus === 'available' && useGoogle3D && (
-          <span className="flex items-center gap-1.5 text-emerald-400">
-            <CheckCircle2 size={12} />
-            <span>Photorealistic 3D available (Google 3D Tiles)</span>
-          </span>
-        )}
-        {(google3DStatus === 'unavailable' || !useGoogle3D) && (
-          <span className="flex items-center gap-1.5 text-indigo-300">
-            <Sparkles size={12} />
-            <span>{geometryResult.statusMessage}</span>
-          </span>
-        )}
       </div>
 
       {/* Hover Tooltip */}

@@ -60,28 +60,8 @@ export default function Header() {
           </Link>
         </nav>
 
-        {/* Right: CTA Action & Backend Status */}
+        {/* Right: CTA Action */}
         <div className="header-actions">
-          <div
-            className={`backend-status-pill ${backendStatus}`}
-            title={
-              backendStatus === 'awake'
-                ? 'Cloud Backend: 24/7 Active'
-                : backendStatus === 'waking_up'
-                ? 'Render Cold Start: Backend is spinning up...'
-                : 'Checking Backend Connection...'
-            }
-          >
-            <span className="status-dot" />
-            <span className="status-text">
-              {backendStatus === 'awake'
-                ? 'API Active'
-                : backendStatus === 'waking_up'
-                ? 'Waking Server...'
-                : 'Connecting...'}
-            </span>
-          </div>
-
           <button
             type="button"
             className="btn-primary header-cta-btn"
