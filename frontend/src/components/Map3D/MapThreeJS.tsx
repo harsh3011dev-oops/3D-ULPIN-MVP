@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Building, Unit, BuildingPart } from '../../types';
+import { Building, Unit, BuildingPart, ThreeMaterialMode } from '../../types';
 import {
   getBuildingCenter,
   getBuildingHeight,
@@ -52,19 +52,9 @@ import {
   ChevronDown,
   ChevronUp,
   Landmark,
+  Sliders,
 } from 'lucide-react';
 import './Map3D.css';
-
-interface MapThreeJSProps {
-  building: Building;
-  selectedUnit: Unit | null;
-  onUnitClick: (unit: Unit) => void;
-  selectedFloor: number | null;
-  isLeftOpen?: boolean;
-  isRightOpen?: boolean;
-  onToggleLeft?: () => void;
-  onToggleRight?: () => void;
-}
 
 const FLOOR_HEX_COLORS = [
   0x6366f1,
@@ -76,6 +66,17 @@ const FLOOR_HEX_COLORS = [
 ];
 
 export type LODLevel = 'FAR' | 'MEDIUM' | 'CLOSE' | 'SELECTED';
+
+interface MapThreeJSProps {
+  building: Building;
+  selectedUnit: Unit | null;
+  onUnitClick: (unit: Unit) => void;
+  selectedFloor: number | null;
+  isLeftOpen?: boolean;
+  isRightOpen?: boolean;
+  onToggleLeft?: () => void;
+  onToggleRight?: () => void;
+}
 
 export interface ArchitecturalTelemetry {
   provider: BuildingGeometrySourceTier | 'OSM2World' | 'OSM building:part' | 'OSM Polygon Extrusion' | 'Procedural Extrusion' | 'Fallback';
@@ -97,6 +98,8 @@ export interface ArchitecturalTelemetry {
   originalMaterials: boolean;
   statusBadge?: string;
   customModelUrl?: string;
+  materialMode?: ThreeMaterialMode;
+  materialSource?: 'Original GLB' | 'OSM tags' | 'OSM2World' | 'Neutral fallback';
   aiAssisted: boolean;
   aiConfidence: number | null;
   aiFieldsUsed: string[];
@@ -125,102 +128,270 @@ export interface ArchitecturalTelemetry {
 }
 
 // ─────────────────────────────────────────────────────────────
-// MATERIAL SYSTEM: Realistic Physical & Architectural Materials
+// MATERIAL SYSTEM: Unified Cadastral & Source Materials Engine
 // ─────────────────────────────────────────────────────────────
 
-function createArchitecturalMaterials(building: Building, wireframe: boolean) {
-  const matTag = (building.assessment?.building_material || building.building_material || '').toLowerCase();
-  const colorTag = (building.building_color || '').toLowerCase();
-  const roofMatTag = (building.roof?.material || '').toLowerCase();
-  const roofColorTag = (building.roof?.color || '').toLowerCase();
+/**
+ * UNIFIED CADASTRAL STYLE PALETTE:
+ * Applies a consistent, neutral architectural visual style across ALL buildings,
+ * regardless of landmark name, religion, city, or provenance.
+ * - Main walls: Light stone / cool grey (#CBD5E1)
+ * - Secondary structures / Plinths: Slightly darker grey (#94A3B8)
+ * - Roof / Spires / Upper structures: Muted slate grey (#64748B)
+ * - Glass / Windows: Semi-transparent blue-grey (#38BDF8 / #93C5FD)
+ * - Accents / Trims: Neutral slate (#94A3B8)
+ */
+function getUnifiedSingleMaterial(
+  meshName: string,
+  matName: string,
+  origMat: THREE.Material | undefined,
+  wireframe: boolean,
+): THREE.Material {
+  const combined = `${meshName} ${matName}`.toLowerCase();
+  const isGlass =
+    combined.includes('glass') ||
+    combined.includes('window') ||
+    combined.includes('glazing') ||
+    (origMat && origMat.transparent && origMat.opacity < 0.85);
+  const isRoofOrCrown =
+    combined.includes('roof') ||
+    combined.includes('spire') ||
+    combined.includes('dome') ||
+    combined.includes('shikhara') ||
+    combined.includes('crown') ||
+    combined.includes('cupola') ||
+    combined.includes('finial') ||
+    combined.includes('tower');
+  const isPodiumOrBase =
+    combined.includes('podium') ||
+    combined.includes('plinth') ||
+    combined.includes('platform') ||
+    combined.includes('base') ||
+    combined.includes('ground') ||
+    combined.includes('floor');
+  const isAccentOrTrim =
+    combined.includes('accent') ||
+    combined.includes('trim') ||
+    combined.includes('cornice') ||
+    combined.includes('balcony') ||
+    combined.includes('kalash') ||
+    combined.includes('mast');
 
-  const isSandstone = matTag.includes('sandstone') || matTag.includes('brick') || colorTag.includes('red') || colorTag.includes('ochre');
-  const isMarbleOrWhite = matTag.includes('marble') || matTag.includes('granite') || colorTag.includes('white') || colorTag.includes('ivory');
-  const isStoneOrHeritage = matTag.includes('stone') || matTag.includes('masonry') || matTag.includes('limestone');
-  const isTerracotta = matTag.includes('clay') || matTag.includes('terracotta') || roofMatTag.includes('tile') || roofColorTag.includes('terracotta');
-
-  // 1. Primary Wall / Body Material
-  let wallColor = 0xe2e8f0; // Warm limestone / architectural off-white
-  let roughness = 0.65;
-  let metalness = 0.05;
-
-  if (isSandstone) {
-    wallColor = 0x9a3412; // Rich red/ochre sandstone
-    roughness = 0.78;
-  } else if (isMarbleOrWhite) {
-    wallColor = 0xf8fafc; // Crystalline marble
-    roughness = 0.40;
-    metalness = 0.02;
-  } else if (isStoneOrHeritage) {
-    wallColor = 0xd6d3d1; // Weathered stone
-    roughness = 0.80;
-  } else if (isTerracotta) {
-    wallColor = 0xc2410c;
-    roughness = 0.85;
+  if (isGlass) {
+    return new THREE.MeshPhysicalMaterial({
+      color: 0x93c5fd,
+      roughness: 0.1,
+      metalness: 0.1,
+      transmission: 0.85,
+      transparent: true,
+      opacity: 0.55,
+      wireframe,
+    });
   }
 
-  const isModern = !isSandstone && !isMarbleOrWhite && !isStoneOrHeritage && !isTerracotta;
+  if (isRoofOrCrown) {
+    return new THREE.MeshStandardMaterial({
+      color: 0x64748b, // Muted slate grey
+      roughness: 0.65,
+      metalness: 0.12,
+      wireframe,
+    });
+  }
 
-  const wallMaterial = isModern
-    ? new THREE.MeshPhysicalMaterial({
-        color: 0xf1f5f9,
-        map: generateModernFacadeTexture(building.floor_count || 4),
-        metalness: 0.35,
-        roughness: 0.25,
-        clearcoat: 0.75,
-        clearcoatRoughness: 0.15,
-        reflectivity: 0.85,
-        wireframe,
-      })
-    : new THREE.MeshStandardMaterial({
-        color: wallColor,
-        roughness,
-        metalness,
-        wireframe,
-      });
+  if (isPodiumOrBase) {
+    return new THREE.MeshStandardMaterial({
+      color: 0x94a3b8, // Slightly darker grey
+      roughness: 0.80,
+      metalness: 0.05,
+      wireframe,
+    });
+  }
 
-  // 2. Podium / Platform Plinth Material
+  if (isAccentOrTrim) {
+    return new THREE.MeshStandardMaterial({
+      color: 0x94a3b8, // Neutral slate
+      roughness: 0.50,
+      metalness: 0.20,
+      wireframe,
+    });
+  }
+
+  // Default: Main walls - light stone / cool grey (#CBD5E1)
+  return new THREE.MeshStandardMaterial({
+    color: 0xcbd5e1,
+    roughness: 0.70,
+    metalness: 0.05,
+    wireframe,
+  });
+}
+
+function createUnifiedArchitecturalMaterial(
+  mesh: THREE.Mesh,
+  wireframe: boolean,
+): THREE.Material | THREE.Material[] {
+  const meshName = mesh.name || '';
+  if (Array.isArray(mesh.material)) {
+    return mesh.material.map((mat) => {
+      const matName = (mat as any)?.name || '';
+      return getUnifiedSingleMaterial(meshName, matName, mat, wireframe);
+    });
+  }
+  const matName = (mesh.material as any)?.name || '';
+  return getUnifiedSingleMaterial(meshName, matName, mesh.material, wireframe);
+}
+
+/**
+ * Register original materials on mesh userData before applying any override.
+ * Preserves original GLB / OSM2World / OSM materials so switching modes is instant.
+ */
+function registerAndApplyMaterials(
+  group: THREE.Group,
+  mode: ThreeMaterialMode,
+  wireframe: boolean,
+) {
+  group.traverse((child) => {
+    if ((child as THREE.Mesh).isMesh) {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.userData.originalMaterial) {
+        mesh.userData.originalMaterial = Array.isArray(mesh.material)
+          ? mesh.material.map((m) => m.clone())
+          : mesh.material.clone();
+      }
+    }
+  });
+  applyMaterialModeToGroup(group, mode, wireframe);
+}
+
+/**
+ * Traverse scene group and apply either UNIFIED or SOURCE materials without reloading models.
+ */
+function applyMaterialModeToGroup(
+  group: THREE.Group,
+  mode: ThreeMaterialMode,
+  wireframe: boolean,
+) {
+  group.traverse((child) => {
+    if ((child as THREE.Mesh).isMesh) {
+      const mesh = child as THREE.Mesh;
+      if (mode === 'UNIFIED') {
+        mesh.material = createUnifiedArchitecturalMaterial(mesh, wireframe);
+      } else {
+        // SOURCE MATERIALS MODE
+        if (mesh.userData.originalMaterial) {
+          if (Array.isArray(mesh.userData.originalMaterial)) {
+            mesh.material = mesh.userData.originalMaterial.map((m: THREE.Material) => {
+              const cloned = m.clone();
+              if ('wireframe' in cloned) (cloned as any).wireframe = wireframe;
+              return cloned;
+            });
+          } else {
+            const cloned = mesh.userData.originalMaterial.clone();
+            if ('wireframe' in cloned) (cloned as any).wireframe = wireframe;
+            mesh.material = cloned;
+          }
+        }
+      }
+    }
+  });
+}
+
+/**
+ * Procedural Source Materials Generator:
+ * Uses available genuine OSM tags (building:colour, roof:colour, building:material, roof:material).
+ * If tags are unavailable, falls back to neutral cool grey (never invents landmark colors).
+ */
+function createArchitecturalMaterials(building: Building, wireframe: boolean) {
+  const rawTags = (building as any).raw_tags || building.raw_osm_data?.tags || {};
+  const matTag = (rawTags['building:material'] || building.assessment?.building_material || building.building_material || '').toLowerCase();
+  const colorTag = (rawTags['building:colour'] || building.building_color || '').toLowerCase();
+  const roofMatTag = (rawTags['roof:material'] || building.roof?.material || '').toLowerCase();
+  const roofColorTag = (rawTags['roof:colour'] || building.roof?.color || '').toLowerCase();
+
+  let wallColor = 0xcbd5e1; // Default neutral cool grey / light stone (#CBD5E1)
+  let roughness = 0.70;
+  let metalness = 0.05;
+
+  if (colorTag.startsWith('#')) {
+    const parsed = parseInt(colorTag.replace('#', ''), 16);
+    if (!isNaN(parsed)) wallColor = parsed;
+  } else if (colorTag === 'white' || colorTag.includes('marble')) {
+    wallColor = 0xf8fafc;
+    roughness = 0.40;
+  } else if (colorTag === 'red' || colorTag.includes('brick')) {
+    wallColor = 0x9a3412;
+    roughness = 0.80;
+  } else if (colorTag === 'grey' || colorTag === 'gray') {
+    wallColor = 0x94a3b8;
+  } else if (colorTag === 'brown' || colorTag.includes('wood')) {
+    wallColor = 0x78350f;
+  }
+
+  if (matTag.includes('glass')) {
+    roughness = 0.15;
+    metalness = 0.40;
+  } else if (matTag.includes('metal')) {
+    roughness = 0.30;
+    metalness = 0.80;
+  }
+
+  const wallMaterial = new THREE.MeshStandardMaterial({
+    color: wallColor,
+    roughness,
+    metalness,
+    wireframe,
+  });
+
   const podiumMaterial = new THREE.MeshStandardMaterial({
-    color: isSandstone ? 0x7c2d12 : isMarbleOrWhite ? 0xe2e8f0 : 0x475569,
-    roughness: 0.85,
+    color: 0x94a3b8,
+    roughness: 0.80,
     metalness: 0.05,
     wireframe,
   });
 
-  // 3. Roof / Dome Material
-  let roofColor = 0x334155;
-  if (isMarbleOrWhite) roofColor = 0xffffff;
-  else if (isSandstone) roofColor = 0x7c2d12;
-  else if (isTerracotta) roofColor = 0xb45309;
+  let roofColor = 0x64748b; // Neutral slate grey
+  let roofRoughness = 0.65;
+  let roofMetalness = 0.10;
+
+  if (roofColorTag.startsWith('#')) {
+    const parsed = parseInt(roofColorTag.replace('#', ''), 16);
+    if (!isNaN(parsed)) roofColor = parsed;
+  } else if (roofColorTag === 'white') {
+    roofColor = 0xf8fafc;
+  } else if (roofColorTag === 'red' || roofColorTag.includes('terracotta')) {
+    roofColor = 0x9a3412;
+  } else if (roofColorTag === 'grey' || roofColorTag === 'gray') {
+    roofColor = 0x64748b;
+  }
+
+  if (roofMatTag.includes('metal') || roofMatTag.includes('copper')) {
+    roofMetalness = 0.75;
+  }
 
   const roofMaterial = new THREE.MeshStandardMaterial({
     color: roofColor,
-    roughness: isMarbleOrWhite ? 0.35 : 0.65,
-    metalness: 0.1,
+    roughness: roofRoughness,
+    metalness: roofMetalness,
     wireframe,
   });
 
-  // 4. Gold / Brass Kalash Accent Material
   const goldAccentMat = new THREE.MeshStandardMaterial({
-    color: 0xf59e0b,
-    metalness: 0.95,
-    roughness: 0.18,
+    color: 0x94a3b8,
+    metalness: 0.20,
+    roughness: 0.50,
     wireframe,
   });
 
-  // 5. Cornice / Trim Accent Material
   const trimMaterial = new THREE.MeshStandardMaterial({
-    color: isMarbleOrWhite ? 0xe2e8f0 : isSandstone ? 0xb45309 : 0x64748b,
-    roughness: 0.5,
+    color: 0x94a3b8,
+    roughness: 0.50,
     metalness: 0.15,
     wireframe,
   });
 
-  // 6. Subtle Architectural Pen Outline Material
   const edgeMaterial = new THREE.LineBasicMaterial({
-    color: 0x0f172a,
+    color: 0x1e293b,
     transparent: true,
-    opacity: 0.40,
+    opacity: 0.35,
   });
 
   return {
@@ -230,7 +401,7 @@ function createArchitecturalMaterials(building: Building, wireframe: boolean) {
     goldAccentMat,
     trimMaterial,
     edgeMaterial,
-    isHistoric: !isModern,
+    isHistoric: false,
   };
 }
 
@@ -1399,6 +1570,10 @@ export default function MapThreeJS({
   const selectedFloorRef = useRef(selectedFloor);
   selectedFloorRef.current = selectedFloor;
 
+  const [materialMode, setMaterialMode] = useState<ThreeMaterialMode>('UNIFIED');
+  const materialModeRef = useRef<ThreeMaterialMode>('UNIFIED');
+  materialModeRef.current = materialMode;
+
   const [autoRotate, setAutoRotate] = useState(false);
   const [wireframeMode, setWireframeMode] = useState(false);
   const [layerVisibilityMode, setLayerVisibilityMode] = useState<'both' | 'model' | 'cadastre'>('both');
@@ -1427,6 +1602,8 @@ export default function MapThreeJS({
     hardcodedGeometry: false,
     originalMaterials: true,
     statusBadge: 'Cadastral Structure',
+    materialMode: 'UNIFIED',
+    materialSource: 'Neutral fallback',
     aiAssisted: false,
     aiConfidence: null,
     aiFieldsUsed: [],
@@ -1742,6 +1919,10 @@ export default function MapThreeJS({
       );
       exteriorMeshesRef.current = reconResult.exteriorMeshes;
 
+      // Register original materials and apply active material mode
+      registerAndApplyMaterials(visualBuildingGroup, materialModeRef.current, wireframeMode);
+      registerAndApplyMaterials(facadeDetailsGroup, materialModeRef.current, wireframeMode);
+
       // Ensure all meshes have frustum culling disabled & valid bounds
       visualBuildingGroup.traverse((child) => {
         if ((child as THREE.Mesh).isMesh) {
@@ -1762,6 +1943,17 @@ export default function MapThreeJS({
       const tierDecision: BuildingGeometrySourceTier =
         sourceParts > 0 ? 'OSM_BUILDING_PART' : 'OSM_FOOTPRINT';
 
+      const hasOsmMaterialTags = Boolean(
+        building.building_color ||
+        building.roof?.color ||
+        building.building_material ||
+        building.roof?.material ||
+        (building as any).raw_tags?.['building:colour'] ||
+        (building as any).raw_tags?.['roof:colour'] ||
+        (building as any).raw_tags?.['building:material'] ||
+        (building as any).raw_tags?.['roof:material']
+      );
+
       setTelemetry({
         provider: tierDecision,
         geometrySource: reconResult.geometrySource,
@@ -1779,7 +1971,9 @@ export default function MapThreeJS({
         modelLoaded: true,
         modelVisible: true,
         hardcodedGeometry: false,
-        originalMaterials: false,
+        originalMaterials: hasOsmMaterialTags,
+        materialMode: materialModeRef.current,
+        materialSource: hasOsmMaterialTags ? 'OSM tags' : 'Neutral fallback',
         statusBadge: sourceParts > 0 ? 'OSM building:part' : 'OSM Footprint Extrusion',
         aiAssisted: isAiAssisted,
         aiConfidence: isAiAssisted ? Math.round(inferredAiData.confidence * 100) : null,
@@ -1822,7 +2016,8 @@ export default function MapThreeJS({
     // ─────────────────────────────────────────────────────────────
     // PRIORITY 1: CUSTOM 3D ARCHITECTURAL MODEL (GLB / GLTF)
     // If a registered or direct custom model exists, load high-detail asset,
-    // auto-frame camera to bounding box, and preserve original materials.
+    // auto-frame camera to bounding box, register original materials,
+    // and apply the active material mode policy.
     // ─────────────────────────────────────────────────────────────
     const customModelConfig = findCustomModel(building);
 
@@ -1849,6 +2044,9 @@ export default function MapThreeJS({
           visualBuildingGroup.visible = true;
           exteriorMeshesRef.current = customResult.meshes;
 
+          // Register original materials and apply active material mode (Unified Cadastral default)
+          registerAndApplyMaterials(visualBuildingGroup, materialModeRef.current, wireframeMode);
+
           // Auto-frame camera and OrbitControls using the loaded model bounding box
           const bBox = customResult.boundingBox;
           const center = customResult.center;
@@ -1871,7 +2069,7 @@ export default function MapThreeJS({
             sourcePartCount: 1,
             buildingPartsCount: 1,
             partTypes: ['glb-architectural-mesh'],
-            roofType: 'High-detail Nagara Temple Spire',
+            roofType: customModelConfig.name ? `${customModelConfig.name} Geometry` : 'Architectural Spire / Crown',
             roofHeightM: visualH * 0.55,
             generatedMeshCount: customResult.meshCount,
             lodLevel: 'CLOSE',
@@ -1882,14 +2080,16 @@ export default function MapThreeJS({
             modelVisible: true,
             hardcodedGeometry: false,
             originalMaterials: true,
+            materialMode: materialModeRef.current,
+            materialSource: 'Original GLB',
             statusBadge: 'High-detail architectural model',
             customModelUrl: customResult.modelUrl,
             aiAssisted: false,
             aiConfidence: null,
             aiFieldsUsed: [],
             sourceMetadata: {
-              roofShape: 'Nagara Shikhara / Phamsana',
-              buildingMaterial: 'Sandstone / Marble / Gilded Brass',
+              roofShape: '3D Mesh Geometry',
+              buildingMaterial: 'GLB Mesh Materials',
               height: visualH,
               levels: building.floor_count || customModelConfig.floorCount || 3,
             },
@@ -1999,6 +2199,9 @@ export default function MapThreeJS({
             visualBuildingGroup.visible = true;
             exteriorMeshesRef.current = o2wResult.meshes;
 
+            // Register original materials and apply active material mode
+            registerAndApplyMaterials(visualBuildingGroup, materialModeRef.current, wireframeMode);
+
             visualBuildingGroup.traverse((child) => {
               if ((child as THREE.Mesh).isMesh) {
                 const m = child as THREE.Mesh;
@@ -2028,6 +2231,8 @@ export default function MapThreeJS({
               modelVisible: true,
               hardcodedGeometry: false,
               originalMaterials: true,
+              materialMode: materialModeRef.current,
+              materialSource: 'OSM2World',
               statusBadge: 'OSM2World Web Mesh',
               proportions: {
                 platformM: 0,
@@ -2361,6 +2566,24 @@ export default function MapThreeJS({
     }
   }, [layerVisibilityMode]);
 
+  // ─────────────────────────────────────────────────────────────
+  // MATERIAL MODE CONTROLLER:
+  // Dynamically switches between Unified Cadastral Style & Source Materials
+  // WITHOUT destroying geometry or reloading the 3D model asset.
+  // ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (visualBuildingGroupRef.current) {
+      applyMaterialModeToGroup(visualBuildingGroupRef.current, materialMode, wireframeMode);
+    }
+    if (facadeDetailsGroupRef.current) {
+      applyMaterialModeToGroup(facadeDetailsGroupRef.current, materialMode, wireframeMode);
+    }
+    setTelemetry((prev) => ({
+      ...prev,
+      materialMode,
+    }));
+  }, [materialMode, wireframeMode]);
+
   const handleZoomIn = () => {
     if (cameraRef.current && controlsRef.current) {
       cameraRef.current.position.multiplyScalar(0.85);
@@ -2575,6 +2798,26 @@ export default function MapThreeJS({
         </div>
       </div>
 
+      {/* Appearance Style Toggle (Unified Cadastral / Source Materials) */}
+      <div className="three-material-toggle-group">
+        <button
+          className={`three-mat-btn ${materialMode === 'UNIFIED' ? 'active' : ''}`}
+          onClick={() => setMaterialMode('UNIFIED')}
+          title="Applies a consistent neutral visualization style across all reconstructed buildings."
+        >
+          <Sparkles size={12} />
+          <span>Unified Cadastral</span>
+        </button>
+        <button
+          className={`three-mat-btn ${materialMode === 'SOURCE' ? 'active' : ''}`}
+          onClick={() => setMaterialMode('SOURCE')}
+          title="Displays available source/model materials where provided."
+        >
+          <Layers size={12} />
+          <span>Source Materials</span>
+        </button>
+      </div>
+
       {/* ── 10. COMPREHENSIVE ARCHITECTURAL TELEMETRY HUD ── */}
       {showDebugHud && (
         <div className="architectural-telemetry-hud">
@@ -2594,6 +2837,18 @@ export default function MapThreeJS({
             <div className="hud-item">
               <span className="hud-k">Geometry Source:</span>
               <span className="hud-v font-mono text-[11px] text-slate-300">{telemetry.geometrySource}</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Material Mode:</span>
+              <span className="hud-v font-bold text-sky-400">
+                {materialMode === 'UNIFIED' ? 'Unified Cadastral' : 'Source Materials'}
+              </span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Material Source:</span>
+              <span className="hud-v font-bold text-indigo-300">
+                {telemetry.materialSource || (telemetry.provider === 'CUSTOM_MODEL' ? 'Original GLB' : telemetry.provider === 'OSM2WORLD' ? 'OSM2World' : 'Neutral fallback')}
+              </span>
             </div>
             <div className="hud-item">
               <span className="hud-k">Model Loaded:</span>
@@ -2638,7 +2893,7 @@ export default function MapThreeJS({
           Provider: {telemetry.provider === 'CUSTOM_MODEL' ? 'Custom GLB/GLTF' : telemetry.provider}
         </span>
         <span className="text-slate-400 text-[11px]">
-          · {telemetry.geometrySource} · Meshes: {telemetry.generatedMeshCount} {telemetry.statusBadge ? `· ${telemetry.statusBadge}` : ''}
+          · {telemetry.geometrySource} · {materialMode === 'UNIFIED' ? 'Unified Cadastral' : 'Source Materials'} · Meshes: {telemetry.generatedMeshCount} {telemetry.statusBadge ? `· ${telemetry.statusBadge}` : ''}
         </span>
       </div>
     </div>

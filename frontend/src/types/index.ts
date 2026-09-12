@@ -370,5 +370,4 @@ export interface InferredMetadataRequest {
   known_material?: string;
 }
 
-
-
+export type ThreeMaterialMode = 'UNIFIED' | 'SOURCE';
