@@ -273,7 +273,7 @@ export default function MapPage() {
             {/* Structural Score */}
             <div style={{
               padding: '14px 16px', borderRadius: 'var(--radius-sm)',
-              background: '#FFFFFF', border: '1px solid var(--border-color)',
+              background: 'var(--bg-card)', border: '1px solid var(--border-color)',
               boxShadow: 'var(--shadow-xs)', display: 'flex',
               alignItems: 'center', justifyContent: 'space-between'
             }}>
