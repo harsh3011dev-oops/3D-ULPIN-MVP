@@ -42,6 +42,7 @@ import {
   createArchMesh,
   createCurvedArchitecturalElements,
 } from '../../utils/curvedPrimitivesBuilder';
+import { applyVerifiedBuildingMetadata, getVerifiedBuildingMetadata } from '../../utils/verifiedBuildingMetadata';
 import { inferBuildingMetadata } from '../../api/api';
 import {
   RotateCw,
@@ -1668,16 +1669,19 @@ export default function MapThreeJS({
   const [floorScreenPos, setFloorScreenPos] = useState<{ x: number; y: number; visible: boolean } | null>(null);
   const [camDistMeters, setCamDistMeters] = useState<number>(50);
 
-  const { lat: centerLat, lng: centerLng } = getBuildingCenter(building);
-  const dims = useMemo(() => getFootprintDimensions(building.footprint), [building.footprint]);
-  const buildingHeight = getBuildingHeight(building);
-  const floorHeight = getFloorHeight(building);
-  const floorInfo = useMemo(() => getFloorCountInfo(building), [building]);
+  const verifiedBuilding = useMemo(() => applyVerifiedBuildingMetadata(building), [building]);
+  const verifiedRecord = useMemo(() => getVerifiedBuildingMetadata(verifiedBuilding), [verifiedBuilding]);
+
+  const { lat: centerLat, lng: centerLng } = getBuildingCenter(verifiedBuilding);
+  const dims = useMemo(() => getFootprintDimensions(verifiedBuilding.footprint), [verifiedBuilding.footprint]);
+  const buildingHeight = getBuildingHeight(verifiedBuilding);
+  const floorHeight = getFloorHeight(verifiedBuilding);
+  const floorInfo = useMemo(() => getFloorCountInfo(verifiedBuilding), [verifiedBuilding]);
 
   // Stable building identifier — building geometry is reconstructed ONLY when target building changes
   const buildingKey = useMemo(
-    () => `${building?.building_id || ''}_${centerLat.toFixed(6)}_${centerLng.toFixed(6)}_${building?.osm_id || ''}`,
-    [building?.building_id, centerLat, centerLng, building?.osm_id]
+    () => `${verifiedBuilding?.building_id || ''}_${centerLat.toFixed(6)}_${centerLng.toFixed(6)}_${verifiedBuilding?.osm_id || ''}`,
+    [verifiedBuilding?.building_id, centerLat, centerLng, verifiedBuilding?.osm_id]
   );
 
   useEffect(() => {
@@ -1934,7 +1938,7 @@ export default function MapThreeJS({
 
     // Helper: Construct real procedural geometry from OSM vector polygon & parts
     const applyProceduralReconstruction = (inferredAiData?: any) => {
-      const validation = validateBuildingData(building);
+      const validation = validateBuildingData(verifiedBuilding);
       if (!validation.isValid) {
         console.warn('Building data validation issue:', validation.error);
       }
@@ -1946,36 +1950,62 @@ export default function MapThreeJS({
         facadeDetailsGroup.remove(facadeDetailsGroup.children[0]);
       }
 
-      const decision = evaluateBestGeometryProvider(building, false);
+      const decision = evaluateBestGeometryProvider(verifiedBuilding, false);
       const isReferenceAssisted = decision.provider === 'REFERENCE_ASSISTED';
-      const materials = createArchitecturalMaterials(building, wireframeMode);
+      const materials = createArchitecturalMaterials(verifiedBuilding, wireframeMode);
 
       let reconResult: any;
 
-      if (isReferenceAssisted) {
-        reconResult = constructReferenceAssistedBuilding(
-          visualBuildingGroup,
-          facadeDetailsGroup,
-          building,
-          dims,
-          buildingHeight,
-          floorHeight,
-          wireframeMode,
-          materials,
-          building.reference_images,
-          building.multiview_analysis
-        );
-      } else {
-        reconResult = constructMultiMassBuilding(
-          visualBuildingGroup,
-          facadeDetailsGroup,
-          building,
-          dims,
-          buildingHeight,
-          floorHeight,
-          wireframeMode,
-          inferredAiData,
-        );
+      try {
+        if (isReferenceAssisted) {
+          reconResult = constructReferenceAssistedBuilding(
+            visualBuildingGroup,
+            facadeDetailsGroup,
+            verifiedBuilding,
+            dims,
+            buildingHeight,
+            floorHeight,
+            wireframeMode,
+            materials,
+            verifiedBuilding.reference_images,
+            verifiedBuilding.multiview_analysis
+          );
+        } else {
+          reconResult = constructMultiMassBuilding(
+            visualBuildingGroup,
+            facadeDetailsGroup,
+            verifiedBuilding,
+            dims,
+            buildingHeight,
+            floorHeight,
+            wireframeMode,
+            inferredAiData,
+          );
+        }
+      } catch (recErr) {
+        console.error('Procedural 3D model reconstruction encountered an error — using safe fallback:', recErr);
+        while (visualBuildingGroup.children.length > 0) {
+          visualBuildingGroup.remove(visualBuildingGroup.children[0]);
+        }
+        while (facadeDetailsGroup.children.length > 0) {
+          facadeDetailsGroup.remove(facadeDetailsGroup.children[0]);
+        }
+        const safeW = Math.max(dims.width, 12);
+        const safeH = Math.max(buildingHeight, 6);
+        const safeD = Math.max(dims.depth, 12);
+        const safeGeo = new THREE.BoxGeometry(safeW, safeH, safeD);
+        const safeMesh = new THREE.Mesh(safeGeo, materials.wallMaterial);
+        safeMesh.position.set(0, safeH / 2, 0);
+        visualBuildingGroup.add(safeMesh);
+        reconResult = {
+          exteriorMeshes: [safeMesh],
+          geometrySource: 'Safe Procedural Box Fallback',
+          partTypes: ['fallback-box'],
+          roofType: 'flat',
+          roofHeightM: 0,
+          proportions: { platformM: 0, wallM: safeH, roofM: 0, finialM: 0 },
+          circularity: 0.5,
+        };
       }
 
       exteriorMeshesRef.current = reconResult.exteriorMeshes;
@@ -1994,7 +2024,7 @@ export default function MapThreeJS({
         }
       });
 
-      const sourceParts = building.building_parts?.length || 0;
+      const sourceParts = verifiedBuilding.building_parts?.length || 0;
       const genMeshes = reconResult.exteriorMeshes.length;
       const bBox = new THREE.Box3().setFromObject(visualBuildingGroup);
 
@@ -2007,14 +2037,14 @@ export default function MapThreeJS({
         : 'OSM_FOOTPRINT';
 
       const hasOsmMaterialTags = Boolean(
-        building.building_color ||
-        building.roof?.color ||
-        building.building_material ||
-        building.roof?.material ||
-        (building as any).raw_tags?.['building:colour'] ||
-        (building as any).raw_tags?.['roof:colour'] ||
-        (building as any).raw_tags?.['building:material'] ||
-        (building as any).raw_tags?.['roof:material']
+        verifiedBuilding.building_color ||
+        verifiedBuilding.roof?.color ||
+        verifiedBuilding.building_material ||
+        verifiedBuilding.roof?.material ||
+        (verifiedBuilding as any).raw_tags?.['building:colour'] ||
+        (verifiedBuilding as any).raw_tags?.['roof:colour'] ||
+        (verifiedBuilding as any).raw_tags?.['building:material'] ||
+        (verifiedBuilding as any).raw_tags?.['roof:material']
       );
 
       const statusBadge = isReferenceAssisted
@@ -2036,7 +2066,7 @@ export default function MapThreeJS({
       setTelemetry({
         provider: tierDecision,
         geometrySource: isReferenceAssisted ? 'Multi-view Reference Images + OSM Footprint' : reconResult.geometrySource,
-        osmId: building.osm_id || 'osm/auto',
+        osmId: verifiedBuilding.osm_id || 'osm/auto',
         sourcePartCount: sourceParts || (isReferenceAssisted ? 6 : 1),
         buildingPartsCount: sourceParts || (isReferenceAssisted ? 6 : 1),
         partTypes: reconResult.partTypes || [],
@@ -2045,7 +2075,7 @@ export default function MapThreeJS({
         generatedMeshCount: genMeshes,
         lodLevel: 'MEDIUM',
         visualHeight: buildingHeight,
-        cadastralHeight: (building.floor_count || 1) * floorHeight,
+        cadastralHeight: (verifiedBuilding.floor_count || 1) * floorHeight,
         fallbackUsed: decision.fallbackUsed,
         modelLoaded: true,
         modelVisible: true,
@@ -2061,10 +2091,10 @@ export default function MapThreeJS({
           ? 'Reconstructed from multi-view photographs (repeating bays, side stair tower, horizontal slab bands, flat roof with parapet)'
           : inferredAiData?.reasoning,
         sourceMetadata: {
-          roofShape: isReferenceAssisted ? 'flat' : building.roof?.shape,
-          buildingMaterial: building.assessment?.building_material || building.building_material,
-          height: building.height_meters || building.height,
-          levels: building.floor_count,
+          roofShape: isReferenceAssisted ? 'flat' : verifiedBuilding.roof?.shape,
+          buildingMaterial: verifiedBuilding.assessment?.building_material || verifiedBuilding.building_material,
+          height: verifiedBuilding.height_meters || verifiedBuilding.height,
+          levels: verifiedBuilding.floor_count,
         },
         inferredMetadata: isReferenceAssisted ? reconResult.analysis : inferredAiData,
         proportions: reconResult.proportions || {
@@ -2073,7 +2103,7 @@ export default function MapThreeJS({
           roofM: reconResult.roofHeightM,
           finialM: 0,
         },
-        hasHoles: getShapeMetrics(building.footprint).hasHoles,
+        hasHoles: getShapeMetrics(verifiedBuilding.footprint).hasHoles,
         circularity: reconResult.circularity,
       });
 
@@ -2339,15 +2369,16 @@ export default function MapThreeJS({
     // Includes below-ground property stratum (B1 — Library) and stacked above-ground floors (F1..Fn).
     // Always generate slabs so floor isolation and property strata selection always work.
     const unitMap = new Map<string, THREE.Mesh>();
-    const units = building?.units || [];
-    const shape = building.footprint ? footprintToShape(building.footprint, centerLng, centerLat) : null;
-    const totalFloors = building.floor_count || Math.max(units.length, 3);
-    const nameLower = (building?.building_name || '').toLowerCase();
-    const isAdminBlockWithBasement = nameLower.includes('admin') && !nameLower.includes('g block') && !nameLower.includes('block g');
-    const basementFloors = building.basement_count ??
-      building.assessment?.basement_levels ??
-      building.underground_floors ??
-      (isAdminBlockWithBasement ? 1 : 0);
+    const units = verifiedBuilding?.units || [];
+    const shape = verifiedBuilding.footprint ? footprintToShape(verifiedBuilding.footprint, centerLng, centerLat) : null;
+    const totalFloors = verifiedRecord
+      ? verifiedRecord.aboveGroundFloors
+      : (verifiedBuilding.floor_count || Math.max(units.length, 3));
+    const basementFloors = verifiedRecord !== null
+      ? verifiedRecord.basementFloors
+      : (verifiedBuilding.basement_count ?? verifiedBuilding.assessment?.basement_levels ?? 0);
+    const isGBlock = verifiedRecord?.floorLabels && verifiedRecord.floorLabels[0] === 'G';
+    const basementUse = verifiedRecord?.basementUse || verifiedBuilding.basement_use || 'Library';
 
     // Build a map from floor number to unit (if available)
     const floorToUnit = new Map<number, (typeof units)[0]>();
@@ -2388,11 +2419,11 @@ export default function MapThreeJS({
       bMesh.frustumCulled = false;
       bMesh.userData = {
         unit: bUnit || {
-          unit_id: `${building.building_id || 'admin'}-B1-LIB`,
+          unit_id: `${verifiedBuilding.building_id || 'admin'}-B1-LIB`,
           floor: bFloorNum,
           unit_number: 'B1-LIB',
-          use_type: building.basement_use || 'Library',
-          ulpin: `${building.building_id || 'ULPIN'}-B1-LIB-001`,
+          use_type: basementUse,
+          ulpin: `${verifiedBuilding.building_id || 'ULPIN'}-B1-LIB-001`,
         },
         baseColor: 0x6366f1,
         floorNum: bFloorNum,
@@ -2406,7 +2437,7 @@ export default function MapThreeJS({
       if (bUnit) unitMap.set(bUnit.unit_id, bMesh);
       unitMap.set(`floor-${bFloorNum}`, bMesh);
       unitMap.set(`B${b}`, bMesh);
-      unitMap.set(`${building.building_id || 'admin'}-B1-LIB`, bMesh);
+      unitMap.set(`${verifiedBuilding.building_id || 'admin'}-B1-LIB`, bMesh);
     }
 
     // 2. Create Above-Ground Strata Slabs (F1..Fn)
@@ -2445,9 +2476,15 @@ export default function MapThreeJS({
       cadastralULPINGroup.add(levelMesh);
       floorSlabs.push(levelMesh);
 
+      const pillLabel = isGBlock
+        ? (verifiedRecord?.floorLabels?.[floorNum - 1] || `F${floorNum}`)
+        : `F${floorNum}`;
+
       // Register by unit_id if a real unit exists, also by floor key
       if (unit) unitMap.set(unit.unit_id, levelMesh);
       unitMap.set(`floor-${floorNum}`, levelMesh);
+      unitMap.set(pillLabel, levelMesh);
+      if (isGBlock && floorNum === 1) unitMap.set('G', levelMesh);
       unitMap.set(`F${floorNum}`, levelMesh);
     }
 

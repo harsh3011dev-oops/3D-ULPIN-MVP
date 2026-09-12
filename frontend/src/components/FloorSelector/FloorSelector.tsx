@@ -5,6 +5,8 @@ import './FloorSelector.css';
 interface FloorSelectorProps {
   totalFloors: number;
   basementFloors?: number;
+  basementUse?: string;
+  floorLabels?: string[];
   selectedFloor: number | null;
   onSelectFloor: (floor: number | null) => void;
 }
@@ -12,6 +14,8 @@ interface FloorSelectorProps {
 export default function FloorSelector({
   totalFloors,
   basementFloors = 0,
+  basementUse = 'Library',
+  floorLabels,
   selectedFloor,
   onSelectFloor,
 }: FloorSelectorProps) {
@@ -19,14 +23,24 @@ export default function FloorSelector({
   const basementFloorList = basementFloors > 0 ? Array.from({ length: basementFloors }, (_, i) => -(i + 1)) : [];
   const totalStrataCount = totalFloors + basementFloors;
 
+  const isGBlockStyle = floorLabels && floorLabels[0] === 'G';
+
   const getFloorDisplayLabel = (floor: number | null): string => {
     if (floor === null) {
       return basementFloors > 0
         ? `All ${totalStrataCount} Strata (${basementFloors}B + ${totalFloors}F)`
         : `All ${totalFloors} Floors`;
     }
-    if (floor === -1) return 'B1 — Library (-3.5m to 0.0m)';
+    if (floor === -1) return `B1 — ${basementUse} (-3.5m to 0.0m)`;
     if (floor < 0) return `Basement B${Math.abs(floor)}`;
+    if (isGBlockStyle) {
+      if (floor === 1) return 'G Ground Floor (+0.0m to +3.5m)';
+      if (floor === 2) return 'F1 First Floor (+3.5m to +7.0m)';
+      if (floor === 3) return 'F2 Second Floor (+7.0m to +10.5m)';
+      if (floor === 4) return 'F3 Third Floor (+10.5m to +14.0m)';
+      if (floor === 5) return 'F4 Fourth Floor (+14.0m to +17.5m)';
+      return `Floor ${floorLabels?.[floor - 1] || floor}`;
+    }
     if (floor === 1) return 'F1 Ground Floor (+0.0m to +3.5m)';
     if (floor === 2) return 'F2 First Floor (+3.5m to +7.0m)';
     if (floor === 3) return 'F3 Second Floor (+7.0m to +10.5m)';
@@ -98,7 +112,7 @@ export default function FloorSelector({
               type="button"
               className={`floor-pill basement-pill ${selectedFloor === bNum ? 'active' : ''}`}
               onClick={() => onSelectFloor(bNum)}
-              title={bNum === -1 ? 'B1 — Basement Library' : `Basement B${Math.abs(bNum)}`}
+              title={bNum === -1 ? `B1 — ${basementUse}` : `Basement B${Math.abs(bNum)}`}
               style={selectedFloor === bNum ? { background: '#0D9488', color: '#ffffff', borderColor: '#2DD4BF' } : {}}
             >
               B{Math.abs(bNum)}
@@ -106,17 +120,23 @@ export default function FloorSelector({
           ))}
 
           {/* Above-Ground Floor Pills */}
-          {aboveGroundFloors.map((floorNum) => (
-            <button
-              key={`f-${floorNum}`}
-              type="button"
-              className={`floor-pill ${selectedFloor === floorNum ? 'active' : ''}`}
-              onClick={() => onSelectFloor(floorNum)}
-              title={`Floor ${floorNum}`}
-            >
-              F{floorNum}
-            </button>
-          ))}
+          {aboveGroundFloors.map((floorNum) => {
+            const pillLabel = isGBlockStyle
+              ? (floorLabels?.[floorNum - 1] || `F${floorNum}`)
+              : `F${floorNum}`;
+
+            return (
+              <button
+                key={`f-${floorNum}`}
+                type="button"
+                className={`floor-pill ${selectedFloor === floorNum ? 'active' : ''}`}
+                onClick={() => onSelectFloor(floorNum)}
+                title={`Floor ${pillLabel}`}
+              >
+                {pillLabel}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

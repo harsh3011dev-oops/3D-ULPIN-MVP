@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import MapDeckGL from './MapDeckGL';
 import MapThreeJS from './MapThreeJS';
+import ThreeJSErrorBoundary from '../ErrorBoundary/ThreeJSErrorBoundary';
 import { Building, Unit } from '../../types';
 import { Compass, Box, Camera, Download, Check } from 'lucide-react';
 import './Map3D.css';
@@ -213,16 +214,18 @@ export default function Map3D({
           onToggleRight={onToggleRight}
         />
       ) : (
-        <MapThreeJS
-          building={building}
-          selectedUnit={selectedUnit}
-          onUnitClick={onUnitClick}
-          selectedFloor={selectedFloor}
-          isLeftOpen={isLeftOpen}
-          isRightOpen={isRightOpen}
-          onToggleLeft={onToggleLeft}
-          onToggleRight={onToggleRight}
-        />
+        <ThreeJSErrorBoundary fallbackMessage="3D model reconstruction failed — using fallback geometry">
+          <MapThreeJS
+            building={building}
+            selectedUnit={selectedUnit}
+            onUnitClick={onUnitClick}
+            selectedFloor={selectedFloor}
+            isLeftOpen={isLeftOpen}
+            isRightOpen={isRightOpen}
+            onToggleLeft={onToggleLeft}
+            onToggleRight={onToggleRight}
+          />
+        </ThreeJSErrorBoundary>
       )}
     </div>
   );

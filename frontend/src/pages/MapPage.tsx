@@ -10,6 +10,7 @@ import CertificateModal from '../components/CertificateModal/CertificateModal';
 import { getBuilding } from '../api/api';
 import { Building, Unit } from '../types';
 import { getBuildingCenter } from '../utils/footprintUtils';
+import { applyVerifiedBuildingMetadata, getVerifiedBuildingMetadata } from '../utils/verifiedBuildingMetadata';
 import {
   Building2, MapPin, Layers,
   ShieldCheck, Activity, Loader2, AlertTriangle
@@ -37,11 +38,14 @@ export default function MapPage() {
       }
       setIsLoading(true);
       setLoadError(null);
+      setSelectedFloor(null);
+      setSelectedUnit(null);
       try {
         const data = await getBuilding(building_id);
         if (data) {
-          setBuilding(data);
-          if (data.units?.length > 0) setSelectedUnit(data.units[0]);
+          const verifiedData = applyVerifiedBuildingMetadata(data);
+          setBuilding(verifiedData);
+          if (verifiedData.units?.length > 0) setSelectedUnit(verifiedData.units[0]);
         } else {
           setLoadError(`Building "${building_id}" not found.`);
         }
@@ -159,15 +163,13 @@ export default function MapPage() {
 
           {/* Building Overview Card */}
           {building && (() => {
-            const nameLower = (building.building_name || '').toLowerCase();
-            const isAdminBlockWithBasement = nameLower.includes('admin') && !nameLower.includes('g block') && !nameLower.includes('block g');
-            const basementFloors = building.basement_count ??
-              building.assessment?.basement_levels ??
-              building.underground_floors ??
-              (isAdminBlockWithBasement ? 1 : 0);
+            const verifiedBuilding = applyVerifiedBuildingMetadata(building);
+            const verified = getVerifiedBuildingMetadata(verifiedBuilding);
+            const floorCount = verified ? verified.aboveGroundFloors : (verifiedBuilding.floor_count || 3);
+            const basementFloors = verified !== null ? verified.basementFloors : (verifiedBuilding.basement_count ?? 0);
             const hasBasement = basementFloors > 0;
-            const floorCount = building.floor_count || 3;
             const totalStrata = floorCount + basementFloors;
+            const isGBlock = verified?.floorLabels && verified.floorLabels[0] === 'G';
 
             return (
               <>
@@ -182,22 +184,34 @@ export default function MapPage() {
                       <Building2 size={16} />
                     </div>
                     <h3 className="building-name font-display">
-                      {building.building_name || 'Cadastral Building'}
+                      {verifiedBuilding.building_name || 'Cadastral Building'}
                     </h3>
                   </div>
                   <p className="building-address" style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
                     <MapPin size={11} style={{ flexShrink: 0, marginTop: 2 }} />
-                    {building.address || 'Parcel Coordinates Loaded'}
+                    {verifiedBuilding.address || 'Parcel Coordinates Loaded'}
                   </p>
                   <div className="building-stats-row">
                     <span className="bstat-chip">
-                      <Activity size={10} /> {building.height || (floorCount * 3.5).toFixed(1)}m
+                      <Activity size={10} /> {verifiedBuilding.height || (floorCount * 3.5).toFixed(1)}m
                     </span>
                     <span className="bstat-chip">
-                      <Layers size={10} /> {hasBasement ? `${totalStrata} Strata (${basementFloors}B + ${floorCount}F)` : `${floorCount} Floors`}
+                      <Layers size={10} /> {hasBasement
+                        ? `${totalStrata} Strata (${basementFloors}B + ${floorCount}F)`
+                        : isGBlock
+                        ? `5 Floors (G, F1, F2, F3, F4)`
+                        : `${floorCount} Floors`}
                     </span>
                     <span className="bstat-chip">
-                      <ShieldCheck size={10} /> {building.units?.length || floorCount} units
+                      <ShieldCheck size={10} /> {verifiedBuilding.units?.length || floorCount} units
+                    </span>
+                  </div>
+
+                  {/* Floor Configuration Source Transparency Tag */}
+                  <div style={{ marginTop: 8, fontSize: '0.68rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span>Floor Source:</span>
+                    <span style={{ color: '#2dd4bf', fontWeight: 600 }}>
+                      {verified ? `Verified Project Input (${verified.verifiedBy})` : (verifiedBuilding.floor_source || 'OSM / Estimate')}
                     </span>
                   </div>
                 </div>
@@ -223,18 +237,22 @@ export default function MapPage() {
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: '0.74rem', marginBottom: 6 }}>
                         <div>
-                          <span style={{ color: 'var(--text-muted)' }}>Basement Levels: </span>
-                          <strong style={{ color: 'var(--text-primary)' }}>{basementFloors}</strong>
+                          <span style={{ color: 'var(--text-muted)' }}>Above Ground: </span>
+                          <strong style={{ color: 'var(--text-primary)' }}>{floorCount}</strong>
                         </div>
                         <div>
+                          <span style={{ color: 'var(--text-muted)' }}>Basement: </span>
+                          <strong style={{ color: 'var(--text-primary)' }}>{basementFloors}</strong>
+                        </div>
+                        <div style={{ gridColumn: 'span 2' }}>
                           <span style={{ color: 'var(--text-muted)' }}>Basement Use: </span>
-                          <strong style={{ color: '#38bdf8' }}>{building.basement_use || building.assessment?.basement_use || 'Library'}</strong>
+                          <strong style={{ color: '#38bdf8' }}>{verified?.basementUse || verifiedBuilding.basement_use || 'Library'}</strong>
                         </div>
                       </div>
                       <div style={{ fontSize: '0.70rem', color: 'var(--text-muted)', borderTop: '1px solid rgba(99, 102, 241, 0.15)', paddingTop: 6 }}>
                         <span>Basement Source: </span>
                         <span style={{ color: '#a5b4fc', fontWeight: 600 }}>
-                          {building.basement_source || building.assessment?.basement_source || 'User-provided / Verified project input'}
+                          {verified?.basementSource || verifiedBuilding.basement_source || 'Verified Project Input'}
                         </span>
                       </div>
                     </div>
@@ -242,9 +260,9 @@ export default function MapPage() {
                 )}
 
                 {/* Validation */}
-                {building.validation && (
+                {verifiedBuilding.validation && (
                   <div style={{ padding: '0 14px 10px' }}>
-                    <ValidationAlert validation={building.validation} />
+                    <ValidationAlert validation={verifiedBuilding.validation} />
                   </div>
                 )}
 
@@ -253,26 +271,27 @@ export default function MapPage() {
                   <FloorSelector
                     totalFloors={floorCount}
                     basementFloors={basementFloors}
+                    basementUse={verified?.basementUse || verifiedBuilding.basement_use || 'Library'}
+                    floorLabels={verified?.floorLabels}
                     selectedFloor={selectedFloor}
                     onSelectFloor={(floor) => {
                       setSelectedFloor(floor);
                       if (floor === null) {
-                        if (building.units?.length > 0) setSelectedUnit(building.units[0]);
+                        if (verifiedBuilding.units?.length > 0) setSelectedUnit(verifiedBuilding.units[0]);
                       } else {
-                        const matchedUnit = building.units?.find(
+                        const matchedUnit = verifiedBuilding.units?.find(
                           (u) => (u.floor_number ?? u.floor) === floor
                         );
                         if (matchedUnit) {
                           setSelectedUnit(matchedUnit);
                         } else if (floor < 0) {
-                          // Mock/Fallback B1 unit if not in array
                           setSelectedUnit({
-                            unit_id: `${building.building_id || 'admin'}-B1-LIB`,
-                            ulpin: `${building.building_id || 'ULPIN'}-B1-LIB-001`,
+                            unit_id: `${verifiedBuilding.building_id || 'admin'}-B1-LIB`,
+                            ulpin: `${verifiedBuilding.building_id || 'ULPIN'}-B1-LIB-001`,
                             floor: -1,
-                            unit_name: 'Basement Library',
+                            unit_name: `Basement ${verified?.basementUse || 'Library'}`,
                             unit_number: 'B1-LIB',
-                            use_type: building.basement_use || 'Library',
+                            use_type: verified?.basementUse || 'Library',
                             area_sqm: 850,
                             status: 'Verified',
                             owner: 'Institutional Cadastre'
@@ -287,30 +306,35 @@ export default function MapPage() {
           })()}
 
           {/* Underground Infrastructure Panel (Utilities only: Water, Telecom, Power, Gas, Ducts) */}
-          {building && (
-            <div style={{ padding: '0 10px 10px' }}>
-              <UndergroundPanel
-                data={building.underground || {
-                  basement_levels: 0,
-                  parking_spaces: 0,
-                  total_volume_m3: 3200,
-                  max_depth_m: 6.5,
-                  utilities_mapped: 4,
-                  underground_ulpins: 4,
-                  validation_score: 99.2,
-                  validation_issues: [],
-                  ulpin_details: [],
-                  utilities: [
-                    { ulpin: 'UTIL-WTR-01', type: 'water', title: 'Municipal Water Main (300mm)', depth_m: 4.2, diameter_mm: 300, capacity: 1000, conflicts: 0 },
-                    { ulpin: 'UTIL-TEL-02', type: 'telecom', title: 'High-Speed Fiber Cable Duct', depth_m: 2.8, diameter_mm: 150, capacity: 500, conflicts: 0 },
-                    { ulpin: 'UTIL-PWR-03', type: 'power', title: 'Underground 11kV Power Grid', depth_m: 5.5, diameter_mm: 200, capacity: 11000, conflicts: 0 },
-                    { ulpin: 'UTIL-GAS-04', type: 'gas', title: 'City PNG Gas Pipeline Network', depth_m: 3.1, diameter_mm: 250, capacity: 800, conflicts: 0 }
-                  ]
-                }}
-                buildingName={building.building_name || building.address}
-              />
-            </div>
-          )}
+          {building && (() => {
+            const verified = getVerifiedBuildingMetadata(building);
+            const basementCount = verified !== null ? verified.basementFloors : (building.basement_count ?? 0);
+            return (
+              <div style={{ padding: '0 10px 10px' }}>
+                <UndergroundPanel
+                  data={building.underground || {
+                    basement_levels: basementCount,
+                    parking_spaces: 0,
+                    total_volume_m3: 3200,
+                    max_depth_m: 6.5,
+                    utilities_mapped: 4,
+                    underground_ulpins: 4,
+                    validation_score: 99.2,
+                    validation_issues: [],
+                    ulpin_details: [],
+                    utilities: [
+                      { ulpin: 'UTIL-WTR-01', type: 'water', title: 'Municipal Water Main (300mm)', depth_m: 4.2, diameter_mm: 300, capacity: 1000, conflicts: 0 },
+                      { ulpin: 'UTIL-TEL-02', type: 'telecom', title: 'High-Speed Fiber Cable Duct', depth_m: 2.8, diameter_mm: 150, capacity: 500, conflicts: 0 },
+                      { ulpin: 'UTIL-PWR-03', type: 'power', title: 'Underground 11kV Power Grid', depth_m: 5.5, diameter_mm: 200, capacity: 11000, conflicts: 0 },
+                      { ulpin: 'UTIL-GAS-04', type: 'gas', title: 'City PNG Gas Pipeline Network', depth_m: 3.1, diameter_mm: 250, capacity: 800, conflicts: 0 }
+                    ]
+                  }}
+                  buildingName={building.building_name || building.address}
+                  isSimulatedDemo={verified?.isUndergroundSimulated ?? (basementCount === 0)}
+                />
+              </div>
+            );
+          })()}
 
           {/* Unit Cards & Structural Integrity */}
           <div className="unit-list-area">

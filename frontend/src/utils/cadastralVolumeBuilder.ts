@@ -17,6 +17,7 @@
 import { Building, Unit } from '../types';
 import { getBuildingCenter, getBuildingHeight, getFloorCountInfo } from './footprintUtils';
 import { findCustomModel } from '../data/customModels';
+import { applyVerifiedBuildingMetadata, getVerifiedBuildingMetadata } from './verifiedBuildingMetadata';
 
 export interface FloorVolume {
   floorIndex: number;
@@ -92,7 +93,9 @@ function createFallbackFootprint(lng: number, lat: number, radiusDeg = 0.00025):
  * - Above-Ground Strata: F1 (0 to 3.5m), F2 (3.5 to 7.0m), F3 (7.0 to 10.5m)
  * - Underground Infrastructure (Utilities/Pipes) remain separated as subsurface networks.
  */
-export function buildCadastralVolumes(building: Building): CadastralVolumesResult {
+export function buildCadastralVolumes(rawBuilding: Building): CadastralVolumesResult {
+  const building = applyVerifiedBuildingMetadata(rawBuilding);
+  const verified = getVerifiedBuildingMetadata(building);
   const customModelConfig = findCustomModel(building);
   const { lat: centerLat, lng: centerLng } = getBuildingCenter(building);
   const rawFirstUnit = building?.units?.[0];
@@ -105,12 +108,14 @@ export function buildCadastralVolumes(building: Building): CadastralVolumesResul
     ? Math.max(...aboveGroundUnits.map(u => u.floor_number ?? u.floor ?? 1))
     : 0;
 
-  const totalFloors = Math.max(
-    building.floor_count || 0,
-    customModelConfig?.floorCount || 0,
-    aboveGroundMaxFloor,
-    3 // Default 3 above-ground floors (F1, F2, F3) for standard / college Admin Block
-  );
+  const totalFloors = verified
+    ? verified.aboveGroundFloors
+    : Math.max(
+        building.floor_count || 0,
+        customModelConfig?.floorCount || 0,
+        aboveGroundMaxFloor,
+        3
+      );
 
   const totalHeightM = Math.max(
     getBuildingHeight(building),
@@ -123,18 +128,15 @@ export function buildCadastralVolumes(building: Building): CadastralVolumesResul
     : (customModelConfig?.floorHeight || 3.5);
 
   // 2. Determine Basement Strata (Cadastral Property Stratum)
-  const nameLower = (building.building_name || '').toLowerCase();
-  const isAdminBlockWithBasement = nameLower.includes('admin') && !nameLower.includes('g block') && !nameLower.includes('block g');
-  const basementFloors = building.basement_count ??
-    building.assessment?.basement_levels ??
-    building.underground_floors ??
-    (isAdminBlockWithBasement ? 1 : 0);
+  const basementFloors = verified !== null
+    ? verified.basementFloors
+    : (building.basement_count ?? building.assessment?.basement_levels ?? 0);
 
   // Conservative depth estimation when authoritative depth is not explicitly provided
   const basementDepthM = building.floor_height_m || (floorHeightM > 0 ? floorHeightM : 3.5);
   const isBasementEstimated = !building.floor_height_m;
-  const basementSource = building.basement_source || building.assessment?.basement_source || (isAdminBlockWithBasement ? 'User-provided / Verified project input' : 'Authoritative Record');
-  const basementUse = building.basement_use || building.assessment?.basement_use || (isAdminBlockWithBasement ? 'Library' : 'Basement');
+  const basementSource = verified?.basementSource || building.basement_source || building.assessment?.basement_source || 'Authoritative Record';
+  const basementUse = verified?.basementUse || building.basement_use || building.assessment?.basement_use || 'Basement';
 
   // 3. Base Footprint Geometry
   const baseFootprint = building.footprint || createFallbackFootprint(mapLng, mapLat);
@@ -165,17 +167,20 @@ export function buildCadastralVolumes(building: Building): CadastralVolumesResul
     });
   }
 
-  // 4b. Above-ground Strata: F1, F2, F3...
+  // 4b. Above-ground Strata
+  const isGBlockStyle = verified?.floorLabels && verified.floorLabels[0] === 'G';
   const FLOOR_NAMES = ['Ground Floor', 'First Floor', 'Second Floor', 'Third Floor', 'Fourth Floor'];
   for (let f = 1; f <= totalFloors; f++) {
     const zMin = (f - 1) * floorHeightM;
     const zMax = f * floorHeightM;
     const sliceHeight = zMax - zMin;
-    const nameSuffix = FLOOR_NAMES[f - 1] ? ` ${FLOOR_NAMES[f - 1]}` : '';
+    const label = isGBlockStyle
+      ? (verified?.floorLabels?.[f - 1] ? `${verified.floorLabels[f - 1]} (${FLOOR_NAMES[f - 1] || `Level ${f}`})` : `Level ${f}`)
+      : `F${f}${FLOOR_NAMES[f - 1] ? ` ${FLOOR_NAMES[f - 1]}` : ''}`;
 
     floorVolumes.push({
       floorIndex: f,
-      floorLabel: `F${f}${nameSuffix}`,
+      floorLabel: label,
       polygon: baseFootprint,
       zMin,
       zMax,
@@ -184,7 +189,7 @@ export function buildCadastralVolumes(building: Building): CadastralVolumesResul
       zCenter: (zMin + zMax) / 2,
       isBasement: false,
       useType: 'Academic / Administrative',
-      source: 'Verified Building Survey',
+      source: verified ? 'Verified Project Input' : 'Building Survey',
       isEstimated: false,
       confidence: 0.98,
     });

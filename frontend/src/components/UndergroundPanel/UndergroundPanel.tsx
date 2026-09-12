@@ -6,6 +6,7 @@ import './UndergroundPanel.css';
 interface Props {
   data: UndergroundData;
   buildingName?: string;
+  isSimulatedDemo?: boolean;
 }
 
 const LEVEL_COLORS: Record<string, string> = {
@@ -37,7 +38,7 @@ function UtilIcon({ type }: { type: string }) {
   return <Zap size={11} />;
 }
 
-export default function UndergroundPanel({ data, buildingName }: Props) {
+export default function UndergroundPanel({ data, buildingName, isSimulatedDemo }: Props) {
   const [expandedLevel, setExpandedLevel] = useState<string | null>(null);
   const [showUtilities, setShowUtilities] = useState(false);
 
@@ -50,7 +51,9 @@ export default function UndergroundPanel({ data, buildingName }: Props) {
         <div className="ug-header-icon"><Layers size={13} /></div>
         <div>
           <div className="ug-title">Underground Infrastructure</div>
-          <div className="ug-subtitle">Subsurface Volumetric Cadastre</div>
+          <div className="ug-subtitle" style={isSimulatedDemo ? { color: '#fbbf24', fontWeight: 600 } : {}}>
+            {isSimulatedDemo ? 'Simulated Infrastructure — Demo' : 'Subsurface Volumetric Cadastre'}
+          </div>
         </div>
         <div className="ug-badge">{data.underground_ulpins} ULPINs</div>
       </div>
