@@ -23,18 +23,18 @@
 
 /* Right Sidebar on Desktop (Cadastral Dark Glassmorphism) */
 .map-right-sidebar {
-  --bg-card: rgba(22, 27, 34, 0.88);
-  --bg-secondary: rgba(13, 17, 23, 0.75);
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-subtle: rgba(255, 255, 255, 0.05);
-  --border-strong: rgba(255, 255, 255, 0.14);
-  --text-primary: #F0F6FC;
-  --text-secondary: #94A3B8;
-  --text-muted: #64748B;
-  background: rgba(13, 17, 23, 0.94);
+  --bg-card: rgba(28, 22, 18, 0.92);
+  --bg-secondary: rgba(18, 14, 10, 0.80);
+  --border-color: rgba(255, 220, 170, 0.08);
+  --border-subtle: rgba(255, 210, 150, 0.05);
+  --border-strong: rgba(255, 220, 170, 0.14);
+  --text-primary: #F0EDE8;
+  --text-secondary: #A89F96;
+  --text-muted: #6B6560;
+  background: rgba(18, 13, 9, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 1px solid rgba(255, 200, 140, 0.10);
   display: flex;
   flex-direction: column;
   transition: all var(--transition-fast);
@@ -43,8 +43,8 @@
   overflow-x: hidden;
   max-height: 100%;
   scrollbar-width: thin;
-  scrollbar-color: var(--accent-teal) rgba(255, 255, 255, 0.04);
-  color: #F0F6FC;
+  scrollbar-color: rgba(180, 130, 80, 0.35) rgba(255, 200, 140, 0.04);
+  color: #F0EDE8;
 }
 
 .map-right-sidebar::-webkit-scrollbar {
@@ -334,8 +334,8 @@
     width: 340px;
     max-width: 90vw;
     z-index: 100;
-    background: rgba(255, 255, 255, 0.98);
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.35);
+    background: rgba(18, 13, 9, 0.97);
+    box-shadow: -4px 0 30px rgba(0, 0, 0, 0.55);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     transform: translateX(100%);
   }

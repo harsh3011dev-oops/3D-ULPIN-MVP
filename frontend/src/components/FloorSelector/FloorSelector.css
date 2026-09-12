@@ -1,10 +1,10 @@
-/* ── Floor Selector (Architectural GIS - Dark Glassmorphism) ── */
+/* ── Floor Selector (Architectural GIS - Warm Dark) ── */
 .floor-selector-panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: rgba(22, 27, 34, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(28, 22, 14, 0.80);
+  border: 1px solid rgba(255, 210, 140, 0.08);
   border-radius: var(--radius-sm);
   padding: 12px;
 }
@@ -23,13 +23,13 @@
   font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 700;
-  color: #F0F6FC;
+  color: #F0EDE8;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .header-title-group svg {
-  color: #2DD4BF;
+  color: #C9A86C;
 }
 
 .reset-floor-btn {
@@ -37,17 +37,18 @@
   font-size: 0.68rem;
   font-weight: 600;
   padding: 3px 8px;
-  background: rgba(13, 148, 136, 0.15);
-  border: 1px solid rgba(13, 148, 136, 0.35);
-  color: #2DD4BF;
+  background: rgba(201, 168, 108, 0.12);
+  border: 1px solid rgba(201, 168, 108, 0.30);
+  color: #C9A86C;
   border-radius: var(--radius-xs);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .reset-floor-btn:hover {
-  background: #0D9488;
-  color: #FFFFFF;
+  background: rgba(201, 168, 108, 0.22);
+  color: #F0D9A8;
+  border-color: rgba(201, 168, 108, 0.5);
 }
 
 /* Elevation Slider */
@@ -55,8 +56,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: rgba(15, 20, 28, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(14, 10, 6, 0.70);
+  border: 1px solid rgba(255, 210, 140, 0.06);
   border-radius: var(--radius-xs);
   padding: 8px 10px;
 }
@@ -67,13 +68,13 @@
   justify-content: space-between;
   font-family: var(--font-mono);
   font-size: 0.68rem;
-  color: #94A3B8;
+  color: #A89F96;
 }
 
 .current-level-tag {
   font-weight: 700;
-  color: #2DD4BF;
-  background: rgba(13, 148, 136, 0.18);
+  color: #C9A86C;
+  background: rgba(201, 168, 108, 0.15);
   padding: 2px 6px;
   border-radius: 2px;
 }
@@ -83,7 +84,7 @@
   -webkit-appearance: none;
   appearance: none;
   height: 5px;
-  background: #334155;
+  background: rgba(80, 65, 45, 0.6);
   border-radius: var(--radius-full);
   outline: none;
   cursor: pointer;
@@ -96,9 +97,9 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #2DD4BF;
+  background: #C9A86C;
   cursor: pointer;
-  box-shadow: 0 0 8px rgba(45, 212, 191, 0.5);
+  box-shadow: 0 0 8px rgba(201, 168, 108, 0.45);
   transition: transform var(--transition-fast);
 }
 
@@ -117,7 +118,7 @@
   font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
-  color: #64748B;
+  color: #6B6560;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   display: flex;
@@ -137,9 +138,9 @@
   min-width: 38px;
   padding: 5px 8px;
   border-radius: var(--radius-xs);
-  background: rgba(30, 41, 59, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #94A3B8;
+  background: rgba(35, 26, 16, 0.70);
+  border: 1px solid rgba(255, 210, 140, 0.08);
+  color: #A89F96;
   font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 600;
@@ -149,16 +150,16 @@
 }
 
 .floor-pill:hover {
-  background: rgba(51, 65, 85, 0.85);
-  border-color: rgba(45, 212, 191, 0.4);
-  color: #F8FAFC;
+  background: rgba(55, 42, 24, 0.85);
+  border-color: rgba(201, 168, 108, 0.35);
+  color: #F0EDE8;
   transform: translateY(-1px);
 }
 
 .floor-pill.active {
-  background: linear-gradient(135deg, #0D9488 0%, #0891B2 100%);
-  border-color: #2DD4BF;
-  color: #FFFFFF;
+  background: linear-gradient(135deg, rgba(160, 118, 58, 0.85) 0%, rgba(120, 88, 38, 0.90) 100%);
+  border-color: #C9A86C;
+  color: #F0D9A8;
   font-weight: 700;
-  box-shadow: 0 0 12px rgba(13, 148, 136, 0.4);
+  box-shadow: 0 0 10px rgba(201, 168, 108, 0.30);
 }

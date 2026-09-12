@@ -1,9 +1,9 @@
-/* ── Validation Alert (Dark Glassmorphic) ── */
+/* ── Validation Alert (Warm Dark Glassmorphic) ── */
 .validation-alert {
   padding: 12px 16px;
-  border-radius: var(--radius-md, 12px);
-  background: rgba(22, 27, 34, 0.85);
-  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md, 8px);
+  background: rgba(22, 16, 10, 0.85);
+  border: 1.5px solid rgba(255, 210, 140, 0.08);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -12,13 +12,13 @@
 }
 
 .validation-alert.valid {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.25);
 }
 
 .validation-alert.invalid {
-  background: rgba(224, 92, 114, 0.1);
-  border-color: rgba(224, 92, 114, 0.35);
+  background: rgba(220, 80, 80, 0.08);
+  border-color: rgba(220, 80, 80, 0.25);
   cursor: pointer;
 }
 
@@ -33,12 +33,12 @@
 }
 
 .validation-badge-icon.green {
-  background: rgba(16, 185, 129, 0.2);
+  background: rgba(16, 185, 129, 0.15);
   color: #34D399;
 }
 
 .validation-badge-icon.red {
-  background: rgba(224, 92, 114, 0.2);
+  background: rgba(220, 80, 80, 0.15);
   color: #F87171;
 }
 
@@ -64,7 +64,7 @@
 
 .validation-desc {
   font-size: 0.74rem;
-  color: #94A3B8;
+  color: #A89F96;
   line-height: 1.4;
   display: block;
 }
@@ -85,14 +85,14 @@
 .toggle-btn {
   background: transparent;
   border: none;
-  color: #94A3B8;
+  color: #A89F96;
   cursor: pointer;
 }
 
 .validation-details-body {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid rgba(224, 92, 114, 0.2);
+  border-top: 1px solid rgba(220, 80, 80, 0.18);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -107,7 +107,7 @@
 .category-title {
   font-size: 0.78rem;
   font-weight: 700;
-  color: #F8FAFC;
+  color: #F0EDE8;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -116,14 +116,14 @@
 .error-item-pill {
   font-size: 0.72rem;
   padding: 4px 8px;
-  background: rgba(30, 41, 59, 0.7);
+  background: rgba(35, 20, 14, 0.75);
   border-radius: 4px;
-  border: 1px solid rgba(224, 92, 114, 0.3);
+  border: 1px solid rgba(220, 80, 80, 0.25);
   color: #FCA5A5;
 }
 
 .error-log-line {
   font-size: 0.72rem;
-  color: #94A3B8;
+  color: #A89F96;
   margin: 0;
 }

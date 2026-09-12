@@ -164,7 +164,7 @@
   font-size: 0.68rem;
   font-weight: 600;
   padding: 4px 8px;
-  background: #FFFFFF;
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-xs);
   color: var(--text-primary);
@@ -174,9 +174,9 @@
 }
 
 .copy-ulpin-button:hover {
-  background: var(--primary);
+  background: var(--accent-teal);
   color: #FFFFFF;
-  border-color: #000000;
+  border-color: var(--accent-teal);
 }
 
 .copy-ulpin-button.copied {
@@ -195,7 +195,7 @@
   font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 600;
-  background: #FFFFFF;
+  background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   padding: 1px 6px;
   border-radius: 2px;
