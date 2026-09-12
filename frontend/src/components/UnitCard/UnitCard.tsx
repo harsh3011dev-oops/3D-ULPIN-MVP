@@ -18,7 +18,7 @@ export default function UnitCard({ unit, building }: UnitCardProps) {
 
   if (!unit) {
     return (
-      <div className="unit-card empty glass-panel" id="unit-detail-panel">
+      <div className="unit-card empty" id="unit-detail-panel">
         <div className="empty-state-content">
           <div className="empty-icon-wrapper">
             <Building2 size={36} className="text-secondary" />
@@ -58,7 +58,7 @@ export default function UnitCard({ unit, building }: UnitCardProps) {
 
   return (
     <>
-      <div className="unit-card glass-panel" id="unit-detail-panel">
+      <div className="unit-card" id="unit-detail-panel">
         {/* Header */}
         <div className="unit-card-header">
           <div>
