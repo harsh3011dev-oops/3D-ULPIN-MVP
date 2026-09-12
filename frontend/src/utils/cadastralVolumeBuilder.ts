@@ -123,17 +123,18 @@ export function buildCadastralVolumes(building: Building): CadastralVolumesResul
     : (customModelConfig?.floorHeight || 3.5);
 
   // 2. Determine Basement Strata (Cadastral Property Stratum)
-  // Authoritative user input / college admin block specification: 1 basement level (Library)
+  const nameLower = (building.building_name || '').toLowerCase();
+  const isAdminBlockWithBasement = nameLower.includes('admin') && !nameLower.includes('g block') && !nameLower.includes('block g');
   const basementFloors = building.basement_count ??
     building.assessment?.basement_levels ??
     building.underground_floors ??
-    1; // 1 basement level (B1 — Library)
+    (isAdminBlockWithBasement ? 1 : 0);
 
   // Conservative depth estimation when authoritative depth is not explicitly provided
   const basementDepthM = building.floor_height_m || (floorHeightM > 0 ? floorHeightM : 3.5);
   const isBasementEstimated = !building.floor_height_m;
-  const basementSource = building.basement_source || building.assessment?.basement_source || 'User-provided / Verified project input';
-  const basementUse = building.basement_use || building.assessment?.basement_use || 'Library';
+  const basementSource = building.basement_source || building.assessment?.basement_source || (isAdminBlockWithBasement ? 'User-provided / Verified project input' : 'Authoritative Record');
+  const basementUse = building.basement_use || building.assessment?.basement_use || (isAdminBlockWithBasement ? 'Library' : 'Basement');
 
   // 3. Base Footprint Geometry
   const baseFootprint = building.footprint || createFallbackFootprint(mapLng, mapLat);

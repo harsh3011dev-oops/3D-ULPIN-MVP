@@ -157,122 +157,134 @@ export default function MapPage() {
             </div>
           </div>
 
-          {/* Building Meta */}
-          {building && (
-            <div className="building-meta">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 4, flexShrink: 0,
-                  background: 'var(--accent-teal-soft)', color: 'var(--accent-teal)',
-                  border: '1px solid rgba(13, 148, 136, 0.25)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
-                  <Building2 size={16} />
-                </div>
-                <h3 className="building-name font-display">
-                  {building.building_name || 'Cadastral Building'}
-                </h3>
-              </div>
-              <p className="building-address" style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
-                <MapPin size={11} style={{ flexShrink: 0, marginTop: 2 }} />
-                {building.address || 'Parcel Coordinates Loaded'}
-              </p>
-              <div className="building-stats-row">
-                <span className="bstat-chip">
-                  <Activity size={10} /> {building.height || 10.5}m
-                </span>
-                <span className="bstat-chip">
-                  <Layers size={10} /> 4 Strata (1B + {building.floor_count || 3}F)
-                </span>
-                <span className="bstat-chip">
-                  <ShieldCheck size={10} /> {building.units?.length || 4} units
-                </span>
-              </div>
-            </div>
-          )}
+          {/* Building Overview Card */}
+          {building && (() => {
+            const nameLower = (building.building_name || '').toLowerCase();
+            const isAdminBlockWithBasement = nameLower.includes('admin') && !nameLower.includes('g block') && !nameLower.includes('block g');
+            const basementFloors = building.basement_count ??
+              building.assessment?.basement_levels ??
+              building.underground_floors ??
+              (isAdminBlockWithBasement ? 1 : 0);
+            const hasBasement = basementFloors > 0;
+            const floorCount = building.floor_count || 3;
+            const totalStrata = floorCount + basementFloors;
 
-          {/* Cadastral Stratum: Basement Library Record */}
-          {building && (
-            <div style={{ padding: '0 14px 10px' }}>
-              <div style={{
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'rgba(99, 102, 241, 0.08)',
-                border: '1px solid rgba(99, 102, 241, 0.28)',
-                boxShadow: 'var(--shadow-xs)'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#818cf8', fontWeight: 700, fontSize: '0.72rem', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
-                    <Layers size={13} />
-                    <span>Basement Cadastral Stratum</span>
+            return (
+              <>
+                <div className="sidebar-section" style={{ paddingBottom: 10 }}>
+                  <div className="building-title-row" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 4, flexShrink: 0,
+                      background: 'var(--accent-teal-soft)', color: 'var(--accent-teal)',
+                      border: '1px solid rgba(13, 148, 136, 0.25)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <Building2 size={16} />
+                    </div>
+                    <h3 className="building-name font-display">
+                      {building.building_name || 'Cadastral Building'}
+                    </h3>
                   </div>
-                  <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, background: 'rgba(99, 102, 241, 0.2)', color: '#c7d2fe', fontWeight: 700 }}>
-                    B1 Active
-                  </span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: '0.74rem', marginBottom: 6 }}>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Basement Levels: </span>
-                    <strong style={{ color: 'var(--text-primary)' }}>{building.basement_count ?? building.assessment?.basement_levels ?? 1}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Basement Use: </span>
-                    <strong style={{ color: '#38bdf8' }}>{building.basement_use || building.assessment?.basement_use || 'Library'}</strong>
+                  <p className="building-address" style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
+                    <MapPin size={11} style={{ flexShrink: 0, marginTop: 2 }} />
+                    {building.address || 'Parcel Coordinates Loaded'}
+                  </p>
+                  <div className="building-stats-row">
+                    <span className="bstat-chip">
+                      <Activity size={10} /> {building.height || (floorCount * 3.5).toFixed(1)}m
+                    </span>
+                    <span className="bstat-chip">
+                      <Layers size={10} /> {hasBasement ? `${totalStrata} Strata (${basementFloors}B + ${floorCount}F)` : `${floorCount} Floors`}
+                    </span>
+                    <span className="bstat-chip">
+                      <ShieldCheck size={10} /> {building.units?.length || floorCount} units
+                    </span>
                   </div>
                 </div>
-                <div style={{ fontSize: '0.70rem', color: 'var(--text-muted)', borderTop: '1px solid rgba(99, 102, 241, 0.15)', paddingTop: 6 }}>
-                  <span>Basement Source: </span>
-                  <span style={{ color: '#a5b4fc', fontWeight: 600 }}>
-                    {building.basement_source || building.assessment?.basement_source || 'User-provided / Verified project input'}
-                  </span>
+
+                {/* Cadastral Stratum: Basement Record (Rendered ONLY when hasBasement is true) */}
+                {hasBasement && (
+                  <div style={{ padding: '0 14px 10px' }}>
+                    <div style={{
+                      padding: '12px 14px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'rgba(99, 102, 241, 0.08)',
+                      border: '1px solid rgba(99, 102, 241, 0.28)',
+                      boxShadow: 'var(--shadow-xs)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#818cf8', fontWeight: 700, fontSize: '0.72rem', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
+                          <Layers size={13} />
+                          <span>Basement Cadastral Stratum</span>
+                        </div>
+                        <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, background: 'rgba(99, 102, 241, 0.2)', color: '#c7d2fe', fontWeight: 700 }}>
+                          B1 Active
+                        </span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: '0.74rem', marginBottom: 6 }}>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)' }}>Basement Levels: </span>
+                          <strong style={{ color: 'var(--text-primary)' }}>{basementFloors}</strong>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)' }}>Basement Use: </span>
+                          <strong style={{ color: '#38bdf8' }}>{building.basement_use || building.assessment?.basement_use || 'Library'}</strong>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '0.70rem', color: 'var(--text-muted)', borderTop: '1px solid rgba(99, 102, 241, 0.15)', paddingTop: 6 }}>
+                        <span>Basement Source: </span>
+                        <span style={{ color: '#a5b4fc', fontWeight: 600 }}>
+                          {building.basement_source || building.assessment?.basement_source || 'User-provided / Verified project input'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Validation */}
+                {building.validation && (
+                  <div style={{ padding: '0 14px 10px' }}>
+                    <ValidationAlert validation={building.validation} />
+                  </div>
+                )}
+
+                {/* Floor Isolator */}
+                <div className="floor-isolator-section">
+                  <FloorSelector
+                    totalFloors={floorCount}
+                    basementFloors={basementFloors}
+                    selectedFloor={selectedFloor}
+                    onSelectFloor={(floor) => {
+                      setSelectedFloor(floor);
+                      if (floor === null) {
+                        if (building.units?.length > 0) setSelectedUnit(building.units[0]);
+                      } else {
+                        const matchedUnit = building.units?.find(
+                          (u) => (u.floor_number ?? u.floor) === floor
+                        );
+                        if (matchedUnit) {
+                          setSelectedUnit(matchedUnit);
+                        } else if (floor < 0) {
+                          // Mock/Fallback B1 unit if not in array
+                          setSelectedUnit({
+                            unit_id: `${building.building_id || 'admin'}-B1-LIB`,
+                            ulpin: `${building.building_id || 'ULPIN'}-B1-LIB-001`,
+                            floor: -1,
+                            unit_name: 'Basement Library',
+                            unit_number: 'B1-LIB',
+                            use_type: building.basement_use || 'Library',
+                            area_sqm: 850,
+                            status: 'Verified',
+                            owner: 'Institutional Cadastre'
+                          });
+                        }
+                      }
+                    }}
+                  />
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Validation */}
-          {building?.validation && (
-            <div style={{ padding: '0 14px 10px' }}>
-              <ValidationAlert validation={building.validation} />
-            </div>
-          )}
-
-          {/* Floor Isolator */}
-          {building && (
-            <div className="floor-isolator-section">
-              <FloorSelector
-                totalFloors={building.floor_count || 3}
-                basementFloors={building.basement_count ?? building.assessment?.basement_levels ?? 1}
-                selectedFloor={selectedFloor}
-                onSelectFloor={(floor) => {
-                  setSelectedFloor(floor);
-                  if (floor === null) {
-                    if (building.units?.length > 0) setSelectedUnit(building.units[0]);
-                  } else {
-                    const matchedUnit = building.units?.find(
-                      (u) => (u.floor_number ?? u.floor) === floor
-                    );
-                    if (matchedUnit) {
-                      setSelectedUnit(matchedUnit);
-                    } else if (floor < 0) {
-                      // Mock/Fallback B1 unit if not in array
-                      setSelectedUnit({
-                        unit_id: `${building.building_id || 'admin'}-B1-LIB`,
-                        ulpin: `${building.building_id || 'ULPIN'}-B1-LIB-001`,
-                        floor: -1,
-                        unit_name: 'Basement Library',
-                        unit_number: 'B1-LIB',
-                        use_type: building.basement_use || 'Library',
-                        area_sqm: 850,
-                        status: 'Verified',
-                        owner: 'Institutional Cadastre'
-                      });
-                    }
-                  }
-                }}
-              />
-            </div>
-          )}
+              </>
+            );
+          })()}
 
           {/* Underground Infrastructure Panel (Utilities only: Water, Telecom, Power, Gas, Ducts) */}
           {building && (

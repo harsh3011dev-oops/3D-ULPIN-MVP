@@ -11,16 +11,20 @@ interface FloorSelectorProps {
 
 export default function FloorSelector({
   totalFloors,
-  basementFloors = 1,
+  basementFloors = 0,
   selectedFloor,
   onSelectFloor,
 }: FloorSelectorProps) {
   const aboveGroundFloors = Array.from({ length: totalFloors }, (_, i) => i + 1);
-  const basementFloorList = Array.from({ length: basementFloors }, (_, i) => -(i + 1));
+  const basementFloorList = basementFloors > 0 ? Array.from({ length: basementFloors }, (_, i) => -(i + 1)) : [];
   const totalStrataCount = totalFloors + basementFloors;
 
   const getFloorDisplayLabel = (floor: number | null): string => {
-    if (floor === null) return `All ${totalStrataCount} Strata (1B + ${totalFloors}F)`;
+    if (floor === null) {
+      return basementFloors > 0
+        ? `All ${totalStrataCount} Strata (${basementFloors}B + ${totalFloors}F)`
+        : `All ${totalFloors} Floors`;
+    }
     if (floor === -1) return 'B1 — Library (-3.5m to 0.0m)';
     if (floor < 0) return `Basement B${Math.abs(floor)}`;
     if (floor === 1) return 'F1 Ground Floor (+0.0m to +3.5m)';
@@ -75,7 +79,7 @@ export default function FloorSelector({
       <div className="floor-buttons-container">
         <div className="floor-buttons-header font-mono">
           <span>DIRECT STRATUM SELECT</span>
-          <span>{totalStrataCount} TOTAL STRATA</span>
+          <span>{totalStrataCount} TOTAL {basementFloors > 0 ? 'STRATA' : 'FLOORS'}</span>
         </div>
         <div className="floor-buttons-grid">
           <button

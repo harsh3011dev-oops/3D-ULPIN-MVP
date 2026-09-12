@@ -2342,7 +2342,12 @@ export default function MapThreeJS({
     const units = building?.units || [];
     const shape = building.footprint ? footprintToShape(building.footprint, centerLng, centerLat) : null;
     const totalFloors = building.floor_count || Math.max(units.length, 3);
-    const basementFloors = building.basement_count ?? building.assessment?.basement_levels ?? building.underground_floors ?? 1;
+    const nameLower = (building?.building_name || '').toLowerCase();
+    const isAdminBlockWithBasement = nameLower.includes('admin') && !nameLower.includes('g block') && !nameLower.includes('block g');
+    const basementFloors = building.basement_count ??
+      building.assessment?.basement_levels ??
+      building.underground_floors ??
+      (isAdminBlockWithBasement ? 1 : 0);
 
     // Build a map from floor number to unit (if available)
     const floorToUnit = new Map<number, (typeof units)[0]>();
@@ -2350,7 +2355,7 @@ export default function MapThreeJS({
 
     const floorSlabs: THREE.Mesh[] = [];
 
-    // 1. Create Below-Ground Strata Slabs (B1 — Basement Library)
+    // 1. Create Below-Ground Strata Slabs (B1 — Basement Library, only if basement exists)
     for (let b = 1; b <= basementFloors; b++) {
       const bFloorNum = -b;
       const bLevelY = -b * floorHeight;
