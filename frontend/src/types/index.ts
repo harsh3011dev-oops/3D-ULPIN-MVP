@@ -21,6 +21,7 @@ export interface Unit {
   /** Alias for floor — used in some legacy components */
   floor_number?: number;
   unit_name?: string;
+  unit_number?: string;
   z_min?: number | null;
   z_max?: number | null;
   floor_height_m?: number;
@@ -142,6 +143,7 @@ export interface Building {
   latitude?: number;
   longitude?: number;
   footprint?: GeoJSONPolygon | any;
+  parcel_boundary?: GeoJSONPolygon | any;
   height_meters?: number;
   height?: number;
   floor_count: number;
