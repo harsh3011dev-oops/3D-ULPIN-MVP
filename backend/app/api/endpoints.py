@@ -42,11 +42,12 @@ async def auto_detect_building(payload: AutoDetectRequest):
 
     # Known landmark database
     landmarks = {
+        "burj khalifa": {"latitude": 25.1972, "longitude": 55.2744, "height_meters": 828.0, "floor_count": 163, "address": "Downtown Dubai, UAE"},
+        "willis tower": {"latitude": 41.8789, "longitude": -87.6359, "height_meters": 442.1, "floor_count": 108, "address": "233 S Wacker Dr, Chicago, IL 60606, USA"},
+        "antilia": {"latitude": 18.9682, "longitude": 72.8095, "height_meters": 173.0, "floor_count": 27, "address": "Altamount Rd, Cumballa Hill, Mumbai, Maharashtra, India"},
+        "world one": {"latitude": 18.9959, "longitude": 72.8290, "height_meters": 280.2, "floor_count": 76, "address": "The Park, Lower Parel, Mumbai, Maharashtra, India"},
         "taj mahal": {"latitude": 27.1751, "longitude": 78.0421, "height_meters": 73.0, "floor_count": 5, "address": "Agra, Uttar Pradesh, India"},
         "india gate": {"latitude": 28.6129, "longitude": 77.2295, "height_meters": 42.0, "floor_count": 1, "address": "New Delhi, India"},
-        "qutub minar": {"latitude": 28.5245, "longitude": 77.1855, "height_meters": 72.5, "floor_count": 5, "address": "Mehrauli, New Delhi, India"},
-        "gateway of india": {"latitude": 18.9220, "longitude": 72.8347, "height_meters": 26.0, "floor_count": 2, "address": "Apollo Bandar, Mumbai, India"},
-        "burj khalifa": {"latitude": 25.1972, "longitude": 55.2744, "height_meters": 828.0, "floor_count": 163, "address": "Downtown Dubai, UAE"},
         "eiffel tower": {"latitude": 48.8584, "longitude": 2.2945, "height_meters": 330.0, "floor_count": 3, "address": "Champ de Mars, Paris, France"},
         "empire state": {"latitude": 40.7484, "longitude": -73.9856, "height_meters": 443.0, "floor_count": 102, "address": "350 Fifth Ave, New York, USA"},
     }

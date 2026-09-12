@@ -132,10 +132,10 @@ export default function MapPage() {
                 type="button"
                 onClick={() => navigate('/explore')}
                 style={{
-                  background: 'var(--accent-teal-soft)',
-                  border: '1px solid rgba(13, 148, 136, 0.3)',
+                  background: 'rgba(13, 148, 136, 0.18)',
+                  border: '1px solid rgba(13, 148, 136, 0.4)',
                   borderRadius: 'var(--radius-xs)',
-                  color: '#0D9488',
+                  color: '#2DD4BF',
                   fontSize: '0.72rem',
                   fontWeight: 700,
                   fontFamily: 'var(--font-mono)',

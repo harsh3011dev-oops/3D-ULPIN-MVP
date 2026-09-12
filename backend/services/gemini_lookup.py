@@ -347,6 +347,42 @@ Rules:
             "source": "fallback",
             "osm_id": "way/134613752",
         }
+    elif "willis" in bname_lower or "sears" in bname_lower:
+        mock = {
+            "building_name": "Willis Tower",
+            "city": city or "Chicago",
+            "latitude": 41.8789,
+            "longitude": -87.6359,
+            "height_meters": 442.1,
+            "floors": 108,
+            "confidence": 98,
+            "source": "fallback",
+            "osm_id": "way/23974441",
+        }
+    elif "antilia" in bname_lower:
+        mock = {
+            "building_name": "Antilia",
+            "city": city or "Mumbai",
+            "latitude": 18.9682,
+            "longitude": 72.8095,
+            "height_meters": 173.0,
+            "floors": 27,
+            "confidence": 98,
+            "source": "fallback",
+            "osm_id": "way/146059102",
+        }
+    elif "world one" in bname_lower or "world towers" in bname_lower:
+        mock = {
+            "building_name": "World One",
+            "city": city or "Mumbai",
+            "latitude": 18.9959,
+            "longitude": 72.8290,
+            "height_meters": 280.2,
+            "floors": 76,
+            "confidence": 98,
+            "source": "fallback",
+            "osm_id": "way/229040713",
+        }
     else:
         mock = {
             "building_name": building_name,

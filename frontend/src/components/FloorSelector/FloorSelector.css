@@ -1,10 +1,10 @@
-/* ── Floor Selector (Architectural GIS) ── */
+/* ── Floor Selector (Architectural GIS - Dark Glassmorphism) ── */
 .floor-selector-panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  background: rgba(22, 27, 34, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-sm);
   padding: 12px;
 }
@@ -23,13 +23,13 @@
   font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #F0F6FC;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .header-title-group svg {
-  color: var(--accent-teal);
+  color: #2DD4BF;
 }
 
 .reset-floor-btn {
@@ -37,16 +37,16 @@
   font-size: 0.68rem;
   font-weight: 600;
   padding: 3px 8px;
-  background: var(--accent-teal-soft);
-  border: 1px solid rgba(13, 148, 136, 0.3);
-  color: var(--accent-teal);
+  background: rgba(13, 148, 136, 0.15);
+  border: 1px solid rgba(13, 148, 136, 0.35);
+  color: #2DD4BF;
   border-radius: var(--radius-xs);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .reset-floor-btn:hover {
-  background: var(--accent-teal);
+  background: #0D9488;
   color: #FFFFFF;
 }
 
@@ -55,8 +55,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: rgba(15, 20, 28, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--radius-xs);
   padding: 8px 10px;
 }
@@ -67,13 +67,13 @@
   justify-content: space-between;
   font-family: var(--font-mono);
   font-size: 0.68rem;
-  color: var(--text-secondary);
+  color: #94A3B8;
 }
 
 .current-level-tag {
   font-weight: 700;
-  color: var(--accent-teal);
-  background: rgba(13, 148, 136, 0.12);
+  color: #2DD4BF;
+  background: rgba(13, 148, 136, 0.18);
   padding: 2px 6px;
   border-radius: 2px;
 }
@@ -83,7 +83,7 @@
   -webkit-appearance: none;
   appearance: none;
   height: 5px;
-  background: var(--border-strong);
+  background: #334155;
   border-radius: var(--radius-full);
   outline: none;
   cursor: pointer;
@@ -96,9 +96,9 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--accent-teal);
+  background: #2DD4BF;
   cursor: pointer;
-  box-shadow: 0 1px 6px rgba(13, 148, 136, 0.4);
+  box-shadow: 0 0 8px rgba(45, 212, 191, 0.5);
   transition: transform var(--transition-fast);
 }
 
@@ -106,7 +106,7 @@
   transform: scale(1.2);
 }
 
-/* Floor Quick Selector Grid Container (Natural flow, single sidebar scrollbar) */
+/* Floor Quick Selector Grid Container */
 .floor-buttons-container {
   display: flex;
   flex-direction: column;
@@ -117,7 +117,7 @@
   font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
-  color: var(--text-muted);
+  color: #64748B;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   display: flex;
@@ -137,9 +137,9 @@
   min-width: 38px;
   padding: 5px 8px;
   border-radius: var(--radius-xs);
-  background: #FFFFFF;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94A3B8;
   font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 600;
@@ -149,16 +149,16 @@
 }
 
 .floor-pill:hover {
-  background: #FFFFFF;
-  border-color: var(--accent-teal);
-  color: var(--accent-teal);
+  background: rgba(51, 65, 85, 0.85);
+  border-color: rgba(45, 212, 191, 0.4);
+  color: #F8FAFC;
   transform: translateY(-1px);
 }
 
 .floor-pill.active {
-  background: var(--accent-teal);
-  border-color: var(--accent-teal);
+  background: linear-gradient(135deg, #0D9488 0%, #0891B2 100%);
+  border-color: #2DD4BF;
   color: #FFFFFF;
   font-weight: 700;
-  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.3);
+  box-shadow: 0 0 12px rgba(13, 148, 136, 0.4);
 }

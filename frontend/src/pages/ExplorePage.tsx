@@ -34,9 +34,9 @@ type EntryMode = 'select' | 'search' | 'manual';
 // Fallback presets — clicking triggers a live AI search, no coords hardcoded
 const PRESET_LANDMARKS = [
   { name: 'Burj Khalifa', city: 'Dubai' },
-  { name: 'Rashtrapati Bhavan', city: 'New Delhi' },
-  { name: 'India Gate', city: 'New Delhi' },
-  { name: 'Taj Mahal', city: 'Agra' },
+  { name: 'Willis Tower', city: 'Chicago' },
+  { name: 'Antilia', city: 'Mumbai' },
+  { name: 'World One', city: 'Mumbai' },
 ];
 
 /** Build an ESRI World Imagery thumbnail URL for a lat/lon point */
@@ -569,7 +569,7 @@ export default function ExplorePage() {
                       <label className="font-mono">BUILDING / LANDMARK NAME</label>
                       <input
                         type="text"
-                        placeholder="e.g. Burj Khalifa, Taj Mahal, Empire State"
+                        placeholder="e.g. Burj Khalifa, Willis Tower, Antilia"
                         value={searchName}
                         onChange={(e) => setSearchName(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -580,7 +580,7 @@ export default function ExplorePage() {
                       <label className="font-mono">CITY / LOCATION</label>
                       <input
                         type="text"
-                        placeholder="e.g. Dubai, Agra, New York"
+                        placeholder="e.g. Dubai, Chicago, Mumbai"
                         value={searchCity}
                         onChange={(e) => setSearchCity(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
