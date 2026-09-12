@@ -17,16 +17,25 @@ export default function ProcessingPage() {
   const [buildingId, setBuildingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Track consecutive 404s — backend may have restarted (in-memory job lost)
+  const [notFound, setNotFound] = useState(false);
+  const [notFoundCount, setNotFoundCount] = useState(0);
+
   useEffect(() => {
     if (!jobId) return;
     let isMounted = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let consecutiveNotFound = 0;
 
     const pollStatus = async () => {
       try {
         const data = await getJobStatus(jobId);
         if (!isMounted) return;
-        
+
+        // Reset 404 counter on any successful response
+        consecutiveNotFound = 0;
+        setNotFoundCount(0);
+
         setProgress(data.progress_pct);
         const currentStep = data.progress_step || data.step || 'Processing...';
         setStepText(currentStep);
@@ -43,13 +52,27 @@ export default function ProcessingPage() {
           return;
         }
       } catch (err: any) {
-        if (err?.code !== 'ECONNABORTED') {
+        if (!isMounted) return;
+
+        // 404 = job not found (backend restarted, in-memory job wiped)
+        const is404 = err?.response?.status === 404;
+        if (is404) {
+          consecutiveNotFound += 1;
+          setNotFoundCount(consecutiveNotFound);
+          if (consecutiveNotFound >= 3) {
+            // Stop polling — the job is permanently lost after restart
+            setStatus('failed');
+            setError('Backend restarted and the job was lost. Please go back and submit again.');
+            setNotFound(true);
+            return;
+          }
+        } else if (err?.code !== 'ECONNABORTED') {
           console.warn('Job status poll retry:', err?.message || err);
         }
       }
 
       if (isMounted) {
-        timer = setTimeout(pollStatus, 1500);
+        timer = setTimeout(pollStatus, 2500);
       }
     };
 
@@ -60,6 +83,7 @@ export default function ProcessingPage() {
       if (timer) clearTimeout(timer);
     };
   }, [jobId, navigate]);
+
 
   return (
     <div className="processing-page">
