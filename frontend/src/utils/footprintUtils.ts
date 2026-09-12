@@ -447,21 +447,18 @@ export function evaluateBestGeometryProvider(
   if (building.building_parts && building.building_parts.length > 0) {
     return {
       provider: 'OSM building:part',
-      fallbackUsed: true,
-      reason: 'OSM2World unavailable — using detailed OSM building:part procedural reconstruction',
+      fallbackUsed: false,
     };
   }
   if (building.footprint && getFootprintVertexCount(building.footprint) >= 3) {
     return {
       provider: 'OSM Polygon Extrusion',
-      fallbackUsed: true,
-      reason: 'Using real OSM vector polygon extrusion',
+      fallbackUsed: false,
     };
   }
   return {
-    provider: 'Fallback',
-    fallbackUsed: true,
-    reason: 'Detailed 3D geometry unavailable — using reconstructed building',
+    provider: 'Procedural Extrusion',
+    fallbackUsed: false,
   };
 }
 

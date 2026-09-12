@@ -6,7 +6,6 @@ import FloorSelector from '../components/FloorSelector/FloorSelector';
 import UnitCard from '../components/UnitCard/UnitCard';
 import ValidationAlert from '../components/ValidationAlert/ValidationAlert';
 import UndergroundPanel from '../components/UndergroundPanel/UndergroundPanel';
-import DemoTourBar from '../components/DemoTour/DemoTourBar';
 import CertificateModal from '../components/CertificateModal/CertificateModal';
 import { getBuilding } from '../api/api';
 import { Building, Unit } from '../types';
@@ -70,36 +69,6 @@ export default function MapPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Handler for Interactive Demo Tour Steps
-  const handleDemoTourStep = (stepId: number) => {
-    if (!building) return;
-
-    if (stepId === 1) {
-      // Step 1: Overall Surface & Multi-Storey Volume
-      setSelectedFloor(null);
-      setIsRightOpen(true);
-    } else if (stepId === 2) {
-      // Step 2: Vertical Apartment Isolation
-      const midFloor = Math.max(Math.min(3, building.floor_count || 3), 1);
-      setSelectedFloor(midFloor);
-      const targetUnit = building.units?.find((u) => (u.floor_number ?? u.floor) === midFloor) || building.units?.[0];
-      if (targetUnit) setSelectedUnit(targetUnit);
-      setIsRightOpen(true);
-    } else if (stepId === 3) {
-      // Step 3: Subsurface Infrastructure & Utilities
-      setSelectedFloor(null);
-      setIsRightOpen(true);
-      // Scroll underground panel into focus
-      setTimeout(() => {
-        const panel = document.getElementById('underground-infrastructure-panel');
-        if (panel) panel.scrollIntoView({ behavior: 'smooth' });
-      }, 200);
-    } else if (stepId === 4) {
-      // Step 4: Digital 3D Title Deed Certificate
-      setShowGlobalCert(true);
-    }
-  };
-
   return (
     <div className="map-page">
       <Header />
@@ -135,14 +104,6 @@ export default function MapPage() {
 
         {/* ── 3D Viewport (Full Width) ── */}
         <div className="map-viewport">
-          {/* SIH Interactive Demo Tour Bar */}
-          <DemoTourBar
-            onStepChange={handleDemoTourStep}
-            onOpenCertificate={() => setShowGlobalCert(true)}
-            currentFloor={selectedFloor}
-            totalFloors={building?.floor_count || 1}
-          />
-
           <Map3D
             building={building}
             selectedFloor={selectedFloor}

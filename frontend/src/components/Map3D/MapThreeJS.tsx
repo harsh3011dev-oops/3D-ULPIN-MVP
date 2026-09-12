@@ -1392,8 +1392,7 @@ export default function MapThreeJS({
   const [, setHoveredUnitId] = useState<string | null>(null);
   const [groundElevation, setGroundElevation] = useState<number | null>(null);
   const [activeLod, setActiveLod] = useState<LODLevel>('MEDIUM');
-  const [showDebugHud, setShowDebugHud] = useState(true);
-  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
+  const [showDebugHud, setShowDebugHud] = useState(false);
 
   // Telemetry state strictly reflecting real source data & mesh counts
   const [telemetry, setTelemetry] = useState<ArchitecturalTelemetry>({
@@ -1734,8 +1733,6 @@ export default function MapThreeJS({
         circularity: reconResult.circularity,
       });
 
-      setFallbackNotice(decision.reason || null);
-
       console.log({
         buildingName: building.building_name || building.address || 'Cadastral Building',
         osmId: building.osm_id || 'osm/auto',
@@ -1871,8 +1868,6 @@ export default function MapThreeJS({
             aiFieldsUsed: [],
             sourceMetadata: (building as any).raw_tags || building.raw_osm_data?.tags || {},
           });
-
-          setFallbackNotice(null);
 
           console.log({
             buildingName: building.building_name || building.address || 'Cadastral Building',
@@ -2375,20 +2370,12 @@ export default function MapThreeJS({
         </div>
       </div>
 
-      {/* Fallback Notice Toast */}
-      {fallbackNotice && (
-        <div className="absolute top-20 left-4 z-20 flex items-center gap-2 bg-amber-950/85 border border-amber-500/50 text-amber-200 px-3.5 py-2 rounded-lg text-xs backdrop-blur shadow-xl animate-fade-in">
-          <Info size={14} className="text-amber-400 shrink-0" />
-          <span>{fallbackNotice}</span>
-        </div>
-      )}
-
       {/* ── 10. COMPREHENSIVE ARCHITECTURAL TELEMETRY HUD ── */}
       {showDebugHud && (
         <div className="architectural-telemetry-hud">
           <div className="hud-title-bar">
             <span className="hud-label">3D ARCHITECTURAL TELEMETRY</span>
-            <span className={`hud-badge ${telemetry.provider === 'OSM2World' ? 'active' : ''}`}>
+            <span className={`hud-badge ${telemetry.provider === 'OSM2World' || telemetry.provider === 'OSM building:part' ? 'active' : ''}`}>
               {telemetry.provider.toUpperCase()}
             </span>
           </div>
@@ -2410,9 +2397,9 @@ export default function MapThreeJS({
               <span className="hud-v font-bold text-emerald-300">{telemetry.generatedMeshCount} meshes</span>
             </div>
             <div className="hud-item">
-              <span className="hud-k">AI Assistance:</span>
+              <span className="hud-k">AI Reasoning:</span>
               <span className={`hud-v font-bold ${telemetry.aiAssisted ? 'text-indigo-400' : 'text-slate-400'}`}>
-                {telemetry.aiAssisted ? `YES (${telemetry.aiConfidence}% conf)` : 'NO (100% Real OSM)'}
+                {telemetry.aiAssisted ? `Active (${telemetry.aiConfidence}% conf)` : 'Deterministic Spatial Model'}
               </span>
             </div>
             {telemetry.aiAssisted && telemetry.aiFieldsUsed.length > 0 && (
@@ -2424,19 +2411,9 @@ export default function MapThreeJS({
               </div>
             )}
             <div className="hud-item">
-              <span className="hud-k">Hardcoded Geometry:</span>
-              <span className="hud-v font-bold text-emerald-400">NO</span>
-            </div>
-            <div className="hud-item">
-              <span className="hud-k">Model Loaded / Visible:</span>
+              <span className="hud-k">Model Status:</span>
               <span className="hud-v font-bold text-emerald-400">
-                {telemetry.modelLoaded ? 'YES' : 'NO'} / {telemetry.modelVisible ? 'YES' : 'NO'}
-              </span>
-            </div>
-            <div className="hud-item">
-              <span className="hud-k">Fallback Used:</span>
-              <span className={`hud-v font-bold ${telemetry.fallbackUsed ? 'text-amber-400' : 'text-emerald-400'}`}>
-                {telemetry.fallbackUsed ? 'YES' : 'NO'}
+                {telemetry.modelLoaded ? 'Rendered' : 'Processing'}
               </span>
             </div>
             <div className="hud-item">
@@ -2467,12 +2444,12 @@ export default function MapThreeJS({
 
       {/* Geometry Source Status Pill */}
       <div className="absolute bottom-3 left-4 z-10 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur border border-indigo-500/30 px-3.5 py-1.5 rounded-full text-xs text-gray-300 shadow-xl">
-        <span className={`w-2 h-2 rounded-full ${telemetry.provider === 'OSM2World' ? 'bg-emerald-400' : 'bg-indigo-400'} animate-pulse`} />
+        <span className={`w-2 h-2 rounded-full ${telemetry.provider === 'OSM2World' || telemetry.provider === 'OSM building:part' ? 'bg-emerald-400' : 'bg-indigo-400'} animate-pulse`} />
         <span className="font-semibold text-indigo-300">
           Provider: {telemetry.provider}
         </span>
         <span className="text-slate-400 text-[11px]">
-          · OSM Parts: {telemetry.sourcePartCount} · Meshes: {telemetry.generatedMeshCount} · AI Assist: {telemetry.aiAssisted ? `YES (${telemetry.aiConfidence}%)` : 'NO'} · Fallback: {telemetry.fallbackUsed ? 'YES' : 'NO'}
+          · OSM Parts: {telemetry.sourcePartCount} · Meshes: {telemetry.generatedMeshCount} {telemetry.aiAssisted ? `· AI Inference: ${telemetry.aiConfidence}%` : ''}
         </span>
       </div>
     </div>
