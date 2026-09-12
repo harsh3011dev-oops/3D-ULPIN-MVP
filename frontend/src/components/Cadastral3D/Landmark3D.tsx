@@ -414,6 +414,70 @@ function ProceduralMeenakshiTemple({ isHovered }: { isHovered: boolean }) {
   );
 }
 
+// ── 10. RAM MANDIR (AYODHYA) NAGARA TEMPLE PROCEDURAL 3D MESH ──
+function ProceduralRamMandir({ isHovered }: { isHovered: boolean }) {
+  const sandstoneLight = isHovered ? '#FDE68A' : '#E59866';
+  const sandstoneDark = isHovered ? '#F59E0B' : '#D35400';
+  const goldFinial = isHovered ? '#FEF08A' : '#F1C40F';
+
+  return (
+    <group scale={0.95}>
+      {/* Plinth Platform */}
+      <mesh position={[0, 0.08, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.5, 0.16, 2.0]} />
+        <meshStandardMaterial color={sandstoneDark} roughness={0.7} />
+      </mesh>
+
+      {/* Main Sanctum Garbhagriha */}
+      <mesh position={[0, 0.45, -0.45]} castShadow receiveShadow>
+        <boxGeometry args={[0.7, 0.6, 0.7]} />
+        <meshStandardMaterial color={sandstoneLight} roughness={0.65} />
+      </mesh>
+
+      {/* Tall Main Shikhara Spire (4 Tiers) */}
+      {[0.85, 1.15, 1.45, 1.7].map((y, idx) => (
+        <mesh key={idx} position={[0, y, -0.45]} castShadow>
+          <boxGeometry args={[0.62 - idx * 0.12, 0.3, 0.62 - idx * 0.12]} />
+          <meshStandardMaterial color={idx % 2 === 0 ? sandstoneLight : sandstoneDark} roughness={0.6} />
+        </mesh>
+      ))}
+
+      {/* Shikhara Amalaka Disk & Gilded Kalash */}
+      <mesh position={[0, 1.9, -0.45]} castShadow>
+        <cylinderGeometry args={[0.18, 0.18, 0.08, 16]} />
+        <meshStandardMaterial color={sandstoneLight} />
+      </mesh>
+      <mesh position={[0, 2.08, -0.45]}>
+        <coneGeometry args={[0.07, 0.28, 12]} />
+        <meshStandardMaterial color={goldFinial} metalness={0.8} />
+      </mesh>
+
+      {/* Gudhamandapa & Rangamandapa Halls */}
+      <mesh position={[0, 0.4, 0.1]} castShadow>
+        <boxGeometry args={[0.85, 0.5, 0.65]} />
+        <meshStandardMaterial color={sandstoneLight} roughness={0.65} />
+      </mesh>
+      {/* Stepped Roof */}
+      {[0.7, 0.85, 0.98].map((y, idx) => (
+        <mesh key={idx} position={[0, y, 0.1]} castShadow>
+          <boxGeometry args={[0.75 - idx * 0.18, 0.12, 0.55 - idx * 0.14]} />
+          <meshStandardMaterial color={sandstoneDark} />
+        </mesh>
+      ))}
+      <mesh position={[0, 1.15, 0.1]}>
+        <coneGeometry args={[0.06, 0.22, 12]} />
+        <meshStandardMaterial color={goldFinial} metalness={0.8} />
+      </mesh>
+
+      {/* Ardhamandapa Entrance Portico */}
+      <mesh position={[0, 0.35, 0.65]} castShadow>
+        <boxGeometry args={[0.6, 0.4, 0.45]} />
+        <meshStandardMaterial color={sandstoneLight} />
+      </mesh>
+    </group>
+  );
+}
+
 // ── Procedural Landmark Selector ──
 function ProceduralLandmarkMesh({
   visualType,
@@ -423,6 +487,8 @@ function ProceduralLandmarkMesh({
   isHovered: boolean;
 }) {
   switch (visualType) {
+    case 'ram_mandir':
+      return <ProceduralRamMandir isHovered={isHovered} />;
     case 'taj_mahal':
       return <ProceduralTajMahal isHovered={isHovered} />;
     case 'india_gate':

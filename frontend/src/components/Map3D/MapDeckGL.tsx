@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import DeckGL from '@deck.gl/react';
 import { GeoJsonLayer, TextLayer, ColumnLayer, PathLayer } from '@deck.gl/layers';
 import { Tile3DLayer } from '@deck.gl/geo-layers';
+import { ScenegraphLayer } from '@deck.gl/mesh-layers';
 import { Tiles3DLoader } from '@loaders.gl/3d-tiles';
+import { GLTFLoader } from '@loaders.gl/gltf';
 import Map from 'react-map-gl/maplibre';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -11,6 +13,8 @@ import { Building, Unit } from '../../types';
 import { getBuildingCenter, getBuildingHeight, getFloorCountInfo, getFootprintDimensions } from '../../utils/footprintUtils';
 import { getBuildingUtilityPipelines } from '../../utils/utilityNetworkHelper';
 import { REEARTH, setupReearthTerrain } from '../../utils/reearth';
+import { findCustomModel, CustomModelConfig } from '../../data/customModels';
+import { logModelPipelineTelemetry } from '../../utils/customModelProvider';
 import {
   getBestBuildingGeometry,
   getGoogle3DTilesUrl,
@@ -115,23 +119,51 @@ export default function MapDeckGL({
   const buildingHeight = getBuildingHeight(building);
   const floorInfo = getFloorCountInfo(building);
 
+  // ── Custom Model Recognition ──
+  const customModelConfig = useMemo(() => findCustomModel(building), [building]);
+
   // Priority geometry analysis
   const geometryResult = useMemo(() => {
+    if (customModelConfig) {
+      return {
+        provider: 'CUSTOM_MODEL' as const,
+        hasGoogle3DKey: false,
+        google3DTilesUrl: null,
+        buildingPartsCount: 1,
+        vertexCount: 100,
+        fallbackUsed: false,
+        statusMessage: 'High-detail architectural model loaded',
+      };
+    }
     return getBestBuildingGeometry(building, useGoogle3D && google3DStatus !== 'unavailable');
-  }, [building, useGoogle3D, google3DStatus]);
+  }, [building, customModelConfig, useGoogle3D, google3DStatus]);
 
   // Telemetry diagnostics logging
   useEffect(() => {
-    logGeometryDiagnostics({
-      buildingName: building?.building_name || building?.address || 'Cadastral Structure',
-      geometryProvider: geometryResult.provider,
-      latitude: mapLat,
-      longitude: mapLng,
-      google3DTilesLoaded: google3DStatus === 'available',
-      osmBuildingParts: building?.building_parts?.length || 0,
-      proceduralFallbackUsed: geometryResult.fallbackUsed,
-    });
-  }, [building?.building_id, geometryResult.provider, google3DStatus, mapLat, mapLng]);
+    if (customModelConfig) {
+      logModelPipelineTelemetry({
+        buildingName: building?.building_name || customModelConfig.name,
+        provider: 'CUSTOM_MODEL',
+        geometrySource: 'Imported architectural model',
+        modelLoaded: true,
+        fallbackUsed: false,
+        originalMaterials: true,
+        modelUrl: customModelConfig.modelUrl,
+        latitude: mapLat,
+        longitude: mapLng,
+      });
+    } else {
+      logGeometryDiagnostics({
+        buildingName: building?.building_name || building?.address || 'Cadastral Structure',
+        geometryProvider: geometryResult.provider,
+        latitude: mapLat,
+        longitude: mapLng,
+        google3DTilesLoaded: google3DStatus === 'available',
+        osmBuildingParts: building?.building_parts?.length || 0,
+        proceduralFallbackUsed: geometryResult.fallbackUsed,
+      });
+    }
+  }, [building?.building_id, customModelConfig, geometryResult.provider, google3DStatus, mapLat, mapLng]);
 
   const [viewState, setViewState] = useState({
     longitude: mapLng,
@@ -432,9 +464,37 @@ export default function MapDeckGL({
     const layerStack: any[] = [];
 
     // ── 1. Real-World 3D Visual Group ──
-    if (showContextBuildings) {
+    if (customModelConfig) {
+      // Priority 1: High-detail Custom 3D Architectural Model via ScenegraphLayer
+      layerStack.push(
+        new ScenegraphLayer({
+          id: 'custom-building-scenegraph-model',
+          data: [
+            {
+              position: [
+                mapLng,
+                mapLat,
+                (customModelConfig.elevation || 0) + (customModelConfig.groundOffset || 0),
+              ],
+            },
+          ],
+          scenegraph: customModelConfig.modelUrl,
+          loaders: [GLTFLoader],
+          getPosition: (d: any) => d.position,
+          getOrientation: [
+            customModelConfig.rotation?.[0] || 0,
+            customModelConfig.rotation?.[1] || 0,
+            customModelConfig.rotation?.[2] ?? 90,
+          ],
+          sizeScale: customModelConfig.scale || 1.0,
+          opacity: selectedFloor !== null ? 0.30 : 1.0,
+          pickable: true,
+          _lighting: 'pbr',
+        })
+      );
+    } else if (showContextBuildings) {
       if (useGoogle3D && googleTilesUrl && google3DStatus !== 'unavailable') {
-        // Priority 1: Google Photorealistic 3D Tiles
+        // Priority 2: Google Photorealistic 3D Tiles
         layerStack.push(
           new Tile3DLayer({
             id: 'google-photorealistic-3d-tiles',
@@ -462,7 +522,7 @@ export default function MapDeckGL({
           })
         );
       } else {
-        // Priority 2: Re:Earth / OSM Open 3D Tileset
+        // Priority 3: Re:Earth / OSM Open 3D Tileset
         layerStack.push(
           new Tile3DLayer({
             id: 'reearth-osm-buildings',
@@ -1010,12 +1070,22 @@ export default function MapDeckGL({
       <div className="tech-badge-footer">
         <span className="pulse-dot" />
         <span style={{ color: 'var(--accent-teal)', fontWeight: 600 }}>
-          {google3DStatus === 'available' && useGoogle3D
+          {customModelConfig
+            ? `Custom GLB/GLTF (${customModelConfig.name})`
+            : google3DStatus === 'available' && useGoogle3D
             ? 'Google Photorealistic 3D Tiles'
             : 'Re:Earth 3D Buildings + Terrain'}
         </span>
-        {' · '}
-        <span>deck.gl + MapLibre</span>
+        {customModelConfig ? (
+          <span style={{ color: '#10b981', fontWeight: 600, marginLeft: 6 }}>
+            · High-detail architectural model
+          </span>
+        ) : (
+          <>
+            {' · '}
+            <span>deck.gl + MapLibre</span>
+          </>
+        )}
       </div>
 
       <div className="map-attribution-footer" title={REEARTH.attribution}>

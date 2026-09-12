@@ -311,7 +311,19 @@ Rules:
     
     bname_lower = building_name.lower().strip()
     
-    if "india gate" in bname_lower:
+    if "ram mandir" in bname_lower or "ayodhya" in bname_lower or "janmabhoomi" in bname_lower:
+        mock = {
+            "building_name": "Ayodhya Ram Mandir",
+            "city": city or "Ayodhya",
+            "latitude": 26.7956,
+            "longitude": 82.1944,
+            "height_meters": 49.2,
+            "floors": 3,
+            "confidence": 98,
+            "source": "fallback",
+            "osm_id": "way/1238914562",
+        }
+    elif "india gate" in bname_lower:
         mock = {
             "building_name": "India Gate",
             "city": city or "New Delhi",

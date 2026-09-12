@@ -23,10 +23,24 @@ export interface VisualLandmark {
     | 'charminar'
     | 'konark_temple'
     | 'meenakshi_temple'
+    | 'ram_mandir'
     | 'generic';
 }
 
 export const HOMEPAGE_LANDMARKS: VisualLandmark[] = [
+  {
+    id: 'ayodhya-ram-mandir',
+    name: 'Ayodhya Ram Mandir',
+    city: 'Ayodhya',
+    state: 'Uttar Pradesh',
+    latitude: 26.7956,
+    longitude: 82.1944,
+    category: 'Sacred Nagara Architecture',
+    description: 'High-detail 3D Nagara-style temple architectural model with multi-tier Shikharas.',
+    modelPath: '/models/ram-mandir.glb',
+    visualScale: 0.08,
+    visualType: 'ram_mandir',
+  },
   {
     id: 'taj-mahal',
     name: 'Taj Mahal',
