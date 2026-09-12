@@ -24,7 +24,9 @@ export interface BuildingMesherResult {
 export function generateBuildingPartsMeshes(
   parts: BuildingPartData[],
   centerLng: number,
-  centerLat: number
+  centerLat: number,
+  parentBuildingHeight?: number,
+  floorHeight: number = 3.5,
 ): BuildingMesherResult {
   const group = new THREE.Group();
   group.name = 'osm_building_parts_group';
@@ -81,13 +83,19 @@ export function generateBuildingPartsMeshes(
         }
       });
 
-      const totalHeight = Math.max(part.height || 10, 2.5);
-      const minHeight = Math.max(part.min_height || 0, 0);
+      const totalHeight = Math.max(
+        part.height || (part.levels ? part.levels * floorHeight : parentBuildingHeight) || 10,
+        2.5
+      );
+      const minHeight = Math.max(
+        part.min_height !== undefined ? part.min_height : (part.min_levels ? part.min_levels * floorHeight : 0),
+        0
+      );
       const rawRoofShape = (part.roof_shape || '').toLowerCase().trim();
       const roofHeight = part.roof_height && part.roof_height > 0
-        ? Math.min(part.roof_height, totalHeight * 0.5)
+        ? Math.min(part.roof_height, (totalHeight - minHeight) * 0.5)
         : rawRoofShape && rawRoofShape !== 'flat'
-        ? Math.min(totalHeight * 0.28, 8.0)
+        ? Math.min((totalHeight - minHeight) * 0.28, 8.0)
         : 0;
 
       const wallHeight = Math.max(totalHeight - minHeight - roofHeight, 1.0);

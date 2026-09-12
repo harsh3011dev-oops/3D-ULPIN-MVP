@@ -127,7 +127,9 @@ const osmBuildingPartProvider: GeometryProvider = {
       throw new Error('No building parts extracted');
     }
 
-    const meshResult = generateBuildingPartsMeshes(parts, centerLng, centerLat);
+    const bHeight = building.height_meters || building.height || 30;
+    const fHeight = (building.floor_count && bHeight > 0) ? bHeight / building.floor_count : 3.5;
+    const meshResult = generateBuildingPartsMeshes(parts, centerLng, centerLat, bHeight, fHeight);
 
     const estimatedFields: string[] = [];
     if (!building.height_meters && !building.height) estimatedFields.push('height');

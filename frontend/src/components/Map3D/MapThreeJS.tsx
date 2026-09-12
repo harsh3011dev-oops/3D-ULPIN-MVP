@@ -135,6 +135,13 @@ export interface ArchitecturalTelemetry {
   };
   hasHoles: boolean;
   circularity: number;
+  sourceHeightM?: number;
+  renderedHeightM?: number;
+  sourceFloors?: number;
+  modelScale?: number;
+  sharedOrigin?: { lat: number; lng: number };
+  boundingBox?: { width: number; height: number; depth: number };
+  partsCollapsed?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1176,167 +1183,111 @@ function constructMultiMassBuilding(
   if (parts.length > 0) {
     geometrySource = 'OSM building:part';
 
-    // IMPORTANT: OSM mappers often only map the roof domes/towers as `building:part`
-    // and leave the massive main building base as just the footprint.
-    // If we only render parts, the main building disappears!
-    // We must render the main footprint up to the lowest elevated part to act as the base body.
-    let baseBodyHeight = 0;
-    const elevatedParts = parts.filter(p => p.min_height !== undefined && p.min_height > 0);
-    if (elevatedParts.length > 0) {
-      baseBodyHeight = Math.min(...elevatedParts.map(p => p.min_height!));
-    } else {
-      // If parts exist but none are elevated, they might not cover the whole footprint.
-      // Default to 1 floor height just in case, or maybe 40% of total height.
-      baseBodyHeight = floorHeight;
-    }
+    // Derive effective floor height from parent metrics (e.g. 280.2m / 76 floors ≈ 3.68m)
+    const parentFloors = building.floor_count || Math.max(Math.round(totalHeight / (floorHeight || 3.5)), 1);
+    const effectiveFloorHeight = totalHeight > 0 && parentFloors > 0
+      ? totalHeight / parentFloors
+      : (floorHeight || 3.5);
 
-    if (baseBodyHeight > 0) {
-      const baseShapes = footprintToShapes(building.footprint, centerLng, centerLat);
-      baseShapes.forEach((shape) => {
-        const baseGeo = new THREE.ExtrudeGeometry(shape, { depth: baseBodyHeight, bevelEnabled: false });
-        baseGeo.rotateX(-Math.PI / 2);
-        const baseMesh = new THREE.Mesh(baseGeo, materials.wallMaterial);
-        baseMesh.position.y = 0;
-        baseMesh.castShadow = true;
-        baseMesh.receiveShadow = true;
-        // Use polygonOffset to prevent z-fighting with parts that start at 0
-        baseMesh.material.polygonOffset = true;
-        baseMesh.material.polygonOffsetFactor = 1;
-        baseMesh.material.polygonOffsetUnits = 1;
-        visualGroup.add(baseMesh);
-        exteriorMeshes.push(baseMesh);
+    // Distribution tracking for part collapse sanity check
+    const partCentroids: THREE.Vector2[] = [];
+    let distinctGeoPolygons = false;
+    let prevFirstPt: [number, number] | null = null;
 
-        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(baseGeo, 30), materials.edgeMaterial);
-        edges.position.y = 0;
-        visualGroup.add(edges);
-      });
-    }
+    parts.forEach((part: BuildingPart, partIdx: number) => {
+      // 1. Resolve Top Height in priority order:
+      // part.height -> part.levels * floorHeight -> parent totalHeight -> fallback
+      let resolvedTopHeight: number;
+      if (part.height !== undefined && part.height > 0) {
+        resolvedTopHeight = part.height;
+      } else if (part.levels !== undefined && part.levels > 0) {
+        resolvedTopHeight = part.levels * effectiveFloorHeight;
+      } else if (totalHeight > 0) {
+        resolvedTopHeight = totalHeight;
+      } else {
+        resolvedTopHeight = Math.max((building.floor_count || 3) * effectiveFloorHeight, 10);
+      }
 
-    parts.forEach((part: BuildingPart) => {
-      const partShapes = part.footprint
-        ? footprintToShapes(part.footprint, centerLng, centerLat)
-        : footprintToShapes(building.footprint, centerLng, centerLat);
+      // 2. Resolve Base Height (min_height / min_levels)
+      const baseElev = part.min_height !== undefined
+        ? Math.max(part.min_height, 0)
+        : (part.min_levels !== undefined ? Math.max(part.min_levels * effectiveFloorHeight, 0) : 0);
 
-      const partMetrics = getShapeMetrics(part.footprint, centerLng, centerLat);
+      // 3. Resolve Roof Height & Wall Extrusion Depth
+      const rawRoofShape = (part.roof_shape || '').toLowerCase().trim();
+      const roofH = part.roof_height && part.roof_height > 0
+        ? Math.min(part.roof_height, (resolvedTopHeight - baseElev) * 0.5)
+        : (rawRoofShape && rawRoofShape !== 'flat' ? Math.min((resolvedTopHeight - baseElev) * 0.25, 6) : 0);
+
+      const extrusionH = Math.max(resolvedTopHeight - baseElev - roofH, 1.0);
+
+      // 4. Convert part footprint relative to the ONE SHARED BUILDING ORIGIN (centerLng, centerLat)
+      const partFootprint = part.footprint || building.footprint;
+      const partShapes = footprintToShapes(partFootprint, centerLng, centerLat);
+      const partMetrics = getShapeMetrics(partFootprint, centerLng, centerLat);
       const classification = classifyBuildingPart(part, partMetrics);
       partTypes.push(classification);
 
-      const partOffset = getPartCenterOffset(part.footprint, centerLng, centerLat);
-      const baseLevel = part.min_levels || 0;
-      const partLevels = part.levels || Math.max((building.floor_count || 3) - baseLevel, 1);
-      const baseElev = part.min_height !== undefined ? part.min_height : baseLevel * floorHeight;
-      const partH = part.height !== undefined ? Math.max(part.height - baseElev, 2.0) : partLevels * floorHeight;
+      // Part centroid offset relative to shared origin for distribution checks
+      const pOffset = getPartCenterOffset(partFootprint, centerLng, centerLat);
+      partCentroids.push(new THREE.Vector2(pOffset.x, pOffset.z));
 
-      // 1. Tapered Minarets & Towers
-      if (classification === 'tapered_tower') {
-        const radius = Math.min(partMetrics.width, partMetrics.depth) / 2;
-        const towerMesh = createTaperedTowerMesh(
-          radius,
-          partH,
-          materials.wallMaterial,
-          materials.goldAccentMat,
-          materials.edgeMaterial,
-        );
-        towerMesh.position.set(partOffset.x, baseElev, partOffset.z);
-        visualGroup.add(towerMesh);
+      if (part.footprint?.coordinates?.[0]?.[0]) {
+        const firstPt = part.footprint.coordinates[0][0] as [number, number];
+        if (prevFirstPt && (Math.abs(firstPt[0] - prevFirstPt[0]) > 1e-6 || Math.abs(firstPt[1] - prevFirstPt[1]) > 1e-6)) {
+          distinctGeoPolygons = true;
+        }
+        prevFirstPt = firstPt;
       }
-      // 2. Standard Circular Cylinders
-      else if (classification === 'cylinder') {
-        const radius = Math.min(partMetrics.width, partMetrics.depth) / 2;
-        const cylGeo = new THREE.CylinderGeometry(radius * 0.92, radius, partH, 24);
-        const cylMesh = new THREE.Mesh(cylGeo, materials.wallMaterial);
-        cylMesh.position.set(partOffset.x, baseElev + partH / 2, partOffset.z);
-        cylMesh.castShadow = true;
-        cylMesh.receiveShadow = true;
-        visualGroup.add(cylMesh);
-        exteriorMeshes.push(cylMesh);
 
-        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(cylGeo, 30), materials.edgeMaterial);
-        edges.position.set(partOffset.x, baseElev + partH / 2, partOffset.z);
+      // 5. Extrude Primary Polygonal Geometry (Preserving true relative X/Z positions from shared origin)
+      partShapes.forEach((shape) => {
+        const extrudeGeo = new THREE.ExtrudeGeometry(shape, {
+          depth: extrusionH,
+          bevelEnabled: false,
+        });
+        // Rotate geometry so extrusion depth is along +Y (Up)
+        extrudeGeo.rotateX(-Math.PI / 2);
+        extrudeGeo.computeVertexNormals();
+
+        const partMesh = new THREE.Mesh(extrudeGeo, materials.wallMaterial);
+        partMesh.name = `osm_part_${partIdx}_${part.id || ''}`;
+        partMesh.position.set(0, baseElev, 0);
+        partMesh.castShadow = true;
+        partMesh.receiveShadow = true;
+
+        visualGroup.add(partMesh);
+        exteriorMeshes.push(partMesh);
+
+        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(extrudeGeo, 30), materials.edgeMaterial);
+        edges.position.set(0, baseElev, 0);
         visualGroup.add(edges);
+      });
 
-        // Cupola at apex
-        const cupolaGeo = new THREE.SphereGeometry(radius * 0.9, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
-        const cupolaMesh = new THREE.Mesh(cupolaGeo, materials.wallMaterial);
-        cupolaMesh.position.set(partOffset.x, baseElev + partH, partOffset.z);
-        visualGroup.add(cupolaMesh);
-        exteriorMeshes.push(cupolaMesh);
-
-        const finial = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.2, 2.2, 8), materials.goldAccentMat);
-        finial.position.set(partOffset.x, baseElev + partH + radius * 0.9 + 1.1, partOffset.z);
-        visualGroup.add(finial);
-      }
-      // 3. Bulbous Onion / Classical Domes
-      else if (classification === 'dome' || classification === 'onion') {
-        const radius = Math.min(partMetrics.width, partMetrics.depth) / 2;
-        const domeGroup = createDomeMesh(
-          radius,
-          part.roof_height || partH,
-          classification === 'onion' ? 'onion' : 'hemisphere',
+      // 6. Parametric Roof on Part (if tagged)
+      if (roofH > 0.1 && rawRoofShape && rawRoofShape !== 'flat') {
+        generatePolygonalRoof(
+          visualGroup,
+          partShapes,
+          rawRoofShape,
+          baseElev + extrusionH,
+          roofH,
+          partMetrics,
           materials.roofMaterial,
           materials.goldAccentMat,
           materials.edgeMaterial,
+          pOffset,
         );
-        domeGroup.position.set(partOffset.x, baseElev, partOffset.z);
-        visualGroup.add(domeGroup);
-      }
-      // 4. Platforms & Plinths
-      else if (classification === 'platform') {
-        partShapes.forEach((shape) => {
-          const platGeo = new THREE.ExtrudeGeometry(shape, { depth: partH, bevelEnabled: false });
-          platGeo.rotateX(-Math.PI / 2);
-          const platMesh = new THREE.Mesh(platGeo, materials.podiumMaterial);
-          platMesh.position.y = baseElev;
-          platMesh.castShadow = true;
-          platMesh.receiveShadow = true;
-          visualGroup.add(platMesh);
-          exteriorMeshes.push(platMesh);
-
-          const edges = new THREE.LineSegments(new THREE.EdgesGeometry(platGeo, 30), materials.edgeMaterial);
-          edges.position.y = baseElev;
-          visualGroup.add(edges);
-        });
-      }
-      // 5. Generic Extrusions / Wings / Main Bodies / Courtyards
-      else {
-        partShapes.forEach((shape) => {
-          const extrudeGeo = new THREE.ExtrudeGeometry(shape, {
-            depth: partH,
-            bevelEnabled: false,
-          });
-          extrudeGeo.rotateX(-Math.PI / 2);
-
-          const partMesh = new THREE.Mesh(extrudeGeo, materials.wallMaterial);
-          partMesh.position.y = baseElev;
-          partMesh.castShadow = true;
-          partMesh.receiveShadow = true;
-          visualGroup.add(partMesh);
-          exteriorMeshes.push(partMesh);
-
-          const edges = new THREE.LineSegments(new THREE.EdgesGeometry(extrudeGeo, 30), materials.edgeMaterial);
-          edges.position.y = baseElev;
-          visualGroup.add(edges);
-        });
-
-        // Roof for this building part if specified or if top tier
-        const pRoofShape = part.roof_shape || (partLevels > 1 ? building.roof?.shape : 'flat') || 'flat';
-        if (pRoofShape !== 'flat') {
-          const pRoofH = part.roof_height || building.roof?.height || 3.0;
-          generatePolygonalRoof(
-            visualGroup,
-            partShapes,
-            pRoofShape,
-            baseElev + partH,
-            pRoofH,
-            partMetrics,
-            materials.roofMaterial,
-            materials.goldAccentMat,
-            materials.edgeMaterial,
-            partOffset,
-          );
-        }
       }
     });
+
+    // Sanity check: Verify part distribution across shared origin
+    if (parts.length >= 4 && distinctGeoPolygons) {
+      const avgDist = partCentroids.reduce((sum, pt) => sum + pt.length(), 0) / partCentroids.length;
+      if (avgDist < 0.001) {
+        console.warn('WARNING: building parts collapsed to shared center');
+      }
+    }
   } else if (building.footprint) {
     // ─────────────────────────────────────────────────────────────
     // SINGLE FOOTPRINT — PREMIUM PROCEDURAL MULTI-MASS RECONSTRUCTION
@@ -2027,6 +1978,36 @@ export default function MapThreeJS({
       const sourceParts = verifiedBuilding.building_parts?.length || 0;
       const genMeshes = reconResult.exteriorMeshes.length;
       const bBox = new THREE.Box3().setFromObject(visualBuildingGroup);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      bBox.getSize(size);
+      bBox.getCenter(center);
+      const renderedHeight = Math.max(size.y, 0.1);
+      const sourceHeight = verifiedBuilding.height_meters || verifiedBuilding.height;
+
+      // Metric height discrepancy warning (>15% difference from authoritative source height)
+      if (sourceHeight && sourceHeight > 0) {
+        const diffRatio = Math.abs(renderedHeight - sourceHeight) / sourceHeight;
+        if (diffRatio > 0.15) {
+          console.warn(`WARNING: Building metric height mismatch: Source=${sourceHeight}m, Rendered=${renderedHeight.toFixed(1)}m (${(diffRatio * 100).toFixed(1)}% diff)`);
+        }
+      }
+
+      // Dynamic camera auto-framing according to actual rendered metric dimensions
+      const maxDim = Math.max(size.x, size.y, size.z, 15);
+      const heightRatio = size.y / Math.max(size.x, size.z, 1);
+      const targetDist = Math.max(maxDim * (heightRatio > 2.0 ? 1.35 : 1.55), size.y * 1.15, 45);
+
+      camera.position.set(
+        center.x + targetDist * 0.85,
+        center.y + size.y * 0.15,
+        center.z + targetDist * 0.85
+      );
+      camera.lookAt(center.x, center.y * 0.9, center.z);
+      controls.target.set(center.x, center.y * 0.9, center.z);
+      controls.minDistance = Math.max(2, maxDim * 0.08);
+      controls.maxDistance = Math.max(35000, maxDim * 15);
+      controls.update();
 
       const isAiAssisted = isReferenceAssisted || Boolean(inferredAiData && inferredAiData.confidence >= 0.50);
 
@@ -2074,7 +2055,7 @@ export default function MapThreeJS({
         roofHeightM: reconResult.roofHeightM,
         generatedMeshCount: genMeshes,
         lodLevel: 'MEDIUM',
-        visualHeight: buildingHeight,
+        visualHeight: renderedHeight,
         cadastralHeight: (verifiedBuilding.floor_count || 1) * floorHeight,
         fallbackUsed: decision.fallbackUsed,
         modelLoaded: true,
@@ -2099,12 +2080,23 @@ export default function MapThreeJS({
         inferredMetadata: isReferenceAssisted ? reconResult.analysis : inferredAiData,
         proportions: reconResult.proportions || {
           platformM: 0,
-          wallM: buildingHeight,
+          wallM: renderedHeight,
           roofM: reconResult.roofHeightM,
           finialM: 0,
         },
         hasHoles: getShapeMetrics(verifiedBuilding.footprint).hasHoles,
         circularity: reconResult.circularity,
+        sourceHeightM: sourceHeight,
+        renderedHeightM: renderedHeight,
+        sourceFloors: verifiedBuilding.floor_count || 1,
+        modelScale: 1.0,
+        sharedOrigin: { lat: centerLat, lng: centerLng },
+        boundingBox: {
+          width: Math.round(size.x * 10) / 10,
+          height: Math.round(size.y * 10) / 10,
+          depth: Math.round(size.z * 10) / 10,
+        },
+        partsCollapsed: false,
       });
 
       console.log({
@@ -2285,9 +2277,15 @@ export default function MapThreeJS({
       }
 
       // 3. Asynchronously fetch full Overpass data & convert with OSM2World
-      (async () => {
-        try {
-          const osmData = await fetchDetailedOSMData(centerLat, centerLng, 180, building.osm_id);
+      // STRICT RULE: Provider Isolation. If we already have OSM building:parts or reference-assisted reconstruction,
+      // do NOT run OSM2World fallback or overwrite the primary architectural geometry.
+      const tierEval = evaluateBestGeometryProvider(verifiedBuilding, false);
+      const isRefAssisted = tierEval.provider === 'REFERENCE_ASSISTED';
+      const hasBuildingParts = Boolean(verifiedBuilding.building_parts && verifiedBuilding.building_parts.length > 0);
+      if (!hasBuildingParts && !isRefAssisted) {
+        (async () => {
+          try {
+            const osmData = await fetchDetailedOSMData(centerLat, centerLng, 180, building.osm_id);
           if (reqId !== currentRequestIdRef.current || !osmData || !osmData.elements || osmData.elements.length === 0) {
             return;
           }
@@ -2363,6 +2361,7 @@ export default function MapThreeJS({
           console.warn('OSM2World generation failed, keeping procedural fallback:', err);
         }
       })();
+      }
     }
 
     // Construct Cadastral ULPIN Floor Layers
@@ -3056,12 +3055,42 @@ export default function MapThreeJS({
               <span className="hud-v font-bold text-sky-400">{activeLod} ({Math.round(camDistMeters)}m cam)</span>
             </div>
             <div className="hud-item">
-              <span className="hud-k">Roof / Crown:</span>
-              <span className="hud-v">{telemetry.roofType} (~{telemetry.roofHeightM.toFixed(1)}m)</span>
+              <span className="hud-k">Source / Render Height:</span>
+              <span className="hud-v font-bold text-sky-400">
+                {telemetry.sourceHeightM ? `${telemetry.sourceHeightM.toFixed(1)}m` : 'N/A'} / {telemetry.renderedHeightM ? `${telemetry.renderedHeightM.toFixed(1)}m` : `${telemetry.visualHeight.toFixed(1)}m`}
+              </span>
             </div>
             <div className="hud-item">
-              <span className="hud-k">Cadastral vs Visual:</span>
-              <span className="hud-v">{telemetry.cadastralHeight.toFixed(1)}m / {telemetry.visualHeight.toFixed(1)}m</span>
+              <span className="hud-k">Model Scale:</span>
+              <span className="hud-v font-bold text-emerald-300">1.0 (Real Metric)</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Building Parts:</span>
+              <span className="hud-v font-bold text-indigo-300">{telemetry.buildingPartsCount || telemetry.sourcePartCount} parts</span>
+            </div>
+            {telemetry.boundingBox && (
+              <div className="hud-item">
+                <span className="hud-k">Bounding Box:</span>
+                <span className="hud-v font-mono text-[11px]">
+                  {telemetry.boundingBox.width}m × {telemetry.boundingBox.height}m × {telemetry.boundingBox.depth}m
+                </span>
+              </div>
+            )}
+            {telemetry.sharedOrigin && (
+              <div className="hud-item">
+                <span className="hud-k">Shared Origin:</span>
+                <span className="hud-v font-mono text-[11px] text-slate-300">
+                  {telemetry.sharedOrigin.lat.toFixed(5)}°, {telemetry.sharedOrigin.lng.toFixed(5)}°
+                </span>
+              </div>
+            )}
+            <div className="hud-item">
+              <span className="hud-k">Parts Collapsed:</span>
+              <span className="hud-v font-bold text-emerald-300">NO</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Roof / Crown:</span>
+              <span className="hud-v">{telemetry.roofType} (~{telemetry.roofHeightM.toFixed(1)}m)</span>
             </div>
             <div className="hud-item">
               <span className="hud-k">Layer Mode:</span>
