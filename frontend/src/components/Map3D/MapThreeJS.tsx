@@ -1934,7 +1934,14 @@ export default function MapThreeJS({
           );
         }
       } catch (recErr) {
-        console.error('Procedural 3D model reconstruction encountered an error — using safe fallback:', recErr);
+        console.error("PIET ADMIN 3D BUILD FAILURE", {
+          error: recErr,
+          stack: (recErr as any)?.stack,
+          buildingData: verifiedBuilding,
+          architecturalFeatures: (verifiedBuilding as any)?.architectural_elements || verifiedBuilding?.multiview_analysis?.architecturalElements,
+          provider: isReferenceAssisted ? 'REFERENCE_ASSISTED' : decision.provider,
+          geometryInputs: { dims, buildingHeight, floorHeight }
+        });
         while (visualBuildingGroup.children.length > 0) {
           visualBuildingGroup.remove(visualBuildingGroup.children[0]);
         }
@@ -1978,6 +1985,10 @@ export default function MapThreeJS({
       const sourceParts = verifiedBuilding.building_parts?.length || 0;
       const genMeshes = reconResult.exteriorMeshes.length;
       const bBox = new THREE.Box3().setFromObject(visualBuildingGroup);
+      if (bBox.isEmpty()) {
+        bBox.min.set(-dims.width / 2, 0, -dims.depth / 2);
+        bBox.max.set(dims.width / 2, buildingHeight || 10, dims.depth / 2);
+      }
       const size = new THREE.Vector3();
       const center = new THREE.Vector3();
       bBox.getSize(size);

@@ -61,9 +61,17 @@ export interface CreateArchParams {
 }
 
 /**
- * Validates whether a number is finite and strictly positive.
+ * Sanitizes numbers to guarantee finite, non-NaN values with safe fallbacks.
  */
-function isPositiveFinite(val: any, fallback: number): number {
+export function safeNumber(val: any, fallback: number = 0): number {
+  const num = typeof val === 'number' ? val : parseFloat(val);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+/**
+ * Validates whether a number is finite and strictly positive (> 0).
+ */
+export function isPositiveFinite(val: any, fallback: number = 1.0): number {
   const num = typeof val === 'number' ? val : parseFloat(val);
   return Number.isFinite(num) && num > 0 ? num : fallback;
 }
@@ -71,7 +79,7 @@ function isPositiveFinite(val: any, fallback: number): number {
 /**
  * Validates whether a coordinate number is finite.
  */
-function isFiniteCoord(val: any, fallback: number): number {
+export function isFiniteCoord(val: any, fallback: number = 0.0): number {
   const num = typeof val === 'number' ? val : parseFloat(val);
   return Number.isFinite(num) ? num : fallback;
 }
@@ -363,91 +371,101 @@ export function createArchMesh(params: CreateArchParams): THREE.Group {
   const group = new THREE.Group();
   group.name = 'arch_primitive';
 
+  const w = isPositiveFinite(params.width, 6.0);
+  const h = isPositiveFinite(params.height, 8.0);
+  const d = isPositiveFinite(params.depth, 0.45);
+  const frameMat = params.materials.frameMaterial;
+  const glassMat = params.materials.glassMaterial;
+  const edgeMat = params.materials.edgeMaterial;
+
   try {
-    const w = isPositiveFinite(params.width, 6.0);
-    const h = isPositiveFinite(params.height, 8.0);
-    const d = isPositiveFinite(params.depth, 0.45);
     const radius = w / 2;
+    // Straight lower section height: total height minus semicircular top radius
+    const straightHeight = Math.max(0.1, h - radius);
 
-    const defaultSpringY = Math.max(h - radius, h * 0.55);
-    const springY = params.springHeight !== undefined && Number.isFinite(params.springHeight)
-      ? Math.max(0.1, Math.min(params.springHeight, h - 0.2))
-      : defaultSpringY;
-
-    const actualArchRadius = Math.max(Math.min(radius, h - springY), 0.2);
-
-    const frameMat = params.materials.frameMaterial;
-    const glassMat = params.materials.glassMaterial;
-    const edgeMat = params.materials.edgeMaterial;
-
-    // 1. Arch Shape Path (vertical rectangular base + semicircular top arc)
+    // 1. Precise, Continuous Semicircular Arch Contour
     const archShape = new THREE.Shape();
     archShape.moveTo(-w / 2, 0);
-    archShape.lineTo(-w / 2, springY);
-    archShape.absarc(0, springY, actualArchRadius, Math.PI, 0, true);
+    archShape.lineTo(-w / 2, straightHeight);
+    // Semicircular top arc from PI (left: -w/2, straightHeight) to 0 (right: +w/2, straightHeight)
+    archShape.absarc(0, straightHeight, radius, Math.PI, 0, true);
     archShape.lineTo(w / 2, 0);
     archShape.closePath();
 
-    // 2. Extrude Portal Frame / Surrounding Border
+    // 2. Extrude Outer Frame
     const extrudeSettings: THREE.ExtrudeGeometryOptions = {
       depth: d,
-      bevelEnabled: true,
-      bevelThickness: 0.05,
-      bevelSize: 0.04,
-      bevelSegments: 2,
+      bevelEnabled: false,
     };
 
-    let archMesh: THREE.Mesh;
+    let archGeo: THREE.ExtrudeGeometry;
     try {
-      const archGeo = new THREE.ExtrudeGeometry(archShape, extrudeSettings);
-      archMesh = new THREE.Mesh(archGeo, frameMat);
-      archMesh.name = 'arch_frame_mesh';
-      archMesh.castShadow = true;
-      archMesh.receiveShadow = true;
-      group.add(archMesh);
-
-      if (edgeMat) {
-        const archEdges = new THREE.LineSegments(new THREE.EdgesGeometry(archGeo, 30), edgeMat);
-        group.add(archEdges);
-      }
-    } catch (geoErr) {
-      console.warn('Arch ExtrudeGeometry fallback to safe BoxGeometry:', geoErr);
+      archGeo = new THREE.ExtrudeGeometry(archShape, extrudeSettings);
+    } catch (extrudeErr) {
+      console.warn('Arch ExtrudeGeometry failed — falling back to BoxGeometry:', extrudeErr);
       const fallbackBox = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), frameMat);
       fallbackBox.position.set(0, h / 2, 0);
       group.add(fallbackBox);
+      return group;
     }
 
-    // 3. Glazed Inset / Window Pane (if opening/glazed)
+    const archMesh = new THREE.Mesh(archGeo, frameMat);
+    archMesh.name = 'arch_frame_mesh';
+    archMesh.castShadow = true;
+    archMesh.receiveShadow = true;
+    group.add(archMesh);
+
+    if (edgeMat) {
+      try {
+        const archEdges = new THREE.LineSegments(new THREE.EdgesGeometry(archGeo, 25), edgeMat);
+        group.add(archEdges);
+      } catch (e) {
+        // ignore edge failure
+      }
+    }
+
+    // 3. Glazed Inner Opening / Semicircular Window
     if (params.isOpening !== false && glassMat) {
       try {
-        const margin = 0.12;
+        const margin = Math.min(0.18, w * 0.08);
         const gw = Math.max(w - margin * 2, 0.4);
-        const gr = Math.max(actualArchRadius - margin, 0.2);
-        const gSpringY = Math.max(springY - margin, 0.1);
+        const gr = gw / 2;
+        const gStraightHeight = Math.max(0.1, straightHeight - margin);
 
         const glassShape = new THREE.Shape();
         glassShape.moveTo(-gw / 2, margin);
-        glassShape.lineTo(-gw / 2, gSpringY);
-        glassShape.absarc(0, gSpringY, gr, Math.PI, 0, true);
+        glassShape.lineTo(-gw / 2, gStraightHeight);
+        glassShape.absarc(0, gStraightHeight, gr, Math.PI, 0, true);
         glassShape.lineTo(gw / 2, margin);
         glassShape.closePath();
 
-        const glassGeo = new THREE.ShapeGeometry(glassShape, 18);
+        const glassGeo = new THREE.ShapeGeometry(glassShape, 24);
         const glassMesh = new THREE.Mesh(glassGeo, glassMat);
         glassMesh.name = 'arch_glazing_pane';
         glassMesh.position.z = d / 2 + 0.01;
         group.add(glassMesh);
 
         // Center vertical mullion bar
-        const mullionMat = frameMat;
-        const centerMullion = new THREE.Mesh(new THREE.BoxGeometry(0.06, h * 0.9, 0.08), mullionMat);
+        const centerMullion = new THREE.Mesh(
+          new THREE.BoxGeometry(0.08, h * 0.92, 0.1),
+          frameMat
+        );
         centerMullion.name = 'arch_center_mullion';
-        centerMullion.position.set(0, h * 0.45, d / 2 + 0.02);
+        centerMullion.position.set(0, h * 0.46, d / 2 + 0.02);
         group.add(centerMullion);
+
+        // Horizontal transom bar at springline
+        const transom = new THREE.Mesh(
+          new THREE.BoxGeometry(gw, 0.08, 0.1),
+          frameMat
+        );
+        transom.name = 'arch_transom_mullion';
+        transom.position.set(0, straightHeight, d / 2 + 0.02);
+        group.add(transom);
       } catch (glassErr) {
-        console.warn('Arch glass shape fallback to BoxGeometry:', glassErr);
-        const fallbackGlass = new THREE.Mesh(new THREE.BoxGeometry(w * 0.85, h * 0.85, 0.06), glassMat);
-        fallbackGlass.position.set(0, h / 2, d / 2);
+        console.warn('Arch glass creation failed — using safe planar glass:', glassErr);
+        const fallbackGlass = new THREE.Mesh(new THREE.BoxGeometry(w * 0.85, h * 0.85, 0.05), glassMat);
+        fallbackGlass.position.set(0, h / 2, d / 2 + 0.01);
         group.add(fallbackGlass);
       }
     }
@@ -474,8 +492,8 @@ export function createArchMesh(params: CreateArchParams): THREE.Group {
     }
   } catch (error) {
     console.error('Failed to create arch mesh primitive — using fallback box:', error);
-    const safeBox = new THREE.Mesh(new THREE.BoxGeometry(6, 8, 0.45), params.materials.frameMaterial);
-    safeBox.position.y = 4;
+    const safeBox = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), frameMat);
+    safeBox.position.set(0, h / 2, 0);
     group.add(safeBox);
   }
 
@@ -483,11 +501,12 @@ export function createArchMesh(params: CreateArchParams): THREE.Group {
 }
 
 /**
- * Procedural Multi-Mass Architectural Elements Dispatcher.
- * Builds structured domes, corner cupolas, spires, and façade arches from an element list.
+ * Generic Safe Architectural Element Builder.
+ * Wraps individual primitive construction (arch, dome, box, slab, tower, cylinder, canopy, window)
+ * so that any single geometry failure logs a warning and skips safely without breaking the overall building model.
  */
-export function createCurvedArchitecturalElements(
-  elements: ArchitecturalElement[],
+export function safeCreateArchitecturalElement(
+  elem: ArchitecturalElement | any,
   bounds: { width: number; depth: number; height: number },
   materials: {
     wallMaterial: THREE.Material;
@@ -496,23 +515,72 @@ export function createCurvedArchitecturalElements(
     glassMaterial?: THREE.Material;
     edgeMaterial?: THREE.Material;
   },
-): THREE.Group {
-  const container = new THREE.Group();
-  container.name = 'curved_architectural_elements_container';
+): THREE.Object3D | null {
+  if (!elem || typeof elem !== 'object') return null;
 
-  if (!Array.isArray(elements) || elements.length === 0) {
-    return container;
-  }
-
+  const type = String(elem.type || 'box').toLowerCase();
   const safeW = isPositiveFinite(bounds.width, 20.0);
   const safeD = isPositiveFinite(bounds.depth, 16.0);
   const safeH = isPositiveFinite(bounds.height, 10.0);
 
-  elements.forEach((elem, idx) => {
-    try {
-      if (!elem || typeof elem !== 'object') return;
+  console.log('Building primitive:', {
+    type,
+    width: elem.width,
+    height: elem.height,
+    depth: elem.depth,
+    radius: elem.radius || elem.radiusX,
+    position: elem.position || elem.relativePosition,
+  });
 
-      if (elem.type === 'dome') {
+  try {
+    switch (type) {
+      case 'arch': {
+        const arch = elem as ArchElement;
+        let posX = 0;
+        let posY = 0;
+        let posZ = safeD / 2 + 0.05;
+
+        if (arch.position && typeof arch.position === 'object') {
+          posX = isFiniteCoord(arch.position.x, 0);
+          posY = isFiniteCoord(arch.position.y, 0);
+          posZ = isFiniteCoord(arch.position.z, safeD / 2 + 0.05);
+        } else if (Array.isArray(arch.relativePosition)) {
+          posX = (isFiniteCoord(arch.relativePosition[0], 0.5) - 0.5) * safeW;
+          posY = isFiniteCoord(arch.relativePosition[1], 0) * safeH;
+          posZ = arch.relativePosition.length > 2
+            ? (isFiniteCoord(arch.relativePosition[2], 0.5) - 0.5) * safeD
+            : safeD / 2 + 0.05;
+        }
+
+        const widthVal = isPositiveFinite(
+          arch.width || (arch as any).widthRatio ? safeW * (arch as any).widthRatio : undefined,
+          safeW * 0.25,
+        );
+        const heightVal = isPositiveFinite(
+          arch.height || (arch as any).heightRatio ? safeH * (arch as any).heightRatio : undefined,
+          safeH * 0.85,
+        );
+        const depthVal = isPositiveFinite(arch.depth, 0.45);
+
+        const archMesh = createArchMesh({
+          width: widthVal,
+          height: heightVal,
+          depth: depthVal,
+          springHeight: arch.springHeight,
+          orientation: arch.orientation || 'front',
+          isOpening: arch.isOpening !== false,
+          materials: {
+            frameMaterial: materials.wallMaterial,
+            glassMaterial: materials.glassMaterial,
+            edgeMaterial: materials.edgeMaterial,
+          },
+        });
+
+        archMesh.position.set(posX, posY, posZ);
+        return archMesh;
+      }
+
+      case 'dome': {
         const dome = elem as DomeElement;
         let posX = 0;
         let posZ = 0;
@@ -527,7 +595,9 @@ export function createCurvedArchitecturalElements(
         }
 
         const domeRadius = isPositiveFinite(
-          dome.radius || (safeW * (dome.diameterRatio || 0.25)) / 2,
+          dome.radius ||
+            (dome.radiusX ? (dome.radiusX + (dome.radiusZ || dome.radiusX)) / 2 : undefined) ||
+            (safeW * (dome.diameterRatio || 0.25)) / 2,
           safeW * 0.15,
         );
         const domeHeight = isPositiveFinite(
@@ -559,39 +629,155 @@ export function createCurvedArchitecturalElements(
 
         domeGroup.position.x = posX;
         domeGroup.position.z = posZ;
-        container.add(domeGroup);
-      } else if (elem.type === 'arch') {
-        const arch = elem as ArchElement;
+        return domeGroup;
+      }
+
+      case 'box':
+      case 'slab': {
+        const w = isPositiveFinite(elem.width || (elem.widthRatio ? safeW * elem.widthRatio : undefined), safeW * 0.3);
+        const h = isPositiveFinite(elem.height || (elem.heightRatio ? safeH * elem.heightRatio : undefined), safeH * 0.2);
+        const d = isPositiveFinite(elem.depth || (elem.depthRatio ? safeD * elem.depthRatio : undefined), safeD * 0.3);
+        const geo = new THREE.BoxGeometry(w, h, d);
+        const mesh = new THREE.Mesh(geo, materials.wallMaterial);
+        mesh.name = `${type}_element`;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
         let posX = 0;
-        let posY = 0;
-        let posZ = safeD / 2 + 0.05;
-
-        if (arch.position && typeof arch.position === 'object') {
-          posX = isFiniteCoord(arch.position.x, 0);
-          posY = isFiniteCoord(arch.position.y, 0);
-          posZ = isFiniteCoord(arch.position.z, safeD / 2 + 0.05);
-        } else if (Array.isArray(arch.relativePosition)) {
-          posX = (isFiniteCoord(arch.relativePosition[0], 0.5) - 0.5) * safeW;
-          posY = isFiniteCoord(arch.relativePosition[1], 0) * safeH;
-          posZ = safeD / 2 + 0.05;
+        let posY = h / 2;
+        let posZ = 0;
+        if (elem.position) {
+          posX = isFiniteCoord(elem.position.x, 0);
+          posY = isFiniteCoord(elem.position.y, h / 2);
+          posZ = isFiniteCoord(elem.position.z, 0);
+        } else if (Array.isArray(elem.relativePosition)) {
+          posX = (isFiniteCoord(elem.relativePosition[0], 0.5) - 0.5) * safeW;
+          posY = isFiniteCoord(elem.relativePosition[1], 0) * safeH + h / 2;
+          posZ = elem.relativePosition.length > 2 ? (isFiniteCoord(elem.relativePosition[2], 0.5) - 0.5) * safeD : 0;
         }
+        mesh.position.set(posX, posY, posZ);
+        return mesh;
+      }
 
-        const archGroup = createArchMesh({
-          width: isPositiveFinite(arch.width, safeW * 0.25),
-          height: isPositiveFinite(arch.height, safeH * 0.85),
-          depth: isPositiveFinite(arch.depth, 0.4),
-          springHeight: arch.springHeight,
-          orientation: arch.orientation || 'front',
-          isOpening: arch.isOpening !== false,
-          materials: {
-            frameMaterial: materials.wallMaterial,
-            glassMaterial: materials.glassMaterial,
-            edgeMaterial: materials.edgeMaterial,
-          },
-        });
+      case 'cylinder':
+      case 'column': {
+        const r = isPositiveFinite(elem.radius || elem.radiusX || (elem.diameterRatio ? (safeW * elem.diameterRatio) / 2 : undefined), 0.5);
+        const h = isPositiveFinite(elem.height || (elem.heightRatio ? safeH * elem.heightRatio : undefined), safeH * 0.5);
+        const sides = Math.max(isPositiveFinite(elem.segments, 16), 8);
+        const geo = new THREE.CylinderGeometry(r, r, h, sides);
+        const mesh = new THREE.Mesh(geo, materials.wallMaterial);
+        mesh.name = `${type}_element`;
+        mesh.castShadow = true;
+        let posX = 0;
+        let posY = h / 2;
+        let posZ = 0;
+        if (elem.position) {
+          posX = isFiniteCoord(elem.position.x, 0);
+          posY = isFiniteCoord(elem.position.y, h / 2);
+          posZ = isFiniteCoord(elem.position.z, 0);
+        }
+        mesh.position.set(posX, posY, posZ);
+        return mesh;
+      }
 
-        archGroup.position.set(posX, posY, posZ);
-        container.add(archGroup);
+      case 'tower': {
+        const tw = isPositiveFinite(elem.width || (elem.widthRatio ? safeW * elem.widthRatio : undefined), safeW * 0.2);
+        const th = isPositiveFinite(elem.height || (elem.heightRatio ? safeH * elem.heightRatio : undefined), safeH * 1.15);
+        const td = isPositiveFinite(elem.depth || (elem.depthRatio ? safeD * elem.depthRatio : undefined), safeD * 0.9);
+        const geo = new THREE.BoxGeometry(tw, th, td);
+        const mesh = new THREE.Mesh(geo, materials.wallMaterial);
+        mesh.name = 'tower_element';
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        let posX = -safeW / 2 + tw / 2;
+        let posY = th / 2;
+        let posZ = 0;
+        if (elem.position) {
+          posX = isFiniteCoord(elem.position.x, posX);
+          posY = isFiniteCoord(elem.position.y, posY);
+          posZ = isFiniteCoord(elem.position.z, posZ);
+        }
+        mesh.position.set(posX, posY, posZ);
+        return mesh;
+      }
+
+      case 'canopy': {
+        const cw = isPositiveFinite(elem.width, safeW * 0.3);
+        const ch = isPositiveFinite(elem.height, 0.35);
+        const cd = isPositiveFinite(elem.depth, 3.0);
+        const geo = new THREE.BoxGeometry(cw, ch, cd);
+        const mesh = new THREE.Mesh(geo, materials.accentMaterial || materials.wallMaterial);
+        mesh.name = 'canopy_element';
+        mesh.castShadow = true;
+        let posX = 0;
+        let posY = safeH * 0.3;
+        let posZ = safeD / 2 + cd / 2;
+        if (elem.position) {
+          posX = isFiniteCoord(elem.position.x, posX);
+          posY = isFiniteCoord(elem.position.y, posY);
+          posZ = isFiniteCoord(elem.position.z, posZ);
+        }
+        mesh.position.set(posX, posY, posZ);
+        return mesh;
+      }
+
+      case 'window': {
+        const ww = isPositiveFinite(elem.width, 1.8);
+        const wh = isPositiveFinite(elem.height, 1.4);
+        const wd = isPositiveFinite(elem.depth, 0.1);
+        const geo = new THREE.BoxGeometry(ww, wh, wd);
+        const mesh = new THREE.Mesh(geo, materials.glassMaterial || materials.wallMaterial);
+        mesh.name = 'window_element';
+        let posX = 0;
+        let posY = safeH * 0.5;
+        let posZ = safeD / 2 + 0.05;
+        if (elem.position) {
+          posX = isFiniteCoord(elem.position.x, posX);
+          posY = isFiniteCoord(elem.position.y, posY);
+          posZ = isFiniteCoord(elem.position.z, posZ);
+        }
+        mesh.position.set(posX, posY, posZ);
+        return mesh;
+      }
+
+      default: {
+        console.warn(`Unrecognized architectural element type "${type}" — skipped safely.`);
+        return null;
+      }
+    }
+  } catch (err) {
+    console.warn(`safeCreateArchitecturalElement failed for type ${type}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Procedural Multi-Mass Architectural Elements Dispatcher.
+ * Builds structured domes, corner cupolas, spires, and façade arches from an element list.
+ */
+export function createCurvedArchitecturalElements(
+  elements: ArchitecturalElement[],
+  bounds: { width: number; depth: number; height: number },
+  materials: {
+    wallMaterial: THREE.Material;
+    roofMaterial: THREE.Material;
+    accentMaterial: THREE.Material;
+    glassMaterial?: THREE.Material;
+    edgeMaterial?: THREE.Material;
+  },
+): THREE.Group {
+  const container = new THREE.Group();
+  container.name = 'curved_architectural_elements_container';
+
+  if (!Array.isArray(elements) || elements.length === 0) {
+    return container;
+  }
+
+  elements.forEach((elem, idx) => {
+    try {
+      const featureMesh = safeCreateArchitecturalElement(elem, bounds, materials);
+      if (featureMesh) {
+        container.add(featureMesh);
       }
     } catch (elemErr) {
       console.warn(`Failed to build architectural element at index ${idx}:`, elemErr);
@@ -600,3 +786,4 @@ export function createCurvedArchitecturalElements(
 
   return container;
 }
+
