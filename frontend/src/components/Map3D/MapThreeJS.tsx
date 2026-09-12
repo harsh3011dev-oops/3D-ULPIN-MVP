@@ -37,6 +37,11 @@ import {
   constructReferenceAssistedBuilding,
   resolveMultiViewAnalysis,
 } from '../../utils/referenceAssistedReconstruction';
+import {
+  createDomeMesh as createParametricDomeMesh,
+  createArchMesh,
+  createCurvedArchitecturalElements,
+} from '../../utils/curvedPrimitivesBuilder';
 import { inferBuildingMetadata } from '../../api/api';
 import {
   RotateCw,
@@ -812,112 +817,50 @@ function createTaperedTowerMesh(
 }
 
 /**
- * 2. Parametric Bulbous Onion Dome & Classical Hemisphere Dome Lathe Builder
+ * 2. Parametric Curved Dome & Architectural Primitive Builder
  */
 function createDomeMesh(
   radius: number,
   heightM: number,
-  domeType: 'onion' | 'hemisphere',
+  domeType: 'onion' | 'hemisphere' | 'ellipsoid' | 'shallow_dome' | 'cupola' | string,
   domeMat: THREE.Material,
   accentMat: THREE.Material,
   edgeMat: THREE.Material,
+  radiusX?: number,
+  radiusZ?: number,
 ): THREE.Group {
-  const domeGroup = new THREE.Group();
+  const normShape = (
+    domeType === 'onion' ||
+    domeType === 'ellipsoid' ||
+    domeType === 'shallow_dome' ||
+    domeType === 'cupola'
+      ? domeType
+      : 'hemisphere'
+  );
 
-  // Circular Drum Base with arched frieze
-  const drumH = Math.max(heightM * 0.22, 1.5);
-  const drumR = radius * 0.92;
-  const drumGeo = new THREE.CylinderGeometry(drumR, drumR, drumH, 32);
-  const drumMesh = new THREE.Mesh(drumGeo, domeMat);
-  drumMesh.position.y = drumH / 2;
-  drumMesh.castShadow = true;
-  domeGroup.add(drumMesh);
-
-  const drumTrim = new THREE.Mesh(new THREE.CylinderGeometry(drumR * 1.05, drumR * 1.02, 0.35, 32), accentMat);
-  drumTrim.position.y = drumH;
-  domeGroup.add(drumTrim);
-
-  const actualDomeH = Math.max(heightM - drumH, 2.0);
-
-  if (domeType === 'onion') {
-    // True Architectural Bulbous Onion Spline via LatheGeometry
-    const pts: THREE.Vector2[] = [];
-    const segments = 24;
-    const bulbousR = radius * 1.08;
-
-    for (let i = 0; i <= segments; i++) {
-      const t = i / segments;
-      const y = drumH + t * actualDomeH;
-      let r: number;
-
-      if (t < 0.25) {
-        // Base outward flare
-        const k = t / 0.25;
-        r = drumR + (bulbousR - drumR) * Math.sin(k * (Math.PI / 2));
-      } else if (t < 0.70) {
-        // Bulbous belly curve
-        const k = (t - 0.25) / 0.45;
-        r = bulbousR * Math.cos(k * 0.7);
-      } else {
-        // Ogee inward pointed tip
-        const k = (t - 0.70) / 0.30;
-        r = bulbousR * Math.cos(0.7) * Math.pow(1 - k, 1.8);
-      }
-
-      pts.push(new THREE.Vector2(Math.max(0.04, r), y));
-    }
-
-    const onionGeo = new THREE.LatheGeometry(pts, 36);
-    const onionMesh = new THREE.Mesh(onionGeo, domeMat);
-    onionMesh.castShadow = true;
-    onionMesh.receiveShadow = true;
-    domeGroup.add(onionMesh);
-
-    const domeEdges = new THREE.LineSegments(new THREE.EdgesGeometry(onionGeo, 35), edgeMat);
-    domeGroup.add(domeEdges);
-
-    // Decorative Kalash Spire with stacked lotus beads
-    const kalashH = Math.max(heightM * 0.28, 2.5);
-    const kalashGroup = new THREE.Group();
-
-    const bead1 = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.16, 12, 12), accentMat);
-    bead1.position.y = drumH + actualDomeH + radius * 0.16;
-    kalashGroup.add(bead1);
-
-    const bead2 = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.10, 12, 12), accentMat);
-    bead2.position.y = drumH + actualDomeH + radius * 0.35;
-    kalashGroup.add(bead2);
-
-    const needle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.15, kalashH, 8), accentMat);
-    needle.position.y = drumH + actualDomeH + kalashH / 2;
-    kalashGroup.add(needle);
-
-    domeGroup.add(kalashGroup);
-  } else {
-    // Classical Hemisphere Dome
-    const hemiGeo = new THREE.SphereGeometry(drumR, 32, 20, 0, Math.PI * 2, 0, Math.PI / 2);
-    const hemiMesh = new THREE.Mesh(hemiGeo, domeMat);
-    hemiMesh.position.y = drumH;
-    hemiMesh.castShadow = true;
-    domeGroup.add(hemiMesh);
-
-    // Lantern Cupola & Spire
-    const lanternGeo = new THREE.CylinderGeometry(drumR * 0.2, drumR * 0.25, actualDomeH * 0.3, 12);
-    const lanternMesh = new THREE.Mesh(lanternGeo, accentMat);
-    lanternMesh.position.y = drumH + drumR + (actualDomeH * 0.3) / 2;
-    domeGroup.add(lanternMesh);
-
-    const spireH = Math.max(heightM * 0.25, 2.0);
-    const spireMesh = new THREE.Mesh(new THREE.ConeGeometry(drumR * 0.18, spireH, 12), accentMat);
-    spireMesh.position.y = drumH + drumR + actualDomeH * 0.3 + spireH / 2;
-    domeGroup.add(spireMesh);
-  }
-
-  return domeGroup;
+  return createParametricDomeMesh({
+    shape: normShape,
+    radius,
+    radiusX: radiusX || radius,
+    radiusZ: radiusZ || radius,
+    height: heightM,
+    hasDrum: true,
+    drumRadius: (radiusX || radius) * 0.94,
+    drumHeight: Math.min(heightM * 0.22, 2.5),
+    hasFinial: true,
+    finialHeight: Math.max(heightM * 0.32, 2.5),
+    finialStyle: normShape === 'onion' ? 'kalash' : 'spire',
+    materials: {
+      domeMaterial: domeMat,
+      drumMaterial: domeMat,
+      accentMaterial: accentMat,
+      edgeMaterial: edgeMat,
+    },
+  });
 }
 
 /**
- * 3. Procedural Roof Mesh Generator matching shape perimeters
+ * 3. Procedural Roof Mesh Generator matching shape perimeters with REAL CURVED GEOMETRY
  */
 function generatePolygonalRoof(
   group: THREE.Group,
@@ -932,21 +875,80 @@ function generatePolygonalRoof(
   offsetCenter?: { x: number; z: number },
 ) {
   const normShape = (roofShape || 'flat').toLowerCase();
-  const radius = Math.min(dims.width, dims.depth) / 2;
+  const radiusX = (dims.width || 10) / 2;
+  const radiusZ = (dims.depth || 10) / 2;
+  const primaryRadius = Math.min(radiusX, radiusZ);
   const cx = offsetCenter?.x || 0;
   const cz = offsetCenter?.z || 0;
 
   if (normShape.includes('onion') || normShape.includes('bulbous')) {
-    const onionGroup = createDomeMesh(radius, Math.max(roofHeightM, radius * 1.1, 5), 'onion', roofMat, accentMat, edgeMat);
+    const onionGroup = createDomeMesh(
+      primaryRadius,
+      Math.max(roofHeightM, primaryRadius * 1.15, 4.5),
+      'onion',
+      roofMat,
+      accentMat,
+      edgeMat,
+      radiusX,
+      radiusZ,
+    );
     onionGroup.position.set(cx, baseElevation, cz);
     group.add(onionGroup);
+  } else if (normShape.includes('shallow')) {
+    const shallowGroup = createDomeMesh(
+      primaryRadius,
+      Math.max(roofHeightM, primaryRadius * 0.5, 2.0),
+      'shallow_dome',
+      roofMat,
+      accentMat,
+      edgeMat,
+      radiusX,
+      radiusZ,
+    );
+    shallowGroup.position.set(cx, baseElevation, cz);
+    group.add(shallowGroup);
+  } else if (normShape.includes('ellipsoid')) {
+    const ellipGroup = createDomeMesh(
+      primaryRadius,
+      Math.max(roofHeightM, primaryRadius * 0.9, 3.5),
+      'ellipsoid',
+      roofMat,
+      accentMat,
+      edgeMat,
+      radiusX,
+      radiusZ,
+    );
+    ellipGroup.position.set(cx, baseElevation, cz);
+    group.add(ellipGroup);
+  } else if (normShape.includes('cupola')) {
+    const cupolaGroup = createDomeMesh(
+      primaryRadius,
+      Math.max(roofHeightM, primaryRadius * 0.8, 3.0),
+      'cupola',
+      roofMat,
+      accentMat,
+      edgeMat,
+      radiusX,
+      radiusZ,
+    );
+    cupolaGroup.position.set(cx, baseElevation, cz);
+    group.add(cupolaGroup);
   } else if (normShape.includes('dome') || normShape.includes('round') || normShape.includes('spherical')) {
-    const domeGroup = createDomeMesh(radius, Math.max(roofHeightM, radius * 0.9, 4), 'hemisphere', roofMat, accentMat, edgeMat);
+    const domeGroup = createDomeMesh(
+      primaryRadius,
+      Math.max(roofHeightM, primaryRadius * 0.95, 3.5),
+      'hemisphere',
+      roofMat,
+      accentMat,
+      edgeMat,
+      radiusX,
+      radiusZ,
+    );
     domeGroup.position.set(cx, baseElevation, cz);
     group.add(domeGroup);
   } else if (normShape.includes('pyramidal') || normShape.includes('pyramid')) {
     const pyramidH = Math.max(roofHeightM, 4);
-    const pyramidGeo = new THREE.ConeGeometry(radius * 1.08, pyramidH, 4);
+    const pyramidGeo = new THREE.ConeGeometry(primaryRadius * 1.08, pyramidH, 4);
     const pyramidMesh = new THREE.Mesh(pyramidGeo, roofMat);
     pyramidMesh.position.set(cx, baseElevation + pyramidH / 2, cz);
     pyramidMesh.rotation.y = Math.PI / 4;
@@ -959,7 +961,7 @@ function generatePolygonalRoof(
     group.add(edges);
   } else if (normShape.includes('cone') || normShape.includes('conical') || normShape.includes('spire')) {
     const coneH = Math.max(roofHeightM, 5);
-    const coneGeo = new THREE.ConeGeometry(radius * 1.05, coneH, 32);
+    const coneGeo = new THREE.ConeGeometry(primaryRadius * 1.05, coneH, 32);
     const coneMesh = new THREE.Mesh(coneGeo, roofMat);
     coneMesh.position.set(cx, baseElevation + coneH / 2, cz);
     coneMesh.castShadow = true;
@@ -1534,6 +1536,28 @@ function constructMultiMassBuilding(
         materials.roofMaterial, materials.goldAccentMat, materials.edgeMaterial,
       );
     }
+  }
+
+  // 7. ── Generic Curved Architectural Elements (Domes, Arches, Drums, Spires) ──
+  const customArchElements = building.architectural_elements || building.architecturalElements || [];
+  if (customArchElements.length > 0) {
+    const curvedGroup = createCurvedArchitecturalElements(
+      customArchElements,
+      { width: dims.width, depth: dims.depth, height: totalHeight },
+      {
+        wallMaterial: materials.wallMaterial,
+        roofMaterial: materials.roofMaterial,
+        accentMaterial: materials.goldAccentMat,
+        edgeMaterial: materials.edgeMaterial,
+      },
+    );
+    visualGroup.add(curvedGroup);
+    curvedGroup.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        exteriorMeshes.push(child as THREE.Mesh);
+      }
+    });
+    partTypes.push('curved-architectural-elements');
   }
 
   return {

@@ -148,6 +148,9 @@ Allowed roofShape values: flat, gabled, hipped, pyramidal, dome, onion, cone, ma
 Allowed buildingType values: residential, commercial, office, industrial, historic, religious, civic, educational, transport, mixed_use.
 Allowed architecturalForm: central_mass, linear_block, courtyard_enclosure, stepped_tiers, tower_podium, complex.
 
+If the building topology, tags, or imagery evidence indicates curved roof domes or façade arches, detail them in roofElements and architecturalElements.
+Do NOT generate a dome unless there is sufficient evidence. Differentiate clearly between a roof DOME (curved 3D roof volume) and a vertical façade ARCH (semicircular wall opening/glazed portal).
+
 Respond with strict JSON in this exact format:
 {{
   "buildingType": "one of the allowed buildingType values",
@@ -156,6 +159,28 @@ Respond with strict JSON in this exact format:
   "suggestedMaterial": "string (e.g. sandstone, marble, concrete, glass, brick, limestone)",
   "towerProbability": float between 0.0 and 1.0,
   "symmetry": "radial" | "bilateral" | "asymmetric",
+  "roofElements": [
+    {{
+      "type": "dome",
+      "shape": "hemisphere" | "ellipsoid" | "onion" | "shallow_dome" | "cupola",
+      "relativePosition": [0.5, 0.5],
+      "diameterRatio": float,
+      "heightRatio": float,
+      "hasDrum": boolean,
+      "hasFinial": boolean,
+      "confidence": float
+    }}
+  ],
+  "architecturalElements": [
+    {{
+      "type": "arch",
+      "width": float,
+      "height": float,
+      "orientation": "front" | "rear" | "left" | "right",
+      "isOpening": boolean,
+      "confidence": float
+    }}
+  ],
   "confidence": float between 0.0 and 1.0,
   "reasoning": "brief explanation"
 }}"""
@@ -233,6 +258,9 @@ Respond with strict JSON in this exact format:
         inferred_fields.append("suggested_material")
     inferred_fields.append("architectural_form")
 
+    roof_elements = inferred_result.get("roofElements") or []
+    arch_elements = inferred_result.get("architecturalElements") or []
+
     final_response = {
         "confidence": round(confidence, 2),
         "building_type": building_type,
@@ -241,6 +269,8 @@ Respond with strict JSON in this exact format:
         "suggested_material": suggested_material,
         "tower_probability": round(tower_prob, 2),
         "symmetry": symmetry,
+        "roof_elements": roof_elements,
+        "architectural_elements": arch_elements,
         "inferred_fields": inferred_fields,
         "reasoning": str(inferred_result.get("reasoning") or ""),
         "provenance": {

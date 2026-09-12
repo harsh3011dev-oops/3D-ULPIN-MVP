@@ -135,6 +135,62 @@ export interface AssessmentInfo {
   basement_source?: string;
 }
 
+export type DomeShapeType = 'hemisphere' | 'ellipsoid' | 'onion' | 'shallow_dome' | 'cupola';
+
+export interface DomeElement {
+  type: 'dome';
+  position?: { x: number; y: number; z: number };
+  relativePosition?: [number, number]; // [relX, relZ] normalized 0..1
+  radius?: number;
+  radiusX?: number;
+  radiusZ?: number;
+  height: number;
+  baseElevation?: number;
+  shape: DomeShapeType;
+  hasDrum?: boolean;
+  drumRadius?: number;
+  drumHeight?: number;
+  drumSides?: number;
+  hasFinial?: boolean;
+  finialHeight?: number;
+  finialStyle?: 'spire' | 'kalash' | 'cross' | 'crescent' | 'pin';
+  diameterRatio?: number;
+  heightRatio?: number;
+  confidence: number;
+  source?: string;
+}
+
+export interface ArchElement {
+  type: 'arch';
+  position?: { x: number; y: number; z: number };
+  relativePosition?: [number, number, number]; // [relX, relY, relZ]
+  width: number;
+  height: number;
+  depth?: number;
+  springHeight?: number;
+  orientation?: 'front' | 'rear' | 'left' | 'right' | number;
+  wallThickness?: number;
+  isOpening?: boolean;
+  confidence: number;
+  source?: string;
+}
+
+export type ArchitecturalElement = DomeElement | ArchElement | {
+  type: 'drum' | 'spire' | 'minaret' | 'tower' | 'finial';
+  [key: string]: any;
+};
+
+export interface RoofElementDetection {
+  type: 'dome' | 'spire' | 'parapet' | 'arch';
+  shape?: DomeShapeType;
+  relativePosition?: [number, number];
+  diameterRatio?: number;
+  heightRatio?: number;
+  hasDrum?: boolean;
+  hasFinial?: boolean;
+  confidence: number;
+}
+
 export interface MultiViewAnalysisResult {
   massLayout: {
     shape: string;
@@ -173,6 +229,8 @@ export interface MultiViewAnalysisResult {
     raisedElements: string[];
     possibleSolarPanels: boolean;
   };
+  roofElements?: RoofElementDetection[];
+  architecturalElements?: ArchitecturalElement[];
   provenance?: {
     source: string;
     imageCount?: number;
@@ -222,6 +280,8 @@ export interface Building {
   reference_images?: string[];
   multiview_analysis?: MultiViewAnalysisResult;
   vision_multiview?: boolean;
+  architectural_elements?: ArchitecturalElement[];
+  architecturalElements?: ArchitecturalElement[];
 }
 
 export interface AutoDetectBuildingPayload {

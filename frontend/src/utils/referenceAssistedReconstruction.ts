@@ -19,10 +19,15 @@
  */
 
 import * as THREE from 'three';
-import { Building, MultiViewAnalysisResult } from '../types';
+import { Building, MultiViewAnalysisResult, ArchitecturalElement, RoofElementDetection } from '../types';
 import {
   FootprintDimensions,
 } from './footprintUtils';
+import {
+  createDomeMesh,
+  createArchMesh,
+  createCurvedArchitecturalElements,
+} from './curvedPrimitivesBuilder';
 
 // ── Cache for Multi-View Reference Inferences ──────────────────────────────────
 const _MULTIVIEW_INFERENCE_CACHE = new Map<string, MultiViewAnalysisResult>();
@@ -68,6 +73,57 @@ export function resolveMultiViewAnalysis(
   const estimatedFloors = building.floor_count || 4;
   const isEstimatedFloor = !building.floor_count || building.is_floor_estimated;
 
+  // Inspect roof shape cues from tags / metadata
+  const rawRoofShape = (building.roof?.shape || '').toLowerCase();
+  const hasDomeCue =
+    rawRoofShape.includes('dome') ||
+    rawRoofShape.includes('onion') ||
+    rawRoofShape.includes('round') ||
+    rawRoofShape.includes('bulbous');
+
+  const detectedRoofElements: RoofElementDetection[] = [];
+  if (hasDomeCue) {
+    const shape = rawRoofShape.includes('onion') || rawRoofShape.includes('bulbous')
+      ? 'onion'
+      : rawRoofShape.includes('shallow')
+      ? 'shallow_dome'
+      : 'hemisphere';
+    detectedRoofElements.push({
+      type: 'dome',
+      shape,
+      relativePosition: [0.5, 0.5],
+      diameterRatio: 0.35,
+      heightRatio: 0.22,
+      hasDrum: true,
+      hasFinial: true,
+      confidence: 0.93,
+    });
+  }
+
+  // Inspect façade arch cues (vertical curved openings / glazed atriums)
+  const detectedArchElements: ArchitecturalElement[] = [];
+  const nameOrDesc = `${building.building_name || ''} ${building.address || ''}`.toLowerCase();
+  const hasArchedFacadeCue =
+    nameOrDesc.includes('admin') ||
+    nameOrDesc.includes('atrium') ||
+    nameOrDesc.includes('arch') ||
+    nameOrDesc.includes('portal');
+
+  if (hasArchedFacadeCue) {
+    detectedArchElements.push({
+      type: 'arch',
+      relativePosition: [0.5, 0, 0.5], // front center
+      width: 8.5,
+      height: estimatedFloors * 2.8,
+      springHeight: estimatedFloors * 1.8,
+      depth: 0.5,
+      orientation: 'front',
+      isOpening: true,
+      confidence: 0.91,
+      source: 'Multi-view Façade Semicircular Glazing Analysis',
+    });
+  }
+
   const result: MultiViewAnalysisResult = {
     massLayout: {
       shape: isElongated ? 'elongated_rectangular' : 'central_mass',
@@ -104,15 +160,21 @@ export function resolveMultiViewAnalysis(
     },
     groundFloor: {
       glazing: true,
-      entranceZones: ['central_recess', 'left_service_portal'],
+      entranceZones: hasArchedFacadeCue
+        ? ['arched_atrium_portal', 'left_service_portal']
+        : ['central_recess', 'left_service_portal'],
       ...customOverride?.groundFloor,
     },
     roof: {
-      shape: 'flat',
-      raisedElements: ['service_parapet', 'stair_head', 'elevator_overrun'],
-      possibleSolarPanels: true,
+      shape: hasDomeCue ? rawRoofShape : 'flat',
+      raisedElements: hasDomeCue
+        ? ['central_dome', 'service_parapet']
+        : ['service_parapet', 'stair_head', 'elevator_overrun'],
+      possibleSolarPanels: !hasDomeCue,
       ...customOverride?.roof,
     },
+    roofElements: customOverride?.roofElements || (detectedRoofElements.length > 0 ? detectedRoofElements : undefined),
+    architecturalElements: customOverride?.architecturalElements || (detectedArchElements.length > 0 ? detectedArchElements : undefined),
     provenance: {
       source: 'Multi-view Reference Imagery Analysis',
       imageCount: (referenceImages || building.reference_images || []).length || 4,
@@ -458,11 +520,79 @@ export function constructReferenceAssistedBuilding(
     facadeDetailsGroup.add(solarMesh);
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // 8. CURVED ARCHITECTURAL ELEMENTS (DOMES, CUPOLAS, SPIRES, ARCHES)
+  // ─────────────────────────────────────────────────────────────
+  const archElements = analysis.architecturalElements || building.architectural_elements || [];
+  if (archElements.length > 0) {
+    const curvedGroup = createCurvedArchitecturalElements(
+      archElements,
+      { width: mainWidth, depth: mainDepth, height: mainHeight },
+      {
+        wallMaterial: materials.wallMaterial,
+        roofMaterial: materials.roofMaterial,
+        accentMaterial: materials.goldAccentMat,
+        glassMaterial: windowGlassMat,
+        edgeMaterial: materials.edgeMaterial,
+      },
+    );
+    curvedGroup.position.x += mainOffset;
+    visualGroup.add(curvedGroup);
+    curvedGroup.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        exteriorMeshes.push(child as THREE.Mesh);
+      }
+    });
+    partTypes.push('curved-architectural-elements');
+  }
+
+  // Detected roof domes (e.g. hemispherical, ellipsoid, shallow, or onion domes)
+  const roofDomes = analysis.roofElements || [];
+  roofDomes.forEach((domeDet, dIdx) => {
+    if (domeDet.type === 'dome') {
+      const dRelX = domeDet.relativePosition ? domeDet.relativePosition[0] : 0.5;
+      const dRelZ = domeDet.relativePosition ? domeDet.relativePosition[1] : 0.5;
+      const dX = mainOffset + (dRelX - 0.5) * mainWidth;
+      const dZ = (dRelZ - 0.5) * mainDepth;
+      const dRadius = (mainWidth * (domeDet.diameterRatio || 0.32)) / 2;
+      const dHeight = mainHeight * (domeDet.heightRatio || 0.22);
+
+      const domeGroup = createDomeMesh({
+        shape: domeDet.shape || 'hemisphere',
+        radius: dRadius,
+        height: dHeight,
+        baseElevation: mainHeight,
+        hasDrum: domeDet.hasDrum,
+        drumRadius: dRadius * 0.95,
+        drumHeight: dHeight * 0.25,
+        hasFinial: domeDet.hasFinial,
+        finialHeight: dHeight * 0.35,
+        materials: {
+          domeMaterial: materials.roofMaterial,
+          drumMaterial: materials.wallMaterial,
+          accentMaterial: materials.goldAccentMat,
+          edgeMaterial: materials.edgeMaterial,
+        },
+      });
+
+      domeGroup.name = `detected_roof_dome_${dIdx}`;
+      domeGroup.position.x = dX;
+      domeGroup.position.z = dZ;
+      visualGroup.add(domeGroup);
+      domeGroup.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          exteriorMeshes.push(child as THREE.Mesh);
+        }
+      });
+      partTypes.push(`roof-dome-${domeDet.shape || 'hemisphere'}`);
+    }
+  });
+
   return {
     exteriorMeshes,
     geometrySource: 'Reference-Assisted Multi-View Reconstruction',
-    roofType: 'Flat with Stair Tower & Parapet',
-    roofHeightM: parapetH + 0.5,
+    roofType: roofDomes.length > 0 ? `Curved Dome (${roofDomes[0].shape || 'hemisphere'})` : 'Flat with Stair Tower & Parapet',
+    roofHeightM: roofDomes.length > 0 ? (mainHeight * (roofDomes[0].heightRatio || 0.22)) : (parapetH + 0.5),
     partTypes,
     proportions: {
       platformM: 0,
