@@ -35,7 +35,7 @@ type EntryMode = 'select' | 'search' | 'manual';
 const PRESET_LANDMARKS = [
   { name: 'Burj Khalifa', city: 'Dubai' },
   { name: 'Willis Tower', city: 'Chicago' },
-  { name: 'Antilia', city: 'Mumbai' },
+  { name: 'Petronas Towers', city: 'Kuala Lumpur' },
   { name: 'World One', city: 'Mumbai' },
 ];
 
@@ -569,7 +569,7 @@ export default function ExplorePage() {
                       <label className="font-mono">BUILDING / LANDMARK NAME</label>
                       <input
                         type="text"
-                        placeholder="e.g. Burj Khalifa, Willis Tower, Antilia"
+                        placeholder="e.g. Burj Khalifa, Willis Tower, Petronas Towers"
                         value={searchName}
                         onChange={(e) => setSearchName(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSearch()}

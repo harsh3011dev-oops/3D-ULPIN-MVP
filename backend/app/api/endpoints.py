@@ -44,7 +44,7 @@ async def auto_detect_building(payload: AutoDetectRequest):
     landmarks = {
         "burj khalifa": {"latitude": 25.1972, "longitude": 55.2744, "height_meters": 828.0, "floor_count": 163, "address": "Downtown Dubai, UAE"},
         "willis tower": {"latitude": 41.8789, "longitude": -87.6359, "height_meters": 442.1, "floor_count": 108, "address": "233 S Wacker Dr, Chicago, IL 60606, USA"},
-        "antilia": {"latitude": 18.9682, "longitude": 72.8095, "height_meters": 173.0, "floor_count": 27, "address": "Altamount Rd, Cumballa Hill, Mumbai, Maharashtra, India"},
+        "petronas towers": {"latitude": 3.1579, "longitude": 101.7116, "height_meters": 451.9, "floor_count": 88, "address": "Kuala Lumpur City Centre, 50088 Kuala Lumpur, Malaysia"},
         "world one": {"latitude": 18.9959, "longitude": 72.8290, "height_meters": 280.2, "floor_count": 76, "address": "The Park, Lower Parel, Mumbai, Maharashtra, India"},
         "taj mahal": {"latitude": 27.1751, "longitude": 78.0421, "height_meters": 73.0, "floor_count": 5, "address": "Agra, Uttar Pradesh, India"},
         "india gate": {"latitude": 28.6129, "longitude": 77.2295, "height_meters": 42.0, "floor_count": 1, "address": "New Delhi, India"},

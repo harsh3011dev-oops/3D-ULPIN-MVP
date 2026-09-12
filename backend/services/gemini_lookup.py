@@ -359,17 +359,17 @@ Rules:
             "source": "fallback",
             "osm_id": "way/23974441",
         }
-    elif "antilia" in bname_lower:
+    elif "petronas" in bname_lower:
         mock = {
-            "building_name": "Antilia",
-            "city": city or "Mumbai",
-            "latitude": 18.9682,
-            "longitude": 72.8095,
-            "height_meters": 173.0,
-            "floors": 27,
+            "building_name": "Petronas Towers",
+            "city": city or "Kuala Lumpur",
+            "latitude": 3.1579,
+            "longitude": 101.7116,
+            "height_meters": 451.9,
+            "floors": 88,
             "confidence": 98,
             "source": "fallback",
-            "osm_id": "way/146059102",
+            "osm_id": "way/112858913",
         }
     elif "world one" in bname_lower or "world towers" in bname_lower:
         mock = {
