@@ -411,12 +411,22 @@ export default function MapDeckGL({
   const floorLabelsData = useMemo(() => {
     if (selectedFloor === null) return [];
     const targetFloor = cadastralVolumes.floorVolumes.find((fv) => fv.floorIndex === selectedFloor);
+    if (selectedFloor < 0) {
+      return [
+        {
+          text: `▶ ${targetFloor?.floorLabel || 'B1 — Library'}  (${Number(targetFloor?.zMin ?? -3.5).toFixed(1)}m to ${Number(targetFloor?.zMax ?? 0).toFixed(1)}m)`,
+          coordinates: [mapLng, mapLat],
+          floorNumber: selectedFloor,
+          zAltitude: targetFloor ? targetFloor.zCenter : -1.75,
+        },
+      ];
+    }
     const zMax = targetFloor ? targetFloor.zMax : selectedFloor * cadastralVolumes.floorHeightM;
     const zAltitude = targetFloor ? targetFloor.zCenter : zMax - 1.5;
 
     return [
       {
-        text: `▶ Floor ${selectedFloor}  +${Number(zMax).toFixed(1)}m`,
+        text: `▶ ${targetFloor?.floorLabel || `Floor ${selectedFloor}`}  +${Number(zMax).toFixed(1)}m`,
         coordinates: [mapLng, mapLat],
         floorNumber: selectedFloor,
         zAltitude,
@@ -452,7 +462,7 @@ export default function MapDeckGL({
       );
     }
 
-    // ── Layer 2: Stacked Transparent Volumetric Cadastral Floors ──
+    // ── Layer 2: Stacked Transparent Volumetric Cadastral Floors (B1 + F1..Fn) ──
     if (floorsGeoJSON.features.length > 0) {
       cadastralLayers.push(
         new GeoJsonLayer({
@@ -473,9 +483,14 @@ export default function MapDeckGL({
             if (p.isHovered) {
               return [56, 189, 248, 190];
             }
+            // Below-ground basement stratum: distinct subtle cadastral violet/indigo tint
+            if (p.floor_number < 0) {
+              return isLightStyle ? [129, 140, 248, 140] : [99, 102, 241, 150];
+            }
             // All Floors Mode: Elegant stacked translucent strata
             const palette = isLightStyle ? CADASTRAL_FLOOR_COLORS_LIGHT : CADASTRAL_FLOOR_COLORS_DARK;
-            const rgb = palette[(p.floor_number - 1) % palette.length];
+            const idx = Math.max(0, (p.floor_number || 1) - 1);
+            const rgb = palette[idx % palette.length];
             return [...rgb, isLightStyle ? 140 : 120];
           },
           getLineColor: (f: any) => {
@@ -485,6 +500,7 @@ export default function MapDeckGL({
               return isLightStyle ? [148, 163, 184, 40] : [71, 85, 105, 35];
             }
             if (p.isHovered) return [255, 255, 255, 240];
+            if (p.floor_number < 0) return isLightStyle ? [99, 102, 241, 230] : [165, 180, 252, 210];
             return isLightStyle ? [15, 23, 42, 200] : [255, 255, 255, 160];
           },
           getLineWidth: (f: any) => {
@@ -505,12 +521,12 @@ export default function MapDeckGL({
           onClick: (info: any) => {
             if (info.object?.properties) {
               const fNum = info.object.properties.floor_number;
-              const unit = building?.units?.find((u) => (u.floor_number ?? u.floor ?? 1) === fNum);
+              const unit = building?.units?.find((u) => (u.floor_number ?? u.floor) === fNum);
               if (unit) onUnitClick(unit);
             }
           },
           onHover: (info: any) => {
-            if (info.object?.properties?.floor_number) {
+            if (info.object?.properties?.floor_number !== undefined) {
               setHoveredFloorNumber(info.object.properties.floor_number);
             } else {
               setHoveredFloorNumber(null);

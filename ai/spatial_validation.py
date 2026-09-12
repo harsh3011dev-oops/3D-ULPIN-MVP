@@ -98,9 +98,36 @@ def validate_spatial_data(
                 "description": "Unit extends beyond building footprint boundary"
             })
 
+    # Check 3: Vertical 3D Z-Space Overlap check between adjacent vertical strata
+    floor_keys = sorted(floors_map.keys())
+    for idx_a in range(len(floor_keys)):
+        for idx_b in range(idx_a + 1, len(floor_keys)):
+            fa, fb = floor_keys[idx_a], floor_keys[idx_b]
+            units_a, units_b = floors_map[fa], floors_map[fb]
+            for ua in units_a:
+                for ub in units_b:
+                    za_min = ua.get("z_min")
+                    za_max = ua.get("z_max")
+                    zb_min = ub.get("z_min")
+                    zb_max = ub.get("z_max")
+
+                    if za_min is not None and za_max is not None and zb_min is not None and zb_max is not None:
+                        # Check if Z intervals overlap by more than epsilon
+                        z_overlap = min(za_max, zb_max) - max(za_min, zb_min)
+                        if z_overlap > 1e-4:
+                            # Also check if 2D footprints intersect
+                            shape_a = _safe_shape(ua.get("polygon_2d"))
+                            shape_b = _safe_shape(ub.get("polygon_2d"))
+                            if shape_a.intersects(shape_b) and shape_a.intersection(shape_b).area > 1e-10:
+                                errors.append({
+                                    "unit_id": ua.get("unit_id"),
+                                    "type": "OVERLAP",
+                                    "description": f"Vertical Z-overlap detected between {ua.get('unit_id')} (Level {fa}) and {ub.get('unit_id')} (Level {fb})"
+                                })
+
     return {
         "valid": len(errors) == 0,
-        "overlaps_detected": len(overlapping_pairs) > 0,
+        "overlaps_detected": len(overlapping_pairs) > 0 or any(e["type"] == "OVERLAP" for e in errors),
         "overlapping_units": overlapping_pairs,
         "out_of_bounds": out_of_bounds,
         "errors": errors

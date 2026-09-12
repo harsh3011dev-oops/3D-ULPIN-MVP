@@ -130,6 +130,9 @@ export interface AssessmentInfo {
   permit_status?: string;
   assessment_value?: string;
   spatial_validation_status?: string;
+  basement_levels?: number;
+  basement_use?: string;
+  basement_source?: string;
 }
 
 export interface Building {
@@ -146,6 +149,7 @@ export interface Building {
   parcel_boundary?: GeoJSONPolygon | any;
   height_meters?: number;
   height?: number;
+  floor_height_m?: number;
   floor_count: number;
   total_units?: number;
   extrusion_3d?: Extrusion3D;
@@ -159,6 +163,9 @@ export interface Building {
   floor_source?: string;
   is_floor_estimated?: boolean;
   underground_floors?: number;
+  basement_count?: number;
+  basement_use?: string;
+  basement_source?: string;
   built_up_area_sqm?: number;
   building_material?: string;
   building_color?: string;

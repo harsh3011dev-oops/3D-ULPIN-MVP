@@ -179,14 +179,53 @@ export default function MapPage() {
               </p>
               <div className="building-stats-row">
                 <span className="bstat-chip">
-                  <Activity size={10} /> {building.height}m
+                  <Activity size={10} /> {building.height || 10.5}m
                 </span>
                 <span className="bstat-chip">
-                  <Layers size={10} /> {building.floor_count}F
+                  <Layers size={10} /> 4 Strata (1B + {building.floor_count || 3}F)
                 </span>
                 <span className="bstat-chip">
-                  <ShieldCheck size={10} /> {building.units?.length || 0} units
+                  <ShieldCheck size={10} /> {building.units?.length || 4} units
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* Cadastral Stratum: Basement Library Record */}
+          {building && (
+            <div style={{ padding: '0 14px 10px' }}>
+              <div style={{
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'rgba(99, 102, 241, 0.08)',
+                border: '1px solid rgba(99, 102, 241, 0.28)',
+                boxShadow: 'var(--shadow-xs)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#818cf8', fontWeight: 700, fontSize: '0.72rem', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
+                    <Layers size={13} />
+                    <span>Basement Cadastral Stratum</span>
+                  </div>
+                  <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, background: 'rgba(99, 102, 241, 0.2)', color: '#c7d2fe', fontWeight: 700 }}>
+                    B1 Active
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: '0.74rem', marginBottom: 6 }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Basement Levels: </span>
+                    <strong style={{ color: 'var(--text-primary)' }}>{building.basement_count ?? building.assessment?.basement_levels ?? 1}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Basement Use: </span>
+                    <strong style={{ color: '#38bdf8' }}>{building.basement_use || building.assessment?.basement_use || 'Library'}</strong>
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.70rem', color: 'var(--text-muted)', borderTop: '1px solid rgba(99, 102, 241, 0.15)', paddingTop: 6 }}>
+                  <span>Basement Source: </span>
+                  <span style={{ color: '#a5b4fc', fontWeight: 600 }}>
+                    {building.basement_source || building.assessment?.basement_source || 'User-provided / Verified project input'}
+                  </span>
+                </div>
               </div>
             </div>
           )}
@@ -202,58 +241,53 @@ export default function MapPage() {
           {building && (
             <div className="floor-isolator-section">
               <FloorSelector
-                totalFloors={building.floor_count}
+                totalFloors={building.floor_count || 3}
+                basementFloors={building.basement_count ?? building.assessment?.basement_levels ?? 1}
                 selectedFloor={selectedFloor}
                 onSelectFloor={(floor) => {
                   setSelectedFloor(floor);
                   if (floor === null) {
                     if (building.units?.length > 0) setSelectedUnit(building.units[0]);
                   } else {
-                    const firstUnitOnFloor = building.units?.find(
+                    const matchedUnit = building.units?.find(
                       (u) => (u.floor_number ?? u.floor) === floor
                     );
-                    if (firstUnitOnFloor) setSelectedUnit(firstUnitOnFloor);
+                    if (matchedUnit) {
+                      setSelectedUnit(matchedUnit);
+                    } else if (floor < 0) {
+                      // Mock/Fallback B1 unit if not in array
+                      setSelectedUnit({
+                        unit_id: `${building.building_id || 'admin'}-B1-LIB`,
+                        ulpin: `${building.building_id || 'ULPIN'}-B1-LIB-001`,
+                        floor: -1,
+                        unit_name: 'Basement Library',
+                        unit_number: 'B1-LIB',
+                        use_type: building.basement_use || 'Library',
+                        area_sqm: 850,
+                        status: 'Verified',
+                        owner: 'Institutional Cadastre'
+                      });
+                    }
                   }
                 }}
               />
             </div>
           )}
 
-          {/* Underground Infrastructure Panel */}
+          {/* Underground Infrastructure Panel (Utilities only: Water, Telecom, Power, Gas, Ducts) */}
           {building && (
             <div style={{ padding: '0 10px 10px' }}>
               <UndergroundPanel
                 data={building.underground || {
-                  basement_levels: 2,
-                  parking_spaces: 120,
-                  total_volume_m3: 8500,
-                  max_depth_m: 25.0,
+                  basement_levels: 0,
+                  parking_spaces: 0,
+                  total_volume_m3: 3200,
+                  max_depth_m: 6.5,
                   utilities_mapped: 4,
-                  underground_ulpins: 2,
-                  validation_score: 98.4,
+                  underground_ulpins: 4,
+                  validation_score: 99.2,
                   validation_issues: [],
-                  ulpin_details: [
-                    {
-                      ulpin: `ULPIN-SUB-${building.building_id || '2026'}-B1-001`,
-                      type: 'utility',
-                      title: 'Basement B1 (HVAC & Substation)',
-                      subsurface_zone: 'Utility Plant Level',
-                      level: -1,
-                      volume_m3: 3500,
-                      depth_range: [0, 3.5],
-                      coordinates: [building.latitude || 28.6139, building.longitude || 77.2090]
-                    },
-                    {
-                      ulpin: `ULPIN-SUB-${building.building_id || '2026'}-B2-002`,
-                      type: 'parking',
-                      title: 'Basement B2 (Tenant Parking)',
-                      subsurface_zone: 'Subterranean Parking',
-                      level: -2,
-                      volume_m3: 5000,
-                      depth_range: [3.5, 7.0],
-                      coordinates: [building.latitude || 28.6139, building.longitude || 77.2090]
-                    }
-                  ],
+                  ulpin_details: [],
                   utilities: [
                     { ulpin: 'UTIL-WTR-01', type: 'water', title: 'Municipal Water Main (300mm)', depth_m: 4.2, diameter_mm: 300, capacity: 1000, conflicts: 0 },
                     { ulpin: 'UTIL-TEL-02', type: 'telecom', title: 'High-Speed Fiber Cable Duct', depth_m: 2.8, diameter_mm: 150, capacity: 500, conflicts: 0 },

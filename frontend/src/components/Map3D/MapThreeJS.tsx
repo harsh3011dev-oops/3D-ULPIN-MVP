@@ -2266,19 +2266,75 @@ export default function MapThreeJS({
     }
 
     // Construct Cadastral ULPIN Floor Layers
-    // Always generate one slab per floor (even if no units from DB),
-    // so floor selection always works. Units just override color/metadata.
+    // Includes below-ground property stratum (B1 — Library) and stacked above-ground floors (F1..Fn).
+    // Always generate slabs so floor isolation and property strata selection always work.
     const unitMap = new Map<string, THREE.Mesh>();
     const units = building?.units || [];
     const shape = building.footprint ? footprintToShape(building.footprint, centerLng, centerLat) : null;
-    const totalFloors = building.floor_count || Math.max(units.length, 1);
+    const totalFloors = building.floor_count || Math.max(units.length, 3);
+    const basementFloors = building.basement_count ?? building.assessment?.basement_levels ?? building.underground_floors ?? 1;
 
     // Build a map from floor number to unit (if available)
     const floorToUnit = new Map<number, (typeof units)[0]>();
     units.forEach(u => { const f = getUnitFloor(u); floorToUnit.set(f, u); });
 
-    // Create one slab per floor
     const floorSlabs: THREE.Mesh[] = [];
+
+    // 1. Create Below-Ground Strata Slabs (B1 — Basement Library)
+    for (let b = 1; b <= basementFloors; b++) {
+      const bFloorNum = -b;
+      const bLevelY = -b * floorHeight;
+      const bUnit = floorToUnit.get(bFloorNum);
+
+      const bMat = new THREE.MeshStandardMaterial({
+        color: 0x6366f1,
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false,
+        wireframe: wireframeMode,
+      });
+
+      let bMesh: THREE.Mesh;
+      if (shape) {
+        const slabGeo = new THREE.ExtrudeGeometry(shape, { depth: floorHeight * 0.95, bevelEnabled: false });
+        slabGeo.rotateX(-Math.PI / 2);
+        slabGeo.computeBoundingBox();
+        slabGeo.computeBoundingSphere();
+        bMesh = new THREE.Mesh(slabGeo, bMat);
+        bMesh.position.y = bLevelY;
+      } else {
+        const boxGeo = new THREE.BoxGeometry(dims.width * 1.01, floorHeight * 0.95, dims.depth * 1.01);
+        boxGeo.computeBoundingBox();
+        boxGeo.computeBoundingSphere();
+        bMesh = new THREE.Mesh(boxGeo, bMat);
+        bMesh.position.y = bLevelY + floorHeight / 2;
+      }
+
+      bMesh.frustumCulled = false;
+      bMesh.userData = {
+        unit: bUnit || {
+          unit_id: `${building.building_id || 'admin'}-B1-LIB`,
+          floor: bFloorNum,
+          unit_number: 'B1-LIB',
+          use_type: building.basement_use || 'Library',
+          ulpin: `${building.building_id || 'ULPIN'}-B1-LIB-001`,
+        },
+        baseColor: 0x6366f1,
+        floorNum: bFloorNum,
+        isBasement: true,
+      };
+      // Keep subtle basement volume visible below ground in cadastral mode
+      bMesh.visible = layerVisibilityMode === 'both' || layerVisibilityMode === 'cadastre';
+      cadastralULPINGroup.add(bMesh);
+      floorSlabs.push(bMesh);
+
+      if (bUnit) unitMap.set(bUnit.unit_id, bMesh);
+      unitMap.set(`floor-${bFloorNum}`, bMesh);
+      unitMap.set(`B${b}`, bMesh);
+      unitMap.set(`${building.building_id || 'admin'}-B1-LIB`, bMesh);
+    }
+
+    // 2. Create Above-Ground Strata Slabs (F1..Fn)
     for (let floorNum = 1; floorNum <= totalFloors; floorNum++) {
       const levelY = (floorNum - 1) * floorHeight;
       const baseColor = FLOOR_HEX_COLORS[(floorNum - 1) % FLOOR_HEX_COLORS.length];
@@ -2309,7 +2365,7 @@ export default function MapThreeJS({
       }
 
       levelMesh.frustumCulled = false;
-      levelMesh.userData = { unit: unit || { unit_id: `floor-${floorNum}`, floor: floorNum }, baseColor, floorNum };
+      levelMesh.userData = { unit: unit || { unit_id: `floor-${floorNum}`, floor: floorNum }, baseColor, floorNum, isBasement: false };
       levelMesh.visible = false;
       cadastralULPINGroup.add(levelMesh);
       floorSlabs.push(levelMesh);
@@ -2317,6 +2373,7 @@ export default function MapThreeJS({
       // Register by unit_id if a real unit exists, also by floor key
       if (unit) unitMap.set(unit.unit_id, levelMesh);
       unitMap.set(`floor-${floorNum}`, levelMesh);
+      unitMap.set(`F${floorNum}`, levelMesh);
     }
 
     // ── Sequential Floor Reveal Animation ────────────────────────────
@@ -2444,7 +2501,8 @@ export default function MapThreeJS({
       }
 
       if (selectedFloorRef.current !== null) {
-        const fY = (selectedFloorRef.current - 0.5) * floorHeight;
+        const selF = selectedFloorRef.current;
+        const fY = selF < 0 ? (selF + 0.5) * floorHeight : (selF - 0.5) * floorHeight;
         floorWorldVec.set(dims.width / 2 + 2, fY, 0);
         const projFloor = floorWorldVec.clone().project(camera);
         if (projFloor.z < 1.0) {
@@ -2687,21 +2745,25 @@ export default function MapThreeJS({
             }}
           >
             <div className="floor-badge-title">
-              <span>FLOOR {selectedFloor}</span>
+              <span>{selectedFloor === -1 ? 'B1 — Library' : selectedFloor < 0 ? `BASEMENT B${Math.abs(selectedFloor)}` : `FLOOR F${selectedFloor}`}</span>
               <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
-                +{(selectedFloor * floorHeight).toFixed(1)}m
+                {selectedFloor < 0
+                  ? `${(selectedFloor * floorHeight).toFixed(1)}m to ${((selectedFloor + 1) * floorHeight).toFixed(1)}m (Below Ground)`
+                  : `+${((selectedFloor - 1) * floorHeight).toFixed(1)}m to +${(selectedFloor * floorHeight).toFixed(1)}m`}
               </span>
             </div>
             <div className="floor-badge-unit">
-              {selectedFloorUnit?.unit_id || `UNIT_F0${selectedFloor}_A01`}
+              {selectedFloor === -1
+                ? 'B1-LIB · Property Cadastral Stratum'
+                : (selectedFloorUnit?.unit_id || `UNIT_F0${selectedFloor}_A01`)}
             </div>
-            {selectedFloorUnit?.ulpin && (
-              <div className="floor-badge-detail" style={{ color: '#38bdf8', wordBreak: 'break-all' }}>
-                ULPIN: {selectedFloorUnit.ulpin}
-              </div>
-            )}
+            <div className="floor-badge-detail" style={{ color: '#38bdf8', wordBreak: 'break-all' }}>
+              ULPIN: {selectedFloorUnit?.ulpin || `${building?.building_id || 'ULPIN'}-${selectedFloor < 0 ? `B${Math.abs(selectedFloor)}-LIB` : `F0${selectedFloor}-01`}`}
+            </div>
             <div className="floor-badge-detail">
-              Area: ~{dims.areaSqm ? Math.round(dims.areaSqm * 0.95).toLocaleString() : '850'} m² · Isolated Level
+              {selectedFloor === -1
+                ? `Use: ${building.basement_use || 'Library'} · Source: ${building.basement_source || 'Verified project input'} · Area: ~${dims.areaSqm ? Math.round(dims.areaSqm * 0.95).toLocaleString() : '850'} m²`
+                : `Area: ~${dims.areaSqm ? Math.round(dims.areaSqm * 0.95).toLocaleString() : '850'} m² · Isolated Level`}
             </div>
           </div>
         </div>
