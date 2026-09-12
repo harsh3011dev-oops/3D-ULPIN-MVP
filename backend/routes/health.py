@@ -16,6 +16,20 @@ router = APIRouter(prefix="/api", tags=["health"])
 logger = logging.getLogger(__name__)
 
 
+@router.get("/ping")
+async def ping():
+    """
+    Lightweight keep-alive ping endpoint.
+    Used by Render self-pinger, GitHub Actions, and frontend warm-up.
+    Responds in < 5ms without querying the database.
+    """
+    return {
+        "status": "ok",
+        "message": "pong",
+        "service": "3D ULPIN API",
+    }
+
+
 @router.get("/health")
 async def health_check(db: AsyncSession = Depends(get_db)):
     """

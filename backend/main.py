@@ -10,9 +10,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
+import asyncio
 from backend.config import settings
 from backend.database import check_db_connection
 from backend.supabase_client import ensure_storage_bucket_exists
+from backend.services.keep_alive import start_keep_alive_loop
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -36,10 +38,18 @@ async def lifespan(app: FastAPI):
     # Ensure Storage bucket exists
     await ensure_storage_bucket_exists()
 
+    # Start Render Free-Tier Keep-Alive background worker
+    keep_alive_task = asyncio.create_task(start_keep_alive_loop())
+
     logger.info("✅ Backend startup complete")
     yield
 
     logger.info("🛑 Shutting down backend...")
+    keep_alive_task.cancel()
+    try:
+        await keep_alive_task
+    except asyncio.CancelledError:
+        pass
 
 
 # ── App ───────────────────────────────────────────────────────────────────────
@@ -80,6 +90,13 @@ _sample_data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../s
 os.makedirs(_sample_data_dir, exist_ok=True)
 app.mount("/sample_data", StaticFiles(directory=_sample_data_dir), name="sample_data")
 app.mount("/api/sample_data", StaticFiles(directory=_sample_data_dir), name="api_sample_data")
+
+
+# ── Ping / Keep-Alive ────────────────────────────────────────────────────────
+@app.get("/ping", tags=["root"])
+async def ping():
+    """Ultra-fast ping endpoint for keep-alive checkers."""
+    return {"status": "ok", "message": "pong"}
 
 
 # ── Root ──────────────────────────────────────────────────────────────────────

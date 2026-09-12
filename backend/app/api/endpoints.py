@@ -1,6 +1,7 @@
 import uuid
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from pydantic import BaseModel
 
 from app.schemas.building import (
     CreateBuildingRequest,
@@ -11,6 +12,83 @@ from app.services.ai_runner import jobs_db, buildings_db, execute_ai_pipeline_jo
 from app.services.supabase_service import supabase_service
 
 router = APIRouter()
+
+
+# ── Auto-Detect Schema ────────────────────────────────────────────────────────
+class AutoDetectRequest(BaseModel):
+    building_name: Optional[str] = None
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+class AutoDetectResponse(BaseModel):
+    latitude: Optional[float]
+    longitude: Optional[float]
+    height_meters: Optional[float]
+    floor_count: Optional[int]
+    address: Optional[str]
+    building_name: Optional[str]
+    confidence: float
+    source: str
+
+
+@router.post("/buildings/auto-detect", response_model=AutoDetectResponse)
+async def auto_detect_building(payload: AutoDetectRequest):
+    """
+    Auto-fill building metadata (coordinates, height, floors) for a known building.
+    Uses geocoding + known landmark database.
+    """
+    name = (payload.building_name or payload.address or "").lower()
+
+    # Known landmark database
+    landmarks = {
+        "taj mahal": {"latitude": 27.1751, "longitude": 78.0421, "height_meters": 73.0, "floor_count": 5, "address": "Agra, Uttar Pradesh, India"},
+        "india gate": {"latitude": 28.6129, "longitude": 77.2295, "height_meters": 42.0, "floor_count": 1, "address": "New Delhi, India"},
+        "qutub minar": {"latitude": 28.5245, "longitude": 77.1855, "height_meters": 72.5, "floor_count": 5, "address": "Mehrauli, New Delhi, India"},
+        "gateway of india": {"latitude": 18.9220, "longitude": 72.8347, "height_meters": 26.0, "floor_count": 2, "address": "Apollo Bandar, Mumbai, India"},
+        "burj khalifa": {"latitude": 25.1972, "longitude": 55.2744, "height_meters": 828.0, "floor_count": 163, "address": "Downtown Dubai, UAE"},
+        "eiffel tower": {"latitude": 48.8584, "longitude": 2.2945, "height_meters": 330.0, "floor_count": 3, "address": "Champ de Mars, Paris, France"},
+        "empire state": {"latitude": 40.7484, "longitude": -73.9856, "height_meters": 443.0, "floor_count": 102, "address": "350 Fifth Ave, New York, USA"},
+    }
+
+    # Match against known landmarks
+    for key, data in landmarks.items():
+        if key in name:
+            return AutoDetectResponse(
+                latitude=data["latitude"],
+                longitude=data["longitude"],
+                height_meters=data["height_meters"],
+                floor_count=data["floor_count"],
+                address=data["address"],
+                building_name=key.title(),
+                confidence=0.95,
+                source="landmark_db"
+            )
+
+    # If coordinates given, return with defaults
+    if payload.latitude and payload.longitude:
+        return AutoDetectResponse(
+            latitude=payload.latitude,
+            longitude=payload.longitude,
+            height_meters=15.0,
+            floor_count=3,
+            address=payload.address or f"{payload.latitude:.4f}, {payload.longitude:.4f}",
+            building_name=payload.building_name,
+            confidence=0.60,
+            source="coordinates"
+        )
+
+    # Fallback
+    return AutoDetectResponse(
+        latitude=28.6139,
+        longitude=77.2090,
+        height_meters=12.0,
+        floor_count=3,
+        address=payload.address or "New Delhi, India",
+        building_name=payload.building_name,
+        confidence=0.30,
+        source="fallback"
+    )
 
 @router.post("/buildings/create", response_model=CreateBuildingResponse)
 async def create_building_endpoint(

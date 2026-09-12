@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Box, ArrowUpRight } from 'lucide-react';
+import { Box, ArrowUpRight, Activity } from 'lucide-react';
+import { subscribeBackendStatus } from '../../utils/backendWarmup';
 import './Header.css';
 
 export default function Header() {
@@ -9,6 +10,12 @@ export default function Header() {
   const navigate = useNavigate();
   const isHome = location.pathname === '/';
   const isExplore = location.pathname === '/explore';
+
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'awake' | 'waking_up' | 'error'>('checking');
+
+  useEffect(() => {
+    return subscribeBackendStatus(setBackendStatus);
+  }, []);
 
   return (
     <header className="cadastral-header">
@@ -53,8 +60,28 @@ export default function Header() {
           </Link>
         </nav>
 
-        {/* Right: CTA Action */}
+        {/* Right: CTA Action & Backend Status */}
         <div className="header-actions">
+          <div
+            className={`backend-status-pill ${backendStatus}`}
+            title={
+              backendStatus === 'awake'
+                ? 'Cloud Backend: 24/7 Active'
+                : backendStatus === 'waking_up'
+                ? 'Render Cold Start: Backend is spinning up...'
+                : 'Checking Backend Connection...'
+            }
+          >
+            <span className="status-dot" />
+            <span className="status-text">
+              {backendStatus === 'awake'
+                ? 'API Active'
+                : backendStatus === 'waking_up'
+                ? 'Waking Server...'
+                : 'Connecting...'}
+            </span>
+          </div>
+
           <button
             type="button"
             className="btn-primary header-cta-btn"

@@ -1,0 +1,23 @@
+name: Render Backend 24/7 Keep-Alive
+
+on:
+  schedule:
+    # Run every 14 minutes (safely under Render's 15-minute inactivity shutdown)
+    - cron: '*/14 * * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  ping-render:
+    name: Ping Render Free-Tier Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Backend Keep-Alive Endpoint
+        run: |
+          echo "Pinging 3D ULPIN Render Backend to prevent sleep mode..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 45 https://threed-ulpin-backend-v9ur.onrender.com/api/ping)
+          echo "HTTP Response Status: $STATUS"
+          if [ "$STATUS" -eq 200 ]; then
+            echo "✅ Render backend is awake and responding!"
+          else
+            echo "⚠️ Backend returned status $STATUS (or is waking up from cold start)"
+          fi

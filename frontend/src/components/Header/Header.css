@@ -158,11 +158,86 @@
   transform: translate(2px, -2px);
 }
 
+/* ── Backend Status Pill ── */
+.backend-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  font-size: 0.73rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: all 0.25s ease;
+  user-select: none;
+}
+
+.backend-status-pill .status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.backend-status-pill.awake {
+  border-color: rgba(34, 197, 94, 0.25);
+  background: rgba(34, 197, 94, 0.08);
+  color: #86EFAC;
+}
+
+.backend-status-pill.awake .status-dot {
+  background: #22C55E;
+  box-shadow: 0 0 8px #22C55E;
+}
+
+.backend-status-pill.waking_up,
+.backend-status-pill.checking {
+  border-color: rgba(245, 158, 11, 0.25);
+  background: rgba(245, 158, 11, 0.08);
+  color: #FCD34D;
+}
+
+.backend-status-pill.waking_up .status-dot,
+.backend-status-pill.checking .status-dot {
+  background: #F59E0B;
+  box-shadow: 0 0 8px #F59E0B;
+  animation: pulse-dot 1.4s infinite ease-in-out;
+}
+
+.backend-status-pill.error {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.08);
+  color: #FCA5A5;
+}
+
+.backend-status-pill.error .status-dot {
+  background: #EF4444;
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
 @media (max-width: 768px) {
   .header-nav {
     display: none;
   }
   .brand-iso-badge {
     display: none;
+  }
+  .backend-status-pill .status-text {
+    display: none;
+  }
+  .backend-status-pill {
+    padding: 6px;
   }
 }
