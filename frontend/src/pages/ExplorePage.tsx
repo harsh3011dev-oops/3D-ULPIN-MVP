@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Header from '../components/Header/Header';
 import { autoDetectBuilding, createBuilding } from '../api/api';
 import { AutoDetectBuildingResult } from '../types';
+import { resolvePlace } from '../utils/placeResolver';
+import { fetchDetailedOSMData } from '../utils/osmFetcher';
 import {
   MapPin,
   Layers,
@@ -250,8 +252,8 @@ export default function ExplorePage() {
   };
 
   const handleSearch = async () => {
-    if (!searchName.trim() || !searchCity.trim()) {
-      setError('Please provide both building name and city.');
+    if (!searchName.trim()) {
+      setError('Please provide a building or landmark name.');
       return;
     }
     setLoading(true);
@@ -259,18 +261,42 @@ export default function ExplorePage() {
     setDetectedBuilding(null);
     setSatelliteUrl(null);
     try {
+      // 1. Primary: Try backend auto-detect
       const result = await autoDetectBuilding({
         building_name: searchName.trim(),
-        city: searchCity.trim(),
+        city: searchCity.trim() || undefined,
       });
       setDetectedBuilding(result);
       if (result.latitude != null && result.longitude != null) {
         setSatelliteUrl(getSatelliteThumbnail(result.latitude, result.longitude));
       }
     } catch (err: any) {
-      const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : 'Building lookup failed. You can use manual coordinates instead.');
-      setDetectedBuilding(null);
+      // 2. Fallback: Universal client-side place resolver (Nominatim / OpenCage)
+      try {
+        const place = await resolvePlace(searchName.trim(), searchCity.trim() || undefined);
+        if (place && place.latitude != null && place.longitude != null) {
+          const fallbackResult: AutoDetectBuildingResult = {
+            building_name: place.canonicalName || searchName.trim(),
+            city: searchCity.trim() || 'Global',
+            latitude: place.latitude,
+            longitude: place.longitude,
+            height_meters: 25.0,
+            floors: 3,
+            building_type: place.placeType || 'landmark',
+            source: 'universal_nominatim_resolver',
+            confidence: 0.85,
+          };
+          setDetectedBuilding(fallbackResult);
+          setSatelliteUrl(getSatelliteThumbnail(place.latitude, place.longitude));
+        } else {
+          const detail = err.response?.data?.detail;
+          setError(typeof detail === 'string' ? detail : 'Building lookup failed. You can use manual coordinates instead.');
+          setDetectedBuilding(null);
+        }
+      } catch {
+        setError('Building lookup failed. You can use manual coordinates instead.');
+        setDetectedBuilding(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -294,8 +320,29 @@ export default function ExplorePage() {
         setSatelliteUrl(getSatelliteThumbnail(result.latitude, result.longitude));
       }
     } catch (err: any) {
-      const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : `Could not fetch "${preset.name}". Try searching manually.`);
+      // Universal resolver fallback
+      try {
+        const place = await resolvePlace(preset.name, preset.city);
+        if (place && place.latitude != null && place.longitude != null) {
+          const fallbackResult: AutoDetectBuildingResult = {
+            building_name: place.canonicalName || preset.name,
+            city: preset.city,
+            latitude: place.latitude,
+            longitude: place.longitude,
+            height_meters: 30.0,
+            floors: 3,
+            building_type: place.placeType || 'landmark',
+            source: 'universal_nominatim_resolver',
+            confidence: 0.85,
+          };
+          setDetectedBuilding(fallbackResult);
+          setSatelliteUrl(getSatelliteThumbnail(place.latitude, place.longitude));
+        } else {
+          setError(`Could not fetch "${preset.name}". Try searching manually.`);
+        }
+      } catch {
+        setError(`Could not fetch "${preset.name}". Try searching manually.`);
+      }
     } finally {
       setPresetLoading(null);
     }

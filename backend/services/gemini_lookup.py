@@ -306,107 +306,71 @@ Rules:
             except Exception as e:
                 logger.warning("Hugging Face request failed: %s", e)
 
-    # ── MVP MOCK FALLBACK ──
-    logger.warning("All AI lookup attempts failed. Returning simulated fallback for MVP demo.")
+    # ── UNIVERSAL DYNAMIC GEOSPATIAL RESOLUTION FALLBACK ──
+    logger.info("AI LLM lookup unconfigured or exhausted. Resolving dynamically via OpenStreetMap Nominatim...")
     
-    bname_lower = building_name.lower().strip()
+    query = f"{building_name.strip()}, {city.strip()}" if city and city.lower() not in building_name.lower() else building_name.strip()
     
-    if "ram mandir" in bname_lower or "ayodhya" in bname_lower or "janmabhoomi" in bname_lower:
-        mock = {
-            "building_name": "Ayodhya Ram Mandir",
-            "city": city or "Ayodhya",
-            "latitude": 26.7956,
-            "longitude": 82.1944,
-            "height_meters": 49.2,
-            "floors": 3,
-            "confidence": 98,
-            "source": "fallback",
-            "osm_id": "way/1238914562",
+    try:
+        url = "https://nominatim.openstreetmap.org/search"
+        params = {
+            "q": query,
+            "format": "jsonv2",
+            "addressdetails": 1,
+            "extratags": 1,
+            "limit": 3,
         }
-    elif "india gate" in bname_lower:
-        mock = {
-            "building_name": "India Gate",
-            "city": city or "New Delhi",
-            "latitude": 28.6129,
-            "longitude": 77.2295,
-            "height_meters": 42.0,
-            "floors": 1,
-            "confidence": 95,
-            "source": "fallback",
-            "osm_id": "relation/7397895",
-        }
-    elif "taj mahal" in bname_lower:
-        mock = {
-            "building_name": "Taj Mahal",
-            "city": city or "Agra",
-            "latitude": 27.1751,
-            "longitude": 78.0421,
-            "height_meters": 73.0,
-            "floors": 2,
-            "confidence": 95,
-            "source": "fallback",
-            "osm_id": "relation/6072622",
-        }
-    elif "burj" in bname_lower:
-        mock = {
-            "building_name": "Burj Khalifa",
-            "city": city or "Dubai",
-            "latitude": 25.1972,
-            "longitude": 55.2744,
-            "height_meters": 828.0,
-            "floors": 163,
-            "confidence": 99,
-            "source": "fallback",
-            "osm_id": "way/134613752",
-        }
-    elif "willis" in bname_lower or "sears" in bname_lower:
-        mock = {
-            "building_name": "Willis Tower",
-            "city": city or "Chicago",
-            "latitude": 41.8789,
-            "longitude": -87.6359,
-            "height_meters": 442.1,
-            "floors": 108,
-            "confidence": 98,
-            "source": "fallback",
-            "osm_id": "way/23974441",
-        }
-    elif "petronas" in bname_lower:
-        mock = {
-            "building_name": "Petronas Towers",
-            "city": city or "Kuala Lumpur",
-            "latitude": 3.1579,
-            "longitude": 101.7116,
-            "height_meters": 451.9,
-            "floors": 88,
-            "confidence": 98,
-            "source": "fallback",
-            "osm_id": "way/112858913",
-        }
-    elif "world one" in bname_lower or "world towers" in bname_lower:
-        mock = {
-            "building_name": "World One",
-            "city": city or "Mumbai",
-            "latitude": 18.9959,
-            "longitude": 72.8290,
-            "height_meters": 280.2,
-            "floors": 76,
-            "confidence": 98,
-            "source": "fallback",
-            "osm_id": "way/229040713",
-        }
-    else:
-        mock = {
-            "building_name": building_name,
-            "city": city,
-            "latitude": 40.7484,
-            "longitude": -73.9857,
-            "height_meters": 380.0,
-            "floors": 102,
-            "confidence": 85,
-            "source": "fallback",
-        }
-        
-    CACHE[ckey] = mock
-    return mock
+        headers = {"User-Agent": "3D-ULPIN-Universal-Landmark-Engine/2.0 (geospatial-lookup)"}
+        async with httpx.AsyncClient(timeout=6.0) as client:
+            resp = await client.get(url, params=params, headers=headers)
+            if resp.status_code == 200:
+                results = resp.json()
+                if results and isinstance(results, list) and len(results) > 0:
+                    best = results[0]
+                    lat = float(best.get("lat", 0))
+                    lon = float(best.get("lon", 0))
+                    osm_type = best.get("osm_type")
+                    osm_id = best.get("osm_id")
+                    
+                    if lat != 0 and lon != 0:
+                        osm_el_id = f"{osm_type}/{osm_id}" if osm_type and osm_id else None
+                        
+                        # Extract height / floors from extratags if present
+                        extratags = best.get("extratags") or {}
+                        h_tag = extratags.get("height") or extratags.get("building:height")
+                        lvl_tag = extratags.get("building:levels") or extratags.get("levels")
+                        
+                        height_m = None
+                        if h_tag:
+                            try:
+                                height_m = float(re.sub(r"[^\d.]", "", str(h_tag)))
+                            except ValueError:
+                                pass
+                                
+                        floors = None
+                        if lvl_tag:
+                            try:
+                                floors = int(re.sub(r"[^\d]", "", str(lvl_tag)))
+                            except ValueError:
+                                pass
+                                
+                        dynamic_result = {
+                            "building_name": best.get("name") or building_name,
+                            "city": city or (best.get("address", {}).get("city") or best.get("address", {}).get("state") or ""),
+                            "latitude": lat,
+                            "longitude": lon,
+                            "height_meters": height_m,
+                            "floors": floors,
+                            "confidence": 92 if osm_el_id else 80,
+                            "source": "osm_nominatim",
+                            "osm_id": osm_el_id,
+                            "wikidata": extratags.get("wikidata"),
+                        }
+                        CACHE[ckey] = dynamic_result
+                        return dynamic_result
+    except Exception as e:
+        logger.warning("Dynamic Nominatim fallback error: %s", e)
+
+    return None
+
 

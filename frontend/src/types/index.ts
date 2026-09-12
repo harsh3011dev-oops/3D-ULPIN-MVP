@@ -168,7 +168,7 @@ export interface Building {
 
 export interface AutoDetectBuildingPayload {
   building_name: string;
-  city: string;
+  city?: string;
 }
 
 export interface AutoDetectBuildingResult {
@@ -182,6 +182,7 @@ export interface AutoDetectBuildingResult {
   source: string;
   osm_id?: string | null;
   wikidata?: string | null;
+  building_type?: string | null;
 }
 
 export interface CreateBuildingPayload {
@@ -227,39 +228,106 @@ export interface PresetBuilding {
   lon: number;
 }
 
-export interface UnifiedBuildingData {
-  id: string;
-  osm_id?: string;
-  name: string;
+export type GeometryQualityLevel = 'HIGH' | 'DETAILED' | 'STANDARD' | 'BASIC' | 'ESTIMATED';
+
+export type GeometryProviderSource =
+  | 'CUSTOM_MODEL'
+  | 'OSM2WORLD'
+  | 'OSM_BUILDING_PARTS'
+  | 'VISION_RECONSTRUCTION'
+  | 'OSM_FOOTPRINT'
+  | 'CONSERVATIVE_FALLBACK';
+
+export interface ResolvedPlace {
+  canonicalName: string;
   latitude: number;
   longitude: number;
-  source: 'osm' | 'cadastral' | 'user' | 'catalog';
+  boundingBox: [number, number, number, number]; // [minLon, minLat, maxLon, maxLat]
+  osmType?: 'node' | 'way' | 'relation';
+  osmId?: string; // e.g. "relation/6072622" or "way/1238914562"
+  placeType?: string;
+  address: string;
+  rawTags?: Record<string, string>;
+  category?: string;
+}
+
+export interface LandmarkSite {
+  mainStructure?: any;
+  relatedStructures: any[];
+  siteBoundary?: any;
+  courtyards: any[];
+  accessStructures: any[];
+  tags?: Record<string, string>;
+}
+
+export interface BuildingPartData extends BuildingPart {
+  source: string;
+  holes?: any[];
+  roof_levels?: number;
+  roof_direction?: number;
+  roof_orientation?: string;
+  roof_material?: string;
+  roof_color?: string;
+}
+
+export interface UnifiedBuildingData {
+  id: string;
+  canonicalName: string;
+  osmId?: string;
+  latitude: number;
+  longitude: number;
+  sourceProvider: GeometryProviderSource;
+  qualityLevel: GeometryQualityLevel;
+  confidence: number;
   footprint?: GeoJSONPolygon | any;
-  buildingParts: BuildingPart[];
+  holes?: any[];
+  buildingParts: BuildingPartData[];
+  siteData?: LandmarkSite;
   height: number;
   levels: number;
   minHeight?: number;
-  roofShape?: string;
-  roofHeight?: number;
-  roofLevels?: number;
+  floorHeight?: number;
+  roofData?: {
+    shape: string;
+    height: number;
+    levels?: number;
+    material?: string;
+    color?: string;
+    direction?: number;
+  };
   material?: string;
   color?: string;
-  roofMaterial?: string;
-  roofColor?: string;
   tags?: Record<string, any>;
-  isLimitedSourceGeometry?: boolean;
+  sourceMetadata: {
+    osmId?: string;
+    providerName: string;
+    meshCount?: number;
+    partCount?: number;
+    license?: string;
+    qualityLevel: GeometryQualityLevel;
+    timestamp?: number;
+  };
+  estimatedFields: string[];
+  boundingBox3D?: {
+    minX: number; minY: number; minZ: number;
+    maxX: number; maxY: number; maxZ: number;
+  };
+  customModelUrl?: string;
 }
 
-export interface GeometryProviderResult {
-  providerName: 'OSM2World' | 'OSM building:part' | 'OSM Polygon Extrusion' | 'Procedural Extrusion' | 'Fallback';
-  group: any; // THREE.Group
-  meshes: any[]; // THREE.Mesh[]
-  sourcePartCount: number;
-  generatedMeshCount: number;
+export interface ProviderReconstructionResult {
+  providerName: GeometryProviderSource;
+  qualityLevel: GeometryQualityLevel;
+  confidence: number;
+  estimatedFields: string[];
+  group?: any; // THREE.Group
+  meshes?: any[]; // THREE.Mesh[]
+  buildingPartsCount: number;
+  meshCount: number;
   roofShapes: string[];
   fallbackUsed: boolean;
-  limitedSourceGeometry?: boolean;
-  reason?: string;
+  statusMessage: string;
+  modelUrl?: string;
 }
 
 export interface InferredArchitecturalMetadata {
@@ -299,5 +367,6 @@ export interface InferredMetadataRequest {
   known_building_type?: string;
   known_material?: string;
 }
+
 
 
