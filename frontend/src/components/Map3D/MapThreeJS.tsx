@@ -133,13 +133,13 @@ export interface ArchitecturalTelemetry {
 
 /**
  * UNIFIED CADASTRAL STYLE PALETTE:
- * Applies a consistent, neutral architectural visual style across ALL buildings,
+ * Applies a consistent, neutral clean white / light-stone architectural visual style across ALL buildings,
  * regardless of landmark name, religion, city, or provenance.
- * - Main walls: Light stone / cool grey (#CBD5E1)
- * - Secondary structures / Plinths: Slightly darker grey (#94A3B8)
- * - Roof / Spires / Upper structures: Muted slate grey (#64748B)
- * - Glass / Windows: Semi-transparent blue-grey (#38BDF8 / #93C5FD)
- * - Accents / Trims: Neutral slate (#94A3B8)
+ * - Base / Main walls: Clean white / light-stone (#E8EDF2, roughness 0.72, metalness 0.02)
+ * - Secondary structures / Plinths / Base: Slightly darker limestone (#D0D9E2, roughness 0.78, metalness 0.02)
+ * - Roof / Spires / Crowns / Towers: Subtle slate-stone contrast (#DDE4EC, roughness 0.65, metalness 0.04)
+ * - Glass / Windows: Semi-transparent blue-grey (#93C5FD, opacity 0.55)
+ * - Accents / Trims / Finials: Subtle slate trim (#CBD5E1, roughness 0.55, metalness 0.08)
  */
 function getUnifiedSingleMaterial(
   meshName: string,
@@ -181,7 +181,7 @@ function getUnifiedSingleMaterial(
     return new THREE.MeshPhysicalMaterial({
       color: 0x93c5fd,
       roughness: 0.1,
-      metalness: 0.1,
+      metalness: 0.05,
       transmission: 0.85,
       transparent: true,
       opacity: 0.55,
@@ -191,44 +191,52 @@ function getUnifiedSingleMaterial(
 
   if (isRoofOrCrown) {
     return new THREE.MeshStandardMaterial({
-      color: 0x64748b, // Muted slate grey
+      color: 0xdde4ec, // Subtle slate-stone tone
       roughness: 0.65,
-      metalness: 0.12,
+      metalness: 0.04,
       wireframe,
     });
   }
 
   if (isPodiumOrBase) {
     return new THREE.MeshStandardMaterial({
-      color: 0x94a3b8, // Slightly darker grey
-      roughness: 0.80,
-      metalness: 0.05,
+      color: 0xd0d9e2, // Slightly darker limestone base
+      roughness: 0.78,
+      metalness: 0.02,
       wireframe,
     });
   }
 
   if (isAccentOrTrim) {
     return new THREE.MeshStandardMaterial({
-      color: 0x94a3b8, // Neutral slate
-      roughness: 0.50,
-      metalness: 0.20,
+      color: 0xcbd5e1, // Subtle slate trim
+      roughness: 0.55,
+      metalness: 0.08,
       wireframe,
     });
   }
 
-  // Default: Main walls - light stone / cool grey (#CBD5E1)
+  // Default: Clean white / light-stone architectural clay render (#E8EDF2)
   return new THREE.MeshStandardMaterial({
-    color: 0xcbd5e1,
-    roughness: 0.70,
-    metalness: 0.05,
+    color: 0xe8edf2,
+    roughness: 0.72,
+    metalness: 0.02,
     wireframe,
   });
 }
 
-function createUnifiedArchitecturalMaterial(
-  mesh: THREE.Mesh,
-  wireframe: boolean,
+export function createUnifiedCadastralMaterial(
+  mesh?: THREE.Mesh,
+  wireframe: boolean = false,
 ): THREE.Material | THREE.Material[] {
+  if (!mesh) {
+    return new THREE.MeshStandardMaterial({
+      color: 0xe8edf2,
+      roughness: 0.72,
+      metalness: 0.02,
+      wireframe,
+    });
+  }
   const meshName = mesh.name || '';
   if (Array.isArray(mesh.material)) {
     return mesh.material.map((mat) => {
@@ -239,6 +247,9 @@ function createUnifiedArchitecturalMaterial(
   const matName = (mesh.material as any)?.name || '';
   return getUnifiedSingleMaterial(meshName, matName, mesh.material, wireframe);
 }
+
+// Alias for backwards compatibility
+const createUnifiedArchitecturalMaterial = createUnifiedCadastralMaterial;
 
 /**
  * Register original materials on mesh userData before applying any override.
