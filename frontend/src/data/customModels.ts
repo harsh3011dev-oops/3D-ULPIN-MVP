@@ -30,6 +30,19 @@ export interface CustomModelConfig {
   calibratedHeightM?: number;
   calibratedDimensions?: { width: number; depth: number; height: number };
   attribution?: string;
+
+  /** Renderer-specific transform overrides */
+  threeTransform?: {
+    scale?: number;
+    rotation?: [number, number, number];
+    offset?: [number, number, number];
+  };
+  deckTransform?: {
+    scale?: number;
+    orientation?: [number, number, number]; // [pitch, yaw, roll] in degrees for ScenegraphLayer
+    elevation?: number;
+    groundOffset?: number;
+  };
 }
 
 /**
@@ -78,6 +91,17 @@ export const REGISTERED_CUSTOM_MODELS: CustomModelConfig[] = [
     buildingType: 'temple',
     description: 'High-detail 3D Nagara-style architectural model of Shri Ram Janmabhoomi Mandir with multi-tiered Shikhara, Mandapas, and colonnaded ardha-mandapas.',
     attribution: 'Architectural Reference Model',
+    threeTransform: {
+      scale: 1.0,
+      rotation: [0, 0, 0],
+      offset: [0, 0, 0],
+    },
+    deckTransform: {
+      scale: 1.0,
+      orientation: [0, 0, 0],
+      elevation: 0,
+      groundOffset: 0,
+    },
   },
 ];
 

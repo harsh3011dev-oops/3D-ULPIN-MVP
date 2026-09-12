@@ -10,10 +10,10 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { Building, Unit } from '../../types';
-import { getBuildingCenter, getBuildingHeight, getFloorCountInfo, getFootprintDimensions } from '../../utils/footprintUtils';
+import { getBuildingCenter, getBuildingHeight, getFloorCountInfo } from '../../utils/footprintUtils';
 import { getBuildingUtilityPipelines } from '../../utils/utilityNetworkHelper';
 import { REEARTH, setupReearthTerrain } from '../../utils/reearth';
-import { findCustomModel, CustomModelConfig } from '../../data/customModels';
+import { findCustomModel } from '../../data/customModels';
 import { logModelPipelineTelemetry } from '../../utils/customModelProvider';
 import {
   getBestBuildingGeometry,
@@ -34,7 +34,6 @@ import {
   ArrowDownToLine,
   Activity,
   ShieldCheck,
-  Database,
   X,
   Zap,
   Droplets,
@@ -42,11 +41,8 @@ import {
   Radio,
   Wrench,
   Landmark,
-  Sparkles,
   Globe2,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
+  Info,
 } from 'lucide-react';
 import './Map3D.css';
 
@@ -103,6 +99,7 @@ export default function MapDeckGL({
   const [terrainEnabled, setTerrainEnabled] = useState(true);
   const [showUnderground, setShowUnderground] = useState(true);
   const [selectedUnderground, setSelectedUnderground] = useState<any | null>(null);
+  const [showDebugTelemetry, setShowDebugTelemetry] = useState(false);
 
   // ── Google Photorealistic 3D Tiles State ──
   const [google3DStatus, setGoogle3DStatus] = useState<Photorealistic3DStatus>(() => {
@@ -121,6 +118,12 @@ export default function MapDeckGL({
 
   // ── Custom Model Recognition ──
   const customModelConfig = useMemo(() => findCustomModel(building), [building]);
+  const isCustomModel = Boolean(
+    customModelConfig ||
+    (building as any)?.custom_model_url ||
+    (building as any)?.geometry_provider === 'CUSTOM_GLTF' ||
+    (building as any)?.geometry_provider === 'CUSTOM_GLB'
+  );
 
   // Priority geometry analysis
   const geometryResult = useMemo(() => {
@@ -241,14 +244,6 @@ export default function MapDeckGL({
   };
 
   const SCALE_ELEVATION = 2.5;
-
-  const UTILITY_PIPE_COLORS: Record<string, [number, number, number, number]> = {
-    water: [56, 189, 248, 255],
-    sewage: [163, 230, 53, 255],
-    power: [250, 204, 21, 255],
-    telecom: [192, 132, 252, 255],
-    gas: [251, 146, 60, 255],
-  };
 
   // ── 3D Extruded Underground GeoJSON ──
   const undergroundUnitsGeoJSON = useMemo(() => {
@@ -371,40 +366,60 @@ export default function MapDeckGL({
     }));
   }, [utilityPipelines, SCALE_ELEVATION]);
 
-  const footprintBaseGeoJSON = building?.footprint
-    ? {
-        type: 'FeatureCollection',
-        features: [
-          {
-            type: 'Feature',
-            properties: { name: building.building_name },
-            geometry: building.footprint,
-          },
-        ],
-      }
-    : null;
+  // Parcel ground footprint boundary (flat ground line, no vertical extrusion)
+  const footprintBaseGeoJSON = useMemo(() => {
+    if (!building?.footprint) return null;
+    return {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: { name: building.building_name },
+          geometry: building.footprint,
+        },
+      ],
+    };
+  }, [building?.footprint, building?.building_name]);
 
-  const unitsGeoJSON = useMemo(() => ({
-    type: 'FeatureCollection',
-    features: (building?.units || []).flatMap((unit) => {
+  // ── Cadastral Units / Floor Slice Geometry ──
+  // Rule: For custom models, only generate extruded floor slabs when a floor is actively isolated.
+  // When selectedFloor === null (all floors mode), return empty features to avoid duplicate block artifacts.
+  const unitsGeoJSON = useMemo(() => {
+    if (isCustomModel && selectedFloor === null) {
+      return { type: 'FeatureCollection', features: [] };
+    }
+
+    const rawUnits = building?.units || [];
+    const filteredUnits = (isCustomModel && selectedFloor !== null)
+      ? rawUnits.filter((u) => (u.floor_number ?? u.floor ?? 1) === selectedFloor)
+      : rawUnits;
+
+    const features = filteredUnits.flatMap((unit) => {
       const floorNum = unit.floor_number ?? unit.floor ?? 1;
-      const floorHtM = unit.floor_height_m ?? 3.5;
+      const floorHtM = isCustomModel
+        ? (customModelConfig?.floorHeight || 4.8)
+        : (unit.floor_height_m ?? 3.5);
+      
       const zMin = unit.z_min ?? (floorNum - 1) * floorHtM;
       const zMax = unit.z_max ?? floorNum * floorHtM;
-      const floorSliceH = (zMax - zMin) * SCALE_ELEVATION;
-      const zBase = zMin * SCALE_ELEVATION;
+      
+      // When custom model is active, use 1:1 true meters (no 2.5x stretch)
+      const floorSliceH = isCustomModel ? (zMax - zMin) : (zMax - zMin) * SCALE_ELEVATION;
+      const zBase = isCustomModel ? zMin : zMin * SCALE_ELEVATION;
 
       const isSelected = selectedUnit?.unit_id === unit.unit_id;
       const isHovered = hoveredUnitId === unit.unit_id;
       const isFloorIsolated = selectedFloor === floorNum;
 
+      const fallbackRadius = 0.00025;
       const fallbackRing = [
-        [mapLng - 0.0005, mapLat - 0.0005],
-        [mapLng + 0.0005, mapLat - 0.0005],
-        [mapLng + 0.0005, mapLat + 0.0005],
-        [mapLng - 0.0005, mapLat + 0.0005],
-        [mapLng - 0.0005, mapLat - 0.0005],
+        [mapLng - fallbackRadius, mapLat - fallbackRadius],
+        [mapLng + fallbackRadius, mapLat - fallbackRadius],
+        [mapLng + fallbackRadius, mapLat + fallbackRadius],
+        [mapLng - fallbackRadius, mapLat + fallbackRadius],
+        [mapLng - fallbackRadius, mapLat - fallbackRadius],
       ];
+
       const geometry = unit.polygon_2d;
       const polygons =
         geometry?.type === 'MultiPolygon'
@@ -422,6 +437,7 @@ export default function MapDeckGL({
           isHovered,
           isFloorIsolated,
           floorSliceHeight: floorSliceH,
+          zBase,
         },
         geometry: {
           type: 'Polygon',
@@ -430,8 +446,20 @@ export default function MapDeckGL({
           ),
         },
       }));
-    }),
-  }), [building?.units, selectedUnit, hoveredUnitId, selectedFloor, mapLng, mapLat]);
+    });
+
+    return { type: 'FeatureCollection', features };
+  }, [
+    building?.units,
+    selectedUnit,
+    hoveredUnitId,
+    selectedFloor,
+    mapLng,
+    mapLat,
+    isCustomModel,
+    customModelConfig,
+    SCALE_ELEVATION,
+  ]);
 
   const floorLabelsData = useMemo(() => {
     if (selectedFloor === null) return [];
@@ -439,63 +467,69 @@ export default function MapDeckGL({
       (u) => (u.floor_number ?? u.floor ?? 1) === selectedFloor
     );
     const sampleUnit = floorUnits[0] || firstUnit;
-    const floorHtM = sampleUnit?.floor_height_m ?? 3.5;
+    const floorHtM = isCustomModel
+      ? (customModelConfig?.floorHeight || 4.8)
+      : (sampleUnit?.floor_height_m ?? 3.5);
     const zMax = sampleUnit?.z_max ?? selectedFloor * floorHtM;
     const zMin = sampleUnit?.z_min ?? (selectedFloor - 1) * floorHtM;
     const zMid = (zMin + zMax) / 2;
+    const zAltitude = isCustomModel ? zMid : zMid * SCALE_ELEVATION;
+
     return [
       {
         text: `▶ Floor ${selectedFloor}  +${Number(zMax).toFixed(1)}m`,
         coordinates: [sampleUnit?.centroid?.[1] || mapLng, sampleUnit?.centroid?.[0] || mapLat],
         floorNumber: selectedFloor,
-        zAltitude: zMid * SCALE_ELEVATION,
+        zAltitude,
       },
     ];
-  }, [selectedFloor, building?.units, firstUnit, mapLng, mapLat]);
+  }, [selectedFloor, building?.units, firstUnit, mapLng, mapLat, isCustomModel, customModelConfig, SCALE_ELEVATION]);
+
+  const googleTilesUrl = useMemo(() => getGoogle3DTilesUrl(), []);
 
   // ─────────────────────────────────────────────────────────────
   // LAYER STACK:
-  // 1. realWorld3DGroup: Google Photorealistic 3D Tiles or Re:Earth OSM 3D Tiles
-  // 2. cadastralULPINGroup: Independent Cadastral Boundary, Units & Floors
+  // Strictly enforce:
+  // A. visualBuildingLayers (EXACTLY ONE visual architectural provider)
+  // B. cadastralOverlayLayers (Footprint boundary, isolated floor slab, badges)
+  // C. undergroundLayers (Independent subsurface assets)
   // ─────────────────────────────────────────────────────────────
-  const googleTilesUrl = useMemo(() => getGoogle3DTilesUrl(), []);
-
   const layers = useMemo(() => {
-    const layerStack: any[] = [];
+    const visualBuildingLayers: any[] = [];
+    const cadastralOverlayLayers: any[] = [];
+    const undergroundLayers: any[] = [];
 
-    // ── 1. Real-World 3D Visual Group ──
-    if (customModelConfig) {
-      // Priority 1: High-detail Custom 3D Architectural Model via ScenegraphLayer
-      layerStack.push(
+    // ── A. Visual Building Architecture Layer (Exactly ONE active provider) ──
+    if (isCustomModel && customModelConfig) {
+      // Provider Priority 1: Custom GLB/GLTF Architectural Model via ScenegraphLayer
+      const deckScale = customModelConfig.deckTransform?.scale ?? customModelConfig.scale ?? 1.0;
+      const deckOrientation = customModelConfig.deckTransform?.orientation ?? [0, 0, 0];
+      const deckElevation =
+        (customModelConfig.deckTransform?.elevation ?? customModelConfig.elevation ?? 0) +
+        (customModelConfig.deckTransform?.groundOffset ?? customModelConfig.groundOffset ?? 0);
+
+      visualBuildingLayers.push(
         new ScenegraphLayer({
-          id: 'custom-building-scenegraph-model',
+          id: 'custom-architectural-model',
           data: [
             {
-              position: [
-                mapLng,
-                mapLat,
-                (customModelConfig.elevation || 0) + (customModelConfig.groundOffset || 0),
-              ],
+              position: [mapLng, mapLat, deckElevation],
             },
           ],
           scenegraph: customModelConfig.modelUrl,
           loaders: [GLTFLoader],
           getPosition: (d: any) => d.position,
-          getOrientation: [
-            customModelConfig.rotation?.[0] || 0,
-            customModelConfig.rotation?.[1] || 0,
-            customModelConfig.rotation?.[2] ?? 90,
-          ],
-          sizeScale: customModelConfig.scale || 1.0,
-          opacity: selectedFloor !== null ? 0.30 : 1.0,
+          getOrientation: deckOrientation,
+          sizeScale: deckScale,
+          opacity: selectedFloor !== null ? 0.35 : 1.0,
           pickable: true,
           _lighting: 'pbr',
         })
       );
     } else if (showContextBuildings) {
       if (useGoogle3D && googleTilesUrl && google3DStatus !== 'unavailable') {
-        // Priority 2: Google Photorealistic 3D Tiles
-        layerStack.push(
+        // Provider Priority 2: Google Photorealistic 3D Tiles
+        visualBuildingLayers.push(
           new Tile3DLayer({
             id: 'google-photorealistic-3d-tiles',
             data: googleTilesUrl,
@@ -522,8 +556,8 @@ export default function MapDeckGL({
           })
         );
       } else {
-        // Priority 3: Re:Earth / OSM Open 3D Tileset
-        layerStack.push(
+        // Provider Priority 3: Re:Earth / OSM Open 3D Tileset
+        visualBuildingLayers.push(
           new Tile3DLayer({
             id: 'reearth-osm-buildings',
             data: REEARTH.buildingsTileset,
@@ -538,125 +572,129 @@ export default function MapDeckGL({
       }
     }
 
-    // ── 2. Cadastral ULPIN Group (Separated overlay) ──
+    // ── B. Cadastral ULPIN Group (Separated overlay) ──
+    // 1. Flat ground parcel boundary (never extruded)
     if (footprintBaseGeoJSON) {
-      layerStack.push(
+      cadastralOverlayLayers.push(
         new GeoJsonLayer({
-          id: '3d-footprint-base-layer',
+          id: 'cadastral-parcel-boundary',
           data: footprintBaseGeoJSON as any,
           extruded: false,
-          getFillColor: isLightStyle ? [99, 102, 241, 50] : [124, 111, 224, 40],
-          getLineColor: isLightStyle ? [79, 70, 229, 255] : [124, 111, 224, 220],
-          getLineWidth: 3,
+          getFillColor: isLightStyle ? [99, 102, 241, 30] : [124, 111, 224, 25],
+          getLineColor: isLightStyle ? [79, 70, 229, 230] : [124, 111, 224, 200],
+          getLineWidth: 2.5,
           lineWidthUnits: 'pixels',
           pickable: false,
         })
       );
     }
 
-    layerStack.push(
-      new GeoJsonLayer({
-        id: '3d-ulpin-units-layer',
-        data: unitsGeoJSON as any,
-        extruded: true,
-        wireframe: true,
-        getElevation: (f: any) => f.properties.floorSliceHeight,
-        getFillColor: (f: any) => {
-          const p = f.properties;
-          if (selectedFloor !== null && !p.isFloorIsolated) {
-            return isLightStyle ? [203, 213, 225, 45] : [30, 41, 59, 40];
-          }
-          if (p.isSelected) return [56, 189, 248, 245];
-          if (p.isFloorIsolated) return [124, 111, 224, 240];
-          if (p.isHovered) return [56, 189, 248, 225];
-          const palette = isLightStyle ? ARCHITECTURAL_FLOOR_COLORS_LIGHT : ARCHITECTURAL_FLOOR_COLORS_DARK;
-          const rgb = palette[(p.floor_number - 1) % palette.length];
-          return [...rgb, isLightStyle ? 190 : 165];
-        },
-        getLineColor: (f: any) => {
-          const p = f.properties;
-          if (p.isSelected || p.isFloorIsolated) return [255, 255, 255, 255];
-          if (p.isHovered) return [255, 255, 255, 240];
-          if (selectedFloor !== null && !p.isFloorIsolated) {
-            return isLightStyle ? [148, 163, 184, 60] : [71, 85, 105, 50];
-          }
-          return isLightStyle ? [15, 23, 42, 220] : [148, 163, 184, 160];
-        },
-        getLineWidth: (f: any) => {
-          const p = f.properties;
-          if (p.isSelected || p.isFloorIsolated) return 3.5;
-          if (p.isHovered) return 2.5;
-          return isLightStyle ? 1.8 : 1.2;
-        },
-        lineWidthUnits: 'pixels',
-        material: {
-          ambient: isLightStyle ? 0.7 : 0.55,
-          diffuse: isLightStyle ? 0.75 : 0.65,
-          shininess: isLightStyle ? 45 : 28,
-        },
-        pickable: true,
-        autoHighlight: true,
-        highlightColor: isLightStyle ? [59, 130, 246, 70] : [255, 255, 255, 60],
-        onClick: (info) => {
-          if (info.object?.properties) {
-            onUnitClick(info.object.properties as Unit);
-          }
-        },
-        onHover: (info) => {
-          if (info.object?.properties?.unit_id) {
-            setHoveredUnitId(info.object.properties.unit_id);
-            setHoveredUnitInfo({ unit: info.object.properties as Unit, x: info.x, y: info.y });
-          } else {
-            setHoveredUnitId(null);
-            setHoveredUnitInfo(null);
-          }
-        },
-        updateTriggers: {
-          getFillColor: [selectedUnit, hoveredUnitId, selectedFloor, selectedStyleUrl],
-          getLineColor: [selectedUnit, hoveredUnitId, selectedFloor, selectedStyleUrl],
-          getLineWidth: [selectedUnit, hoveredUnitId, selectedFloor, selectedStyleUrl],
-        },
-      })
-    );
+    // 2. Units / Isolated floor overlay
+    if (unitsGeoJSON.features.length > 0) {
+      cadastralOverlayLayers.push(
+        new GeoJsonLayer({
+          id: 'cadastral-units-layer',
+          data: unitsGeoJSON as any,
+          extruded: true,
+          wireframe: true,
+          getElevation: (f: any) => f.properties.floorSliceHeight,
+          getFillColor: (f: any) => {
+            const p = f.properties;
+            if (p.isSelected) return [56, 189, 248, 245];
+            if (p.isFloorIsolated) return [124, 111, 224, 240];
+            if (p.isHovered) return [56, 189, 248, 225];
+            if (selectedFloor !== null && !p.isFloorIsolated) {
+              return isLightStyle ? [203, 213, 225, 40] : [30, 41, 59, 35];
+            }
+            const palette = isLightStyle ? ARCHITECTURAL_FLOOR_COLORS_LIGHT : ARCHITECTURAL_FLOOR_COLORS_DARK;
+            const rgb = palette[(p.floor_number - 1) % palette.length];
+            return [...rgb, isLightStyle ? 190 : 165];
+          },
+          getLineColor: (f: any) => {
+            const p = f.properties;
+            if (p.isSelected || p.isFloorIsolated) return [255, 255, 255, 255];
+            if (p.isHovered) return [255, 255, 255, 240];
+            if (selectedFloor !== null && !p.isFloorIsolated) {
+              return isLightStyle ? [148, 163, 184, 50] : [71, 85, 105, 45];
+            }
+            return isLightStyle ? [15, 23, 42, 220] : [148, 163, 184, 160];
+          },
+          getLineWidth: (f: any) => {
+            const p = f.properties;
+            if (p.isSelected || p.isFloorIsolated) return 3.5;
+            if (p.isHovered) return 2.5;
+            return isLightStyle ? 1.8 : 1.2;
+          },
+          lineWidthUnits: 'pixels',
+          material: {
+            ambient: isLightStyle ? 0.7 : 0.55,
+            diffuse: isLightStyle ? 0.75 : 0.65,
+            shininess: isLightStyle ? 45 : 28,
+          },
+          pickable: true,
+          autoHighlight: true,
+          highlightColor: isLightStyle ? [59, 130, 246, 70] : [255, 255, 255, 60],
+          onClick: (info) => {
+            if (info.object?.properties) {
+              onUnitClick(info.object.properties as Unit);
+            }
+          },
+          onHover: (info) => {
+            if (info.object?.properties?.unit_id) {
+              setHoveredUnitId(info.object.properties.unit_id);
+              setHoveredUnitInfo({ unit: info.object.properties as Unit, x: info.x, y: info.y });
+            } else {
+              setHoveredUnitId(null);
+              setHoveredUnitInfo(null);
+            }
+          },
+          updateTriggers: {
+            getFillColor: [selectedUnit, hoveredUnitId, selectedFloor, selectedStyleUrl],
+            getLineColor: [selectedUnit, hoveredUnitId, selectedFloor, selectedStyleUrl],
+            getLineWidth: [selectedUnit, hoveredUnitId, selectedFloor, selectedStyleUrl],
+          },
+        })
+      );
+    }
 
-    layerStack.push(
-      new TextLayer({
-        id: '3d-floor-labels-layer',
-        data: floorLabelsData,
-        getPosition: (d: any) => [d.coordinates[0], d.coordinates[1], d.zAltitude],
-        getText: (d: any) => d.text,
-        getSize: (d: any) => (selectedFloor === d.floorNumber ? 15 : 12),
-        getColor: (d: any) => {
-          if (selectedFloor === d.floorNumber) return [255, 255, 255, 255];
-          return isLightStyle ? [15, 23, 42, 230] : [203, 213, 225, 220];
-        },
-        getAngle: 0,
-        getTextAnchor: 'middle',
-        getAlignmentBaseline: 'center',
-        fontFamily: 'Inter, sans-serif',
-        fontWeight: 'bold',
-        background: true,
-        getBackgroundColor: (d: any) => {
-          if (selectedFloor === d.floorNumber) return [124, 111, 224, 240];
-          return isLightStyle ? [255, 255, 255, 240] : [15, 23, 42, 210];
-        },
-        backgroundPadding: [7, 4],
-        updateTriggers: {
-          getColor: [selectedFloor, selectedStyleUrl],
-          getBackgroundColor: [selectedFloor, selectedStyleUrl],
-          getPosition: [selectedFloor],
-        },
-      })
-    );
+    // 3. Isolated floor text label
+    if (floorLabelsData.length > 0) {
+      cadastralOverlayLayers.push(
+        new TextLayer({
+          id: 'cadastral-floor-labels-layer',
+          data: floorLabelsData,
+          getPosition: (d: any) => [d.coordinates[0], d.coordinates[1], d.zAltitude],
+          getText: (d: any) => d.text,
+          getSize: 14,
+          getColor: [255, 255, 255, 255],
+          getAngle: 0,
+          getTextAnchor: 'middle',
+          getAlignmentBaseline: 'center',
+          fontFamily: 'Inter, sans-serif',
+          fontWeight: 'bold',
+          background: true,
+          getBackgroundColor: [124, 111, 224, 240],
+          backgroundPadding: [8, 4],
+          updateTriggers: {
+            getPosition: [selectedFloor],
+          },
+        })
+      );
+    }
 
-    layerStack.push(
+    // 4. Apex badge label (calibrated to model height)
+    const effectiveHeight = isCustomModel
+      ? (customModelConfig?.calibratedHeightM || buildingHeight)
+      : buildingHeight * SCALE_ELEVATION;
+
+    cadastralOverlayLayers.push(
       new TextLayer({
-        id: '3d-building-apex-badge-layer',
+        id: 'cadastral-apex-badge-layer',
         data: [
           {
-            text: `${building?.building_name || 'Structure'}\n${floorInfo.countText} · ${buildingHeight.toFixed(1)}m · ${building.assessment?.spatial_validation_status || 'Validated'}`,
+            text: `${building?.building_name || 'Structure'}\n${floorInfo.countText} · ${(customModelConfig?.calibratedHeightM || buildingHeight).toFixed(1)}m · ${building.assessment?.spatial_validation_status || 'Validated'}`,
             coordinates: [mapLng, mapLat],
-            zAltitude: (buildingHeight + 3.5) * SCALE_ELEVATION,
+            zAltitude: effectiveHeight + 3.0,
           },
         ],
         getPosition: (d: any) => [d.coordinates[0], d.coordinates[1], d.zAltitude],
@@ -677,10 +715,10 @@ export default function MapDeckGL({
       })
     );
 
-    // ── Underground layers ──
+    // ── C. Underground Infrastructure Layers ──
     if (showUnderground) {
       if (undergroundUnitsGeoJSON) {
-        layerStack.push(
+        undergroundLayers.push(
           new GeoJsonLayer({
             id: 'underground-basement-layer',
             data: undergroundUnitsGeoJSON as any,
@@ -707,7 +745,7 @@ export default function MapDeckGL({
       }
 
       if (undergroundPathsData.length > 0) {
-        layerStack.push(
+        undergroundLayers.push(
           new PathLayer({
             id: 'underground-pipes-tubes-layer',
             data: undergroundPathsData,
@@ -728,7 +766,7 @@ export default function MapDeckGL({
       }
 
       if (undergroundPipesData.length > 0) {
-        layerStack.push(
+        undergroundLayers.push(
           new ColumnLayer({
             id: 'underground-pipes-cylinder-layer',
             data: undergroundPipesData,
@@ -762,7 +800,7 @@ export default function MapDeckGL({
       }
 
       if (undergroundLabelsData.length > 0) {
-        layerStack.push(
+        undergroundLayers.push(
           new TextLayer({
             id: 'underground-labels-layer',
             data: undergroundLabelsData,
@@ -799,8 +837,10 @@ export default function MapDeckGL({
       }
     }
 
-    return layerStack;
+    return [...visualBuildingLayers, ...cadastralOverlayLayers, ...undergroundLayers];
   }, [
+    isCustomModel,
+    customModelConfig,
     showContextBuildings,
     useGoogle3D,
     googleTilesUrl,
@@ -820,6 +860,12 @@ export default function MapDeckGL({
     onUnitClick,
     showUnderground,
     setSelectedUnderground,
+    mapLat,
+    mapLng,
+    buildingHeight,
+    floorInfo.countText,
+    building?.building_name,
+    building?.assessment?.spatial_validation_status,
   ]);
 
   return (
@@ -872,6 +918,15 @@ export default function MapDeckGL({
           style={{ color: showUnderground ? '#a78bfa' : undefined }}
         >
           <ArrowDownToLine size={17} />
+        </button>
+        <button
+          type="button"
+          className={`map-control-btn ${showDebugTelemetry ? 'active' : ''}`}
+          onClick={() => setShowDebugTelemetry((v) => !v)}
+          title="Toggle Pipeline Diagnostics HUD"
+          style={{ color: showDebugTelemetry ? '#38bdf8' : undefined }}
+        >
+          <Info size={16} />
         </button>
         {onToggleLeft && (
           <button
@@ -931,16 +986,49 @@ export default function MapDeckGL({
               {building?.building_name || building?.address || 'Cadastral Parcel'}
             </span>
             <span className="text-[0.62rem] font-semibold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-              Source: {geometryResult.provider}
+              Source: {isCustomModel ? 'CUSTOM_GLTF' : geometryResult.provider}
             </span>
           </div>
           <span className="location-coords-sub">
             {selectedFloor !== null
               ? `Isolated Floor ${selectedFloor} Active`
-              : `${floorInfo.countText} · ${buildingHeight.toFixed(1)}m · ${floorInfo.sourceText}`}
+              : `${floorInfo.countText} · ${(customModelConfig?.calibratedHeightM || buildingHeight).toFixed(1)}m · ${floorInfo.sourceText}`}
           </span>
         </div>
       </div>
+
+      {/* Diagnostics / Telemetry HUD */}
+      {showDebugTelemetry && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 70,
+            left: 14,
+            zIndex: 90,
+            background: 'rgba(10, 15, 30, 0.92)',
+            border: '1px solid rgba(56, 189, 248, 0.4)',
+            borderRadius: 8,
+            padding: '10px 14px',
+            color: '#e2e8f0',
+            fontFamily: 'monospace',
+            fontSize: 11,
+            lineHeight: 1.5,
+            backdropFilter: 'blur(8px)',
+            minWidth: 230,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+          }}
+        >
+          <div style={{ fontWeight: 700, color: '#38bdf8', marginBottom: 6, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 4 }}>
+            ⚡ DECK.GL PIPELINE TELEMETRY
+          </div>
+          <div>Visual Provider: <strong style={{ color: '#a5b4fc' }}>{isCustomModel ? 'CUSTOM_GLTF' : geometryResult.provider}</strong></div>
+          <div>Visual Building Layers: <strong style={{ color: '#10b981' }}>1</strong></div>
+          <div>Fallback Geometry Active: <strong style={{ color: isCustomModel ? '#ef4444' : '#10b981' }}>{isCustomModel ? 'NO' : geometryResult.fallbackUsed ? 'YES' : 'NO'}</strong></div>
+          <div>Scenegraph Loaded: <strong style={{ color: isCustomModel ? '#10b981' : '#64748b' }}>{isCustomModel ? 'YES' : 'N/A'}</strong></div>
+          <div>Cadastral Overlay Active: <strong style={{ color: '#38bdf8' }}>{selectedFloor !== null ? `YES (Floor ${selectedFloor})` : 'MINIMAL (Boundary)'}</strong></div>
+          <div>Underground Layer Active: <strong style={{ color: showUnderground ? '#a78bfa' : '#64748b' }}>{showUnderground ? 'YES' : 'NO'}</strong></div>
+        </div>
+      )}
 
       {/* Hover Tooltip */}
       {hoveredUnitInfo && (
