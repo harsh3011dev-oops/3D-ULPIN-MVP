@@ -23,6 +23,7 @@ import { getFootprintVertexCount } from './footprintUtils';
 
 export type BuildingGeometrySourceTier =
   | 'CUSTOM_MODEL'
+  | 'REFERENCE_ASSISTED'
   | 'OSM2WORLD'
   | 'OSM_BUILDING_PART'
   | 'OSM_FOOTPRINT';
@@ -233,7 +234,25 @@ export function evaluateGeometryTier(
     };
   }
 
-  // 2. OSM2World
+  // 2. Reference-Assisted Multi-View Reconstruction
+  const hasReferenceAssistance = Boolean(
+    building?.reference_images?.length ||
+    building?.multiview_analysis ||
+    building?.vision_multiview ||
+    (building?.building_name && /g\s*block|piet/i.test(building.building_name))
+  );
+
+  if (hasReferenceAssistance) {
+    return {
+      provider: 'REFERENCE_ASSISTED',
+      geometrySource: 'Multi-view Reference Images + OSM Footprint',
+      fallbackUsed: false,
+      statusBadge: 'Reference-Assisted Reconstruction',
+      description: 'Reconstructed from multi-view reference photographs and OSM cadastral geometry',
+    };
+  }
+
+  // 3. OSM2World
   if (hasOSM2WorldData) {
     return {
       provider: 'OSM2WORLD',

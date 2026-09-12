@@ -50,6 +50,9 @@ async def auto_detect_building(payload: AutoDetectRequest):
         "india gate": {"latitude": 28.6129, "longitude": 77.2295, "height_meters": 42.0, "floor_count": 1, "address": "New Delhi, India"},
         "eiffel tower": {"latitude": 48.8584, "longitude": 2.2945, "height_meters": 330.0, "floor_count": 3, "address": "Champ de Mars, Paris, France"},
         "empire state": {"latitude": 40.7484, "longitude": -73.9856, "height_meters": 443.0, "floor_count": 102, "address": "350 Fifth Ave, New York, USA"},
+        "piet g block": {"latitude": 29.2182, "longitude": 77.0142, "height_meters": 15.5, "floor_count": 4, "address": "PIET Campus G Block, Samalkha, Panipat, Haryana 132102, India"},
+        "piet": {"latitude": 29.2182, "longitude": 77.0142, "height_meters": 15.5, "floor_count": 4, "address": "PIET Campus G Block, Samalkha, Panipat, Haryana 132102, India"},
+        "g block": {"latitude": 29.2182, "longitude": 77.0142, "height_meters": 15.5, "floor_count": 4, "address": "PIET Campus G Block, Samalkha, Panipat, Haryana 132102, India"},
     }
 
     # Match against known landmarks

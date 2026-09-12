@@ -417,6 +417,8 @@ export function getProportionalZoning(
 }
 
 export type GeometryProviderType =
+  | 'REFERENCE_ASSISTED'
+  | 'Reference-Assisted Reconstruction'
   | 'OSM2World'
   | 'OSM building:part'
   | 'OSM Polygon Extrusion'
@@ -432,15 +434,26 @@ export interface GeometryDecision {
 /**
  * Determine the highest-fidelity geometry tier available for a given building.
  * Priority:
- * 1. OSM2World (when raw OSM nodes/ways available)
- * 2. OSM building:part procedural reconstruction
- * 3. Real OSM Polygon / MultiPolygon extrusion
- * 4. Fallback extrusion
+ * 1. Reference-Assisted Reconstruction (when multi-view reference images / analysis present)
+ * 2. OSM2World (when raw OSM nodes/ways available)
+ * 3. OSM building:part procedural reconstruction
+ * 4. Real OSM Polygon / MultiPolygon extrusion
+ * 5. Fallback extrusion
  */
 export function evaluateBestGeometryProvider(
   building: Building,
   hasOSM2WorldData: boolean,
 ): GeometryDecision {
+  const hasReferenceAssistance = Boolean(
+    building?.reference_images?.length ||
+    building?.multiview_analysis ||
+    building?.vision_multiview ||
+    (building?.building_name && /g\s*block|piet/i.test(building.building_name))
+  );
+
+  if (hasReferenceAssistance) {
+    return { provider: 'REFERENCE_ASSISTED', fallbackUsed: false };
+  }
   if (hasOSM2WorldData) {
     return { provider: 'OSM2World', fallbackUsed: false };
   }

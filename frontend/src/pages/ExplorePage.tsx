@@ -35,6 +35,7 @@ type EntryMode = 'select' | 'search' | 'manual';
 
 // Fallback presets — clicking triggers a live AI search, no coords hardcoded
 const PRESET_LANDMARKS = [
+  { name: 'PIET G Block', city: 'Panipat' },
   { name: 'Ayodhya Ram Mandir', city: 'Ayodhya' },
   { name: 'Burj Khalifa', city: 'Dubai' },
   { name: 'Willis Tower', city: 'Chicago' },

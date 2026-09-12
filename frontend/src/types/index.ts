@@ -135,6 +135,52 @@ export interface AssessmentInfo {
   basement_source?: string;
 }
 
+export interface MultiViewAnalysisResult {
+  massLayout: {
+    shape: string;
+    confidence: number;
+    aspectRatioApprox?: number;
+  };
+  floors: {
+    value: number;
+    source: string;
+    estimated: boolean;
+    confidence: number;
+  };
+  facadeModules: {
+    repeatingBays: boolean;
+    bayCountApprox: number;
+    windowRows: number;
+    confidence: number;
+  };
+  sideTower: {
+    present: boolean;
+    relativePosition: string;
+    relativeHeight: number;
+    widthRatio: number;
+    confidence: number;
+  };
+  horizontalBands: {
+    present: boolean;
+    levels: number[];
+  };
+  groundFloor: {
+    glazing: boolean;
+    entranceZones: string[];
+  };
+  roof: {
+    shape: string;
+    raisedElements: string[];
+    possibleSolarPanels: boolean;
+  };
+  provenance?: {
+    source: string;
+    imageCount?: number;
+    analyzedAt?: string;
+    cached?: boolean;
+  };
+}
+
 export interface Building {
   status?: string;
   building_id: string;
@@ -173,6 +219,9 @@ export interface Building {
   osm_id?: string;
   raw_osm_data?: any;
   gemini_vision_data?: any;
+  reference_images?: string[];
+  multiview_analysis?: MultiViewAnalysisResult;
+  vision_multiview?: boolean;
 }
 
 export interface AutoDetectBuildingPayload {
