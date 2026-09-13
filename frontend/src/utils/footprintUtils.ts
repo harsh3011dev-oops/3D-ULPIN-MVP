@@ -92,27 +92,35 @@ export function footprintToShape(
   const centerLat = originLat !== undefined ? originLat : extRing.map((p) => p[1]).reduce((a, b) => a + b, 0) / extRing.length;
   const mLng = metersPerDegLng(centerLat);
 
-  const shape = new THREE.Shape();
-  extRing.forEach((pt, i) => {
+  const pts: THREE.Vector2[] = [];
+  extRing.forEach((pt) => {
     const x = (pt[0] - centerLng) * mLng;
     const y = -(pt[1] - centerLat) * METERS_PER_DEG_LAT;
-    if (i === 0) shape.moveTo(x, y);
-    else shape.lineTo(x, y);
+    pts.push(new THREE.Vector2(x, y));
   });
+
+  // Outer ring should be counter-clockwise
+  if (THREE.ShapeUtils.isClockWise(pts)) {
+    pts.reverse();
+  }
+  const shape = new THREE.Shape(pts);
 
   // Parse inner courtyard / atrium holes
   if (polyCoords.length > 1) {
     for (let h = 1; h < polyCoords.length; h++) {
       const holeRing = polyCoords[h];
       if (holeRing.length >= 3) {
-        const holePath = new THREE.Path();
-        holeRing.forEach((pt, i) => {
+        const hPts: THREE.Vector2[] = [];
+        holeRing.forEach((pt) => {
           const x = (pt[0] - centerLng) * mLng;
           const y = -(pt[1] - centerLat) * METERS_PER_DEG_LAT;
-          if (i === 0) holePath.moveTo(x, y);
-          else holePath.lineTo(x, y);
+          hPts.push(new THREE.Vector2(x, y));
         });
-        shape.holes.push(holePath);
+        // Holes should be clockwise
+        if (!THREE.ShapeUtils.isClockWise(hPts)) {
+          hPts.reverse();
+        }
+        shape.holes.push(new THREE.Path(hPts));
       }
     }
   }
