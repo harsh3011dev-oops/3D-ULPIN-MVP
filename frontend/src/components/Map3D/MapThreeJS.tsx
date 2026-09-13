@@ -20,7 +20,6 @@ import {
   evaluateBestGeometryProvider,
   validateBuildingData,
   getPresentationClassification,
-  fitCameraToObject,
   PresentationClass,
   PresentationMetrics,
   ShapeMetrics,
@@ -579,17 +578,18 @@ function generatePlazaTexture() {
   return tex;
 }
 
-// Build surrounding context: Ground plaza, trees, lamp posts scaled proportionally to building footprint
+// Build surrounding context: Ground site plaza, trees, lamp posts
 function buildSurroundingContext(
   scene: THREE.Scene,
   dims: { width: number; depth: number },
-  buildingHeight: number
+  sceneExtent: number
 ) {
-  const groundWidth = Math.max(dims.width * 2.5, 40);
-  const groundDepth = Math.max(dims.depth * 2.5, 40);
+  // Ground extends broadly across the site (min 80m x 80m, extending with footprint and building height)
+  const groundWidth = Math.max(dims.width * 4.0, sceneExtent * 2.5, 80);
+  const groundDepth = Math.max(dims.depth * 4.0, sceneExtent * 2.5, 80);
 
   const plazaTex = generatePlazaTexture();
-  plazaTex.repeat.set(Math.max(1, Math.round(groundWidth / 25)), Math.max(1, Math.round(groundDepth / 25)));
+  plazaTex.repeat.set(Math.max(2, Math.round(groundWidth / 35)), Math.max(2, Math.round(groundDepth / 35)));
   const groundGeo = new THREE.PlaneGeometry(groundWidth, groundDepth);
   const groundMat = new THREE.MeshStandardMaterial({
     map: plazaTex,
@@ -603,43 +603,41 @@ function buildSurroundingContext(
   groundMesh.receiveShadow = true;
   scene.add(groundMesh);
 
-  // Scale surrounding trees and props relative to building height and footprint so small buildings aren't dwarfed
-  const propScale = Math.min(Math.max(buildingHeight / 25, 0.45), 1.25);
+  // Standard architectural site scale for surrounding trees and lamp posts
   const treeBarkMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.9 });
   const treeFoliageMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6, metalness: 0.1 });
   const lampPoleMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.2 });
   const lampGlowMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xfef08a, emissiveIntensity: 1.2 });
 
-  const marginX = (dims.width / 2) + Math.max(3, dims.width * 0.12);
-  const marginZ = (dims.depth / 2) + Math.max(3, dims.depth * 0.12);
+  const marginX = dims.width / 2 + 6;
+  const marginZ = dims.depth / 2 + 6;
   const treePositions = [
-    [-marginX - 3 * propScale, -marginZ],
-    [-marginX - 3 * propScale, 0],
-    [-marginX - 3 * propScale, marginZ],
-    [marginX + 3 * propScale, -marginZ],
-    [marginX + 3 * propScale, 0],
-    [marginX + 3 * propScale, marginZ],
-    [-marginX / 2, -marginZ - 4 * propScale],
-    [marginX / 2, -marginZ - 4 * propScale],
-    [-marginX / 2, marginZ + 4 * propScale],
-    [marginX / 2, marginZ + 4 * propScale],
+    [-marginX - 4, -marginZ],
+    [-marginX - 4, 0],
+    [-marginX - 4, marginZ],
+    [marginX + 4, -marginZ],
+    [marginX + 4, 0],
+    [marginX + 4, marginZ],
+    [-marginX / 2, -marginZ - 5],
+    [marginX / 2, -marginZ - 5],
+    [-marginX / 2, marginZ + 5],
+    [marginX / 2, marginZ + 5],
   ];
 
   treePositions.forEach(([x, z]) => {
     const treeGroup = new THREE.Group();
-    const trunkH = 3.5 * propScale;
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3 * propScale, 0.45 * propScale, trunkH, 8), treeBarkMat);
-    trunk.position.y = trunkH / 2;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.45, 3.5, 8), treeBarkMat);
+    trunk.position.y = 1.75;
     trunk.castShadow = true;
     treeGroup.add(trunk);
 
-    const f1 = new THREE.Mesh(new THREE.IcosahedronGeometry(2.0 * propScale, 1), treeFoliageMat);
-    f1.position.y = trunkH + 1.2 * propScale;
+    const f1 = new THREE.Mesh(new THREE.IcosahedronGeometry(2.0, 1), treeFoliageMat);
+    f1.position.y = 4.2;
     f1.castShadow = true;
     treeGroup.add(f1);
 
-    const f2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.4 * propScale, 1), treeFoliageMat);
-    f2.position.y = trunkH + 2.5 * propScale;
+    const f2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.4, 1), treeFoliageMat);
+    f2.position.set(0.3, 5.2, 0.2);
     f2.castShadow = true;
     treeGroup.add(f2);
 
@@ -648,22 +646,32 @@ function buildSurroundingContext(
   });
 
   const lampPositions = [
-    [-marginX - 1, -marginZ + 2],
-    [-marginX - 1, marginZ - 2],
-    [marginX + 1, -marginZ + 2],
-    [marginX + 1, marginZ - 2],
+    [-marginX - 2, -marginZ + 8],
+    [-marginX - 2, marginZ - 8],
+    [marginX + 2, -marginZ + 8],
+    [marginX + 2, marginZ - 8],
+    [0, -marginZ - 4],
+    [0, marginZ + 4],
   ];
 
   lampPositions.forEach(([x, z]) => {
     const lampGroup = new THREE.Group();
-    const poleH = 4.0 * propScale;
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08 * propScale, 0.12 * propScale, poleH, 8), lampPoleMat);
-    pole.position.y = poleH / 2;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 4.5, 8), lampPoleMat);
+    pole.position.y = 2.25;
+    pole.castShadow = true;
     lampGroup.add(pole);
 
-    const globe = new THREE.Mesh(new THREE.SphereGeometry(0.32 * propScale, 12, 12), lampGlowMat);
-    globe.position.y = poleH + 0.15 * propScale;
-    lampGroup.add(globe);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.3), lampPoleMat);
+    head.position.set(0, 4.5, 0);
+    lampGroup.add(head);
+
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), lampGlowMat);
+    bulb.position.set(0, 4.35, 0);
+    lampGroup.add(bulb);
+
+    const light = new THREE.PointLight(0xfef08a, 0.8, 12);
+    light.position.set(0, 4.35, 0);
+    lampGroup.add(light);
 
     lampGroup.position.set(x, 0, z);
     scene.add(lampGroup);
@@ -1719,13 +1727,13 @@ export default function MapThreeJS({
     const height = mountRef.current.clientHeight || 520;
 
     const maxDim = Math.max(dims.width, dims.depth, 10);
-    const sceneExtent = presentationMetrics.threeJSGroundExtent;
+    const sceneExtent = Math.max(maxDim * 4, buildingHeight * 0.8, 80);
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
     // Atmospheric Sky Dome Background
-    const skyDomeGeo = new THREE.SphereGeometry(sceneExtent * 4, 32, 32);
+    const skyDomeGeo = new THREE.SphereGeometry(Math.max(sceneExtent * 5, 600), 32, 32);
     const skyDomeMat = new THREE.MeshBasicMaterial({
       color: 0x080e1a,
       side: THREE.BackSide,
@@ -1734,8 +1742,9 @@ export default function MapThreeJS({
     scene.add(skyDome);
 
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.5, 100000);
-    const [initPosX, initPosY, initPosZ] = presentationMetrics.threeJSCameraPosition;
-    camera.position.set(initPosX, initPosY, initPosZ);
+    const heightFactor = buildingHeight > 500 ? 1.6 : buildingHeight > 250 ? 1.4 : 1.1;
+    const targetCamDist = Math.max(maxDim * 2.2, buildingHeight * heightFactor, 45);
+    camera.position.set(targetCamDist * 0.9, buildingHeight * 0.55 + maxDim * 0.25, targetCamDist * 0.9);
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -1744,21 +1753,22 @@ export default function MapThreeJS({
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.35;
+    renderer.toneMappingExposure = 1.25;
 
     mountRef.current.innerHTML = '';
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    const targetY = presentationMetrics.threeJSLookAtY;
+    const targetY = buildingHeight * 0.45;
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
+    controls.dampingFactor = 0.08;
     controls.target.set(0, targetY, 0);
     controls.maxPolarAngle = Math.PI / 2 - 0.02;
-    controls.minDistance = Math.max(3, maxDim * 0.1);
+    controls.minDistance = Math.max(4, maxDim * 0.3);
     controls.maxDistance = Math.max(25000, buildingHeight * 15);
     controlsRef.current = controls;
+    camera.lookAt(0, targetY, 0);
 
     // Lighting Setup
     const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x334155, 1.8);
@@ -1791,8 +1801,8 @@ export default function MapThreeJS({
     rimLight.position.set(-maxDim * 1.5, buildingHeight * 0.8, -maxDim * 1.5);
     scene.add(rimLight);
 
-    // Surrounding Plaza & Landscaping (Proportionally scaled to building footprint)
-    buildSurroundingContext(scene, dims, buildingHeight);
+    // Surrounding Site Plaza & Landscaping (Broader ground area for proper site context)
+    buildSurroundingContext(scene, dims, sceneExtent);
 
     // ─────────────────────────────────────────────────────────────
     // UNDERGROUND VISUALIZATION & 3D UTILITY PIPELINES
@@ -2058,12 +2068,21 @@ export default function MapThreeJS({
         }
       }
 
-      // Dynamic adaptive camera auto-framing (~55-75% viewport fill without scaling metric model)
-      fitCameraToObject(camera, controls, visualBuildingGroup, {
-        padding: 1.15,
-        isLowRise: presentationMetrics.isLowRise,
-        elevationAngleDeg: presentationMetrics.threeJSCameraElevationDeg,
-      });
+      // Dynamic camera auto-framing according to actual rendered metric dimensions
+      const maxDim = Math.max(size.x, size.y, size.z, 15);
+      const heightRatio = size.y / Math.max(size.x, size.z, 1);
+      const targetDist = Math.max(maxDim * (heightRatio > 2.0 ? 1.35 : 1.55), size.y * 1.15, 45);
+
+      camera.position.set(
+        center.x + targetDist * 0.85,
+        center.y + size.y * 0.15,
+        center.z + targetDist * 0.85
+      );
+      camera.lookAt(center.x, center.y * 0.9, center.z);
+      controls.target.set(center.x, center.y * 0.9, center.z);
+      controls.minDistance = Math.max(2, maxDim * 0.08);
+      controls.maxDistance = Math.max(35000, maxDim * 15);
+      controls.update();
 
       const isAiAssisted = isReferenceAssisted || Boolean(inferredAiData && inferredAiData.confidence >= 0.50);
 
@@ -2206,17 +2225,20 @@ export default function MapThreeJS({
           // Register original materials and apply active material mode (Unified Cadastral default)
           registerAndApplyMaterials(visualBuildingGroup, materialModeRef.current, wireframeMode);
 
-          // Auto-frame camera and OrbitControls using adaptive object bounding box
-          fitCameraToObject(camera, controls, visualBuildingGroup, {
-            padding: 1.15,
-            isLowRise: presentationMetrics.isLowRise,
-            elevationAngleDeg: presentationMetrics.threeJSCameraElevationDeg,
-          });
+          // Auto-frame camera and OrbitControls using the loaded model bounding box
+          const bBox = customResult.boundingBox;
+          const center = customResult.center;
+          const size = customResult.dimensions;
+          const maxDim = Math.max(size.width, size.depth, size.height, 15);
+          const targetDist = Math.max(maxDim * 1.35, 40);
 
-          const modelBox = new THREE.Box3().setFromObject(visualBuildingGroup);
-          const modelSize = new THREE.Vector3();
-          modelBox.getSize(modelSize);
-          const visualH = modelSize.y || customModelConfig.calibratedHeightM || buildingHeight;
+          camera.position.set(targetDist * 0.9, center.y + maxDim * 0.35, targetDist * 0.9);
+          controls.target.set(center.x, center.y * 0.8, center.z);
+          controls.minDistance = Math.max(2, maxDim * 0.15);
+          controls.maxDistance = Math.max(1500, maxDim * 12);
+          controls.update();
+
+          const visualH = size.height || customModelConfig.calibratedHeightM || buildingHeight;
 
           setTelemetry({
             provider: 'CUSTOM_MODEL',
@@ -2381,13 +2403,15 @@ export default function MapThreeJS({
             });
 
             const o2wBBox = new THREE.Box3().setFromObject(visualBuildingGroup);
-
-            // Dynamic adaptive camera auto-framing for OSM2World geometry
-            fitCameraToObject(camera, controls, visualBuildingGroup, {
-              padding: 1.15,
-              isLowRise: presentationMetrics.isLowRise,
-              elevationAngleDeg: presentationMetrics.threeJSCameraElevationDeg,
-            });
+            const o2wCenter = new THREE.Vector3();
+            const o2wSize = new THREE.Vector3();
+            o2wBBox.getCenter(o2wCenter);
+            o2wBBox.getSize(o2wSize);
+            const o2wMaxDim = Math.max(o2wSize.x, o2wSize.y, o2wSize.z, 15);
+            const o2wTargetDist = Math.max(o2wMaxDim * 1.4, 45);
+            camera.position.set(o2wCenter.x + o2wTargetDist * 0.85, o2wCenter.y + o2wSize.y * 0.25, o2wCenter.z + o2wTargetDist * 0.85);
+            controls.target.set(o2wCenter.x, o2wCenter.y * 0.9, o2wCenter.z);
+            controls.update();
 
             setTelemetry({
               provider: 'OSM2WORLD',
