@@ -3200,17 +3200,6 @@ export default function MapThreeJS({
           </div>
         </div>
       )}
-
-      {/* Geometry Source Status Pill */}
-      <div className="absolute bottom-3 left-4 z-10 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur border border-indigo-500/30 px-3.5 py-1.5 rounded-full text-xs text-gray-300 shadow-xl">
-        <span className={`w-2 h-2 rounded-full ${telemetry.provider === 'CUSTOM_MODEL' || telemetry.provider === 'OSM2WORLD' ? 'bg-emerald-400' : 'bg-indigo-400'} animate-pulse`} />
-        <span className="font-semibold text-indigo-300">
-          Provider: {telemetry.provider === 'CUSTOM_MODEL' ? 'Custom GLB/GLTF' : telemetry.provider}
-        </span>
-        <span className="text-slate-400 text-[11px]">
-          · {telemetry.geometrySource} · {materialMode === 'UNIFIED' ? 'Unified Cadastral' : 'Source Materials'} · Meshes: {telemetry.generatedMeshCount} {telemetry.statusBadge ? `· ${telemetry.statusBadge}` : ''}
-        </span>
-      </div>
     </div>
   );
 }
