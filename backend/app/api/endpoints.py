@@ -26,6 +26,7 @@ class AutoDetectResponse(BaseModel):
     longitude: Optional[float]
     height_meters: Optional[float]
     floor_count: Optional[int]
+    floors: Optional[int]          # alias for floor_count so frontend gets both
     address: Optional[str]
     building_name: Optional[str]
     confidence: float
@@ -50,19 +51,41 @@ async def auto_detect_building(payload: AutoDetectRequest):
         "india gate": {"latitude": 28.6129, "longitude": 77.2295, "height_meters": 42.0, "floor_count": 1, "address": "New Delhi, India"},
         "eiffel tower": {"latitude": 48.8584, "longitude": 2.2945, "height_meters": 330.0, "floor_count": 3, "address": "Champ de Mars, Paris, France"},
         "empire state": {"latitude": 40.7484, "longitude": -73.9856, "height_meters": 443.0, "floor_count": 102, "address": "350 Fifth Ave, New York, USA"},
+        # ── Indian Landmarks ──
+        "rashtrapati bhavan": {"latitude": 28.6143, "longitude": 77.1997, "height_meters": 55.0, "floor_count": 3, "address": "President's Estate, New Delhi, India"},
+        "rashtrapati bhawan": {"latitude": 28.6143, "longitude": 77.1997, "height_meters": 55.0, "floor_count": 3, "address": "President's Estate, New Delhi, India"},
+        "parliament house": {"latitude": 28.6172, "longitude": 77.2088, "height_meters": 31.0, "floor_count": 3, "address": "Sansad Marg, New Delhi, India"},
+        "qutub minar": {"latitude": 28.5245, "longitude": 77.1855, "height_meters": 72.5, "floor_count": 5, "address": "Mehrauli, New Delhi, India"},
+        "qutb minar": {"latitude": 28.5245, "longitude": 77.1855, "height_meters": 72.5, "floor_count": 5, "address": "Mehrauli, New Delhi, India"},
+        "red fort": {"latitude": 28.6562, "longitude": 77.2410, "height_meters": 33.0, "floor_count": 2, "address": "Netaji Subhash Marg, Chandni Chowk, New Delhi, India"},
+        "lal qila": {"latitude": 28.6562, "longitude": 77.2410, "height_meters": 33.0, "floor_count": 2, "address": "Netaji Subhash Marg, Chandni Chowk, New Delhi, India"},
+        "lotus temple": {"latitude": 28.5535, "longitude": 77.2588, "height_meters": 34.0, "floor_count": 1, "address": "Bahapur, New Delhi, India"},
+        "akshardham": {"latitude": 28.6127, "longitude": 77.2773, "height_meters": 43.0, "floor_count": 3, "address": "Noida Mor, New Delhi, India"},
+        "humayun tomb": {"latitude": 28.5933, "longitude": 77.2507, "height_meters": 47.0, "floor_count": 3, "address": "Mathura Road, Nizamuddin East, New Delhi, India"},
+        "humayun's tomb": {"latitude": 28.5933, "longitude": 77.2507, "height_meters": 47.0, "floor_count": 3, "address": "Mathura Road, Nizamuddin East, New Delhi, India"},
+        "gateway of india": {"latitude": 18.9220, "longitude": 72.8347, "height_meters": 26.0, "floor_count": 1, "address": "Apollo Bandar, Colaba, Mumbai, Maharashtra, India"},
+        "victoria memorial": {"latitude": 22.5448, "longitude": 88.3426, "height_meters": 56.0, "floor_count": 3, "address": "Victoria Memorial Hall, Kolkata, West Bengal, India"},
+        "mysore palace": {"latitude": 12.3052, "longitude": 76.6552, "height_meters": 45.0, "floor_count": 3, "address": "Sayyaji Rao Rd, Agrahara, Chamrajpura, Mysuru, Karnataka, India"},
         "piet g block": {"latitude": 29.2182, "longitude": 77.0142, "height_meters": 15.5, "floor_count": 4, "address": "PIET Campus G Block, Samalkha, Panipat, Haryana 132102, India"},
         "piet": {"latitude": 29.2182, "longitude": 77.0142, "height_meters": 15.5, "floor_count": 4, "address": "PIET Campus G Block, Samalkha, Panipat, Haryana 132102, India"},
         "g block": {"latitude": 29.2182, "longitude": 77.0142, "height_meters": 15.5, "floor_count": 4, "address": "PIET Campus G Block, Samalkha, Panipat, Haryana 132102, India"},
+        # ── Global Iconic Towers ──
+        "one world trade": {"latitude": 40.7127, "longitude": -74.0134, "height_meters": 541.3, "floor_count": 104, "address": "285 Fulton St, New York, NY 10007, USA"},
+        "taipei 101": {"latitude": 25.0339, "longitude": 121.5645, "height_meters": 508.0, "floor_count": 101, "address": "No. 7, Section 5, Xinyi Road, Xinyi District, Taipei City, Taiwan"},
+        "cn tower": {"latitude": 43.6426, "longitude": -79.3871, "height_meters": 553.3, "floor_count": 1, "address": "290 Bremner Blvd, Toronto, ON M5V 3L9, Canada"},
+        "big ben": {"latitude": 51.5007, "longitude": -0.1246, "height_meters": 96.0, "floor_count": 11, "address": "Westminster, London SW1A 0AA, UK"},
     }
 
-    # Match against known landmarks
+    # Match against known landmarks (case-insensitive substring match)
     for key, data in landmarks.items():
         if key in name:
+            fc = data["floor_count"]
             return AutoDetectResponse(
                 latitude=data["latitude"],
                 longitude=data["longitude"],
                 height_meters=data["height_meters"],
-                floor_count=data["floor_count"],
+                floor_count=fc,
+                floors=fc,
                 address=data["address"],
                 building_name=key.title(),
                 confidence=0.95,
@@ -76,6 +99,7 @@ async def auto_detect_building(payload: AutoDetectRequest):
             longitude=payload.longitude,
             height_meters=15.0,
             floor_count=3,
+            floors=3,
             address=payload.address or f"{payload.latitude:.4f}, {payload.longitude:.4f}",
             building_name=payload.building_name,
             confidence=0.60,
@@ -84,10 +108,11 @@ async def auto_detect_building(payload: AutoDetectRequest):
 
     # Fallback
     return AutoDetectResponse(
-        latitude=28.6139,
-        longitude=77.2090,
+        latitude=28.6143,
+        longitude=77.1997,
         height_meters=12.0,
         floor_count=3,
+        floors=3,
         address=payload.address or "New Delhi, India",
         building_name=payload.building_name,
         confidence=0.30,

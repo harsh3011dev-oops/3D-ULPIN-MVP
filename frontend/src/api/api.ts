@@ -15,7 +15,13 @@ const apiClient = axios.create({
  */
 export async function autoDetectBuilding(payload: AutoDetectBuildingPayload): Promise<AutoDetectBuildingResult> {
   const response = await apiClient.post('/buildings/auto-detect', payload);
-  return response.data;
+  const data = response.data;
+  // Normalize: backend may return floor_count; frontend type expects `floors`
+  return {
+    ...data,
+    floors: data.floors ?? data.floor_count ?? null,
+    height_meters: data.height_meters ?? null,
+  };
 }
 
 /**
