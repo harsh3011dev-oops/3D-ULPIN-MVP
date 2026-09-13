@@ -375,11 +375,12 @@
   }
   
   .three-material-toggle-group {
+    top: auto !important;
     bottom: 20px !important;
     left: 50% !important;
     transform: translateX(-50%) scale(0.85) !important;
     max-width: 90vw;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: center;
   }
 
