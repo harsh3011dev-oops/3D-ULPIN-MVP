@@ -2150,7 +2150,7 @@ export default function MapThreeJS({
         sourcePartCount: sourceParts,
         generatedMeshCount: genMeshes,
         aiAssisted: isAiAssisted,
-        aiConfidence: isAiAssisted ? inferredAiData.confidence : null,
+        aiConfidence: isAiAssisted ? inferredAiData?.confidence : null,
         modelVisible: true,
         modelPosition: visualBuildingGroup.position,
         modelScale: visualBuildingGroup.scale,
