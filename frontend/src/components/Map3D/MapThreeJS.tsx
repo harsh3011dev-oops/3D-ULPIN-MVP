@@ -2286,32 +2286,37 @@ export default function MapThreeJS({
 
       applyProceduralReconstruction(initialVisionInference);
 
-      // 2. Optional Gemini AI inference when key OSM metadata is missing
+      // 2. Gemini AI inference — always run for manual buildings (no osm_id / no footprint)
+      //    For OSM buildings run only when roof tag is missing
       const hasExplicitRoofTag = Boolean(building.roof?.shape);
       const hasExplicitParts = Boolean(building.building_parts && building.building_parts.length > 0);
+      const isManualBuilding = !building.osm_id && !building.footprint;
 
-      if (!hasExplicitRoofTag && !hasExplicitParts) {
+      if (!hasExplicitRoofTag || isManualBuilding) {
+        // Use synthesized footprint metrics if no real footprint
         const shapeMetrics = getShapeMetrics(building.footprint, centerLng, centerLat);
+        const estFloors = building.floor_count || Math.max(Math.round(buildingHeight / (floorHeight || 3.5)), 1);
+
         inferBuildingMetadata({
           osm_id: building.osm_id,
           building_name: building.building_name,
           osm_tags: building.raw_osm_data?.tags || {},
           footprint_metrics: {
-            area_sqm: shapeMetrics.areaSqm,
-            circularity: shapeMetrics.circularity,
-            aspect_ratio: shapeMetrics.aspectRatio,
-            vertex_count: shapeMetrics.vertexCount,
-            has_holes: shapeMetrics.hasHoles,
-            is_symmetric: shapeMetrics.isSymmetric,
+            area_sqm: shapeMetrics.areaSqm || estFloors * 200,
+            circularity: shapeMetrics.circularity || 0.8,
+            aspect_ratio: shapeMetrics.aspectRatio || 1.0,
+            vertex_count: shapeMetrics.vertexCount || 4,
+            has_holes: shapeMetrics.hasHoles || false,
+            is_symmetric: shapeMetrics.isSymmetric !== false,
           },
-          building_parts_count: building.building_parts?.length || 0,
+          building_parts_count: hasExplicitParts ? (building.building_parts?.length || 0) : 0,
           known_height: building.height_meters || building.height,
           known_levels: building.floor_count,
           known_roof_shape: building.roof?.shape,
           known_material: building.assessment?.building_material || building.building_material,
         })
           .then((inferredResult) => {
-            if (reqId === currentRequestIdRef.current && inferredResult && inferredResult.confidence >= 0.50) {
+            if (reqId === currentRequestIdRef.current && inferredResult && inferredResult.confidence >= 0.45) {
               applyProceduralReconstruction(inferredResult);
             }
           })
@@ -2323,10 +2328,12 @@ export default function MapThreeJS({
       // 3. Asynchronously fetch full Overpass data & convert with OSM2World
       // STRICT RULE: Provider Isolation. If we already have OSM building:parts or reference-assisted reconstruction,
       // do NOT run OSM2World fallback or overwrite the primary architectural geometry.
+      // Also skip for manual buildings (no osm_id) — they won't match any OSM element.
       const tierEval = evaluateBestGeometryProvider(verifiedBuilding, false);
       const isRefAssisted = tierEval.provider === 'REFERENCE_ASSISTED';
       const hasBuildingParts = Boolean(verifiedBuilding.building_parts && verifiedBuilding.building_parts.length > 0);
-      if (!hasBuildingParts && !isRefAssisted) {
+      const hasOsmId = Boolean(verifiedBuilding.osm_id);
+      if (!hasBuildingParts && !isRefAssisted && hasOsmId) {
         (async () => {
           try {
             const osmData = await fetchDetailedOSMData(centerLat, centerLng, 180, building.osm_id);
