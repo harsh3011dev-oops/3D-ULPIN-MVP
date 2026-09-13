@@ -7,6 +7,7 @@ import {
   getBuildingHeight,
   getFloorHeight,
   getFootprintDimensions,
+  getFootprintDimensionsWithFallback,
   getUnitFloor,
   footprintToShapes,
   footprintToShape,
@@ -1154,6 +1155,28 @@ function constructMultiMassBuilding(
   const centerLng = dims.centerLng;
   const centerLat = dims.centerLat;
 
+  // ── Synthesize footprint for manually-entered buildings (lat/lon only, no GeoJSON) ──
+  if (!building.footprint) {
+    const estFloors = building.floor_count || Math.max(Math.round(totalHeight / (floorHeight || 3.5)), 1);
+    const estSideM = Math.max(Math.sqrt(Math.max(estFloors * 200, 400)), 12);
+    const cLat = centerLat || building.latitude || 0;
+    const cLng = centerLng || building.longitude || 0;
+    const halfDegLat = estSideM / 2 / 111320;
+    const halfDegLng = halfDegLat / Math.cos((cLat * Math.PI) / 180);
+    (building as any).footprint = {
+      type: 'Polygon',
+      coordinates: [[
+        [cLng - halfDegLng, cLat - halfDegLat],
+        [cLng + halfDegLng, cLat - halfDegLat],
+        [cLng + halfDegLng, cLat + halfDegLat],
+        [cLng - halfDegLng, cLat + halfDegLat],
+        [cLng - halfDegLng, cLat - halfDegLat],
+      ]],
+    };
+    console.info(`[MapThreeJS] Synthesized ${estSideM.toFixed(0)}m square footprint for manual building: ${building.building_name}`);
+  }
+
+
   const materials = createArchitecturalMaterials(building, wireframe);
   const metrics = getShapeMetrics(building.footprint, centerLng, centerLat);
 
@@ -1630,7 +1653,11 @@ export default function MapThreeJS({
   const verifiedRecord = useMemo(() => getVerifiedBuildingMetadata(verifiedBuilding), [verifiedBuilding]);
 
   const { lat: centerLat, lng: centerLng } = getBuildingCenter(verifiedBuilding);
-  const dims = useMemo(() => getFootprintDimensions(verifiedBuilding.footprint), [verifiedBuilding.footprint]);
+  const dims = useMemo(
+    () => getFootprintDimensionsWithFallback(verifiedBuilding.footprint, verifiedBuilding),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [verifiedBuilding.footprint, verifiedBuilding.latitude, verifiedBuilding.longitude]
+  );
   const buildingHeight = getBuildingHeight(verifiedBuilding);
   const floorHeight = getFloorHeight(verifiedBuilding);
   const floorInfo = useMemo(() => getFloorCountInfo(verifiedBuilding), [verifiedBuilding]);

@@ -69,6 +69,26 @@ export function getFootprintDimensions(footprint?: GeoJSONPolygon | any | null):
 }
 
 /**
+ * Returns FootprintDimensions using the building's own lat/lon as center fallback
+ * when no footprint polygon exists (manually entered buildings).
+ */
+export function getFootprintDimensionsWithFallback(
+  footprint: GeoJSONPolygon | any | null | undefined,
+  building?: { latitude?: number; longitude?: number } | null,
+): FootprintDimensions {
+  const dims = getFootprintDimensions(footprint);
+  // If footprint gave 0,0 center and building has real coords → use them
+  if (dims.centerLat === 0 && dims.centerLng === 0 && building) {
+    const lat = building.latitude ?? 0;
+    const lng = building.longitude ?? 0;
+    if (lat !== 0 || lng !== 0) {
+      return { ...dims, centerLat: lat, centerLng: lng };
+    }
+  }
+  return dims;
+}
+
+/**
  * Convert a GeoJSON Polygon to a THREE.Shape with full support for inner holes / courtyards.
  */
 export function footprintToShape(
