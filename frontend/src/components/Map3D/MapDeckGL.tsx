@@ -8,7 +8,13 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { Building, Unit } from '../../types';
-import { getBuildingCenter, getBuildingHeight, getFloorCountInfo } from '../../utils/footprintUtils';
+import {
+  getBuildingCenter,
+  getBuildingHeight,
+  getFloorCountInfo,
+  getFootprintDimensions,
+  getPresentationClassification,
+} from '../../utils/footprintUtils';
 import { getBuildingUtilityPipelines } from '../../utils/utilityNetworkHelper';
 import { REEARTH, setupReearthTerrain } from '../../utils/reearth';
 import { buildCadastralVolumes, CadastralVolumesResult } from '../../utils/cadastralVolumeBuilder';
@@ -118,37 +124,67 @@ export default function MapDeckGL({
   const buildingHeight = cadastralVolumes.totalHeightM;
   const floorInfo = getFloorCountInfo(building);
 
+  // ── Adaptive Presentation Classification (Display & Framing Only) ──
+  const footprintDims = useMemo(() => getFootprintDimensions(building?.footprint), [building?.footprint]);
+  const presentationMetrics = useMemo(
+    () => getPresentationClassification(buildingHeight, footprintDims),
+    [buildingHeight, footprintDims]
+  );
+
   const [viewState, setViewState] = useState({
     longitude: mapLng,
     latitude: mapLat,
-    zoom: 17.5,
-    pitch: 62,
+    zoom: presentationMetrics.deckGLBaseZoom,
+    pitch: presentationMetrics.deckGLPitch,
     bearing: -25,
     maxPitch: 85,
   });
 
-  useEffect(() => {
+  const fitBoundsToBuilding = useCallback(() => {
+    const map = mapRef.current;
+    const padding = {
+      top: 120,
+      bottom: 100,
+      left: isLeftOpen ? 360 : 120,
+      right: isRightOpen ? 480 : 120,
+    };
+    const targetPitch = selectedFloor !== null && selectedFloor < 0 ? 70 : presentationMetrics.deckGLPitch;
+
+    if (map && footprintDims.minLng !== 0 && footprintDims.maxLng !== 0) {
+      map.fitBounds(
+        [
+          [footprintDims.minLng, footprintDims.minLat],
+          [footprintDims.maxLng, footprintDims.maxLat],
+        ],
+        {
+          padding,
+          pitch: targetPitch,
+          bearing: -25,
+          duration: 800,
+          maxZoom: presentationMetrics.isLowRise ? 19.5 : 18.0,
+        }
+      );
+      return;
+    }
+
     const { lat, lng } = getBuildingCenter(building);
     const u = building?.units?.[0];
-    const lngFinal = lng !== 0 ? lng : Number(u?.centroid?.[1]);
-    const latFinal = lat !== 0 ? lat : Number(u?.centroid?.[0]);
-    if (!isNaN(latFinal) && !isNaN(lngFinal) && latFinal !== 0 && lngFinal !== 0) {
-      let initialZoom = 17.5;
-      const fCount = cadastralVolumes.totalFloors;
-      if (fCount > 100) initialZoom = 15.2;
-      else if (fCount > 50) initialZoom = 15.8;
-      else if (fCount > 25) initialZoom = 16.5;
+    const lngFinal = lng !== 0 ? lng : Number(u?.centroid?.[1]) || mapLng;
+    const latFinal = lat !== 0 ? lat : Number(u?.centroid?.[0]) || mapLat;
 
-      setViewState({
-        longitude: lngFinal,
-        latitude: latFinal,
-        zoom: initialZoom,
-        pitch: 62,
-        bearing: -25,
-        maxPitch: 85,
-      });
-    }
-  }, [building?.building_id, cadastralVolumes.totalFloors]);
+    setViewState((prev) => ({
+      ...prev,
+      longitude: lngFinal,
+      latitude: latFinal,
+      zoom: presentationMetrics.deckGLBaseZoom,
+      pitch: targetPitch,
+      bearing: -25,
+    }));
+  }, [building, footprintDims, isLeftOpen, isRightOpen, presentationMetrics, selectedFloor, mapLng, mapLat]);
+
+  useEffect(() => {
+    fitBoundsToBuilding();
+  }, [building?.building_id, selectedFloor, fitBoundsToBuilding]);
 
   const handleMapLoad = useCallback((evt: { target: maplibregl.Map }) => {
     mapRef.current = evt.target;
@@ -179,18 +215,14 @@ export default function MapDeckGL({
   };
 
   const handlePitchToggle = () => {
-    setViewState((prev) => ({ ...prev, pitch: prev.pitch === 62 ? 0 : 62 }));
+    setViewState((prev) => ({
+      ...prev,
+      pitch: prev.pitch > 20 ? 0 : presentationMetrics.deckGLPitch,
+    }));
   };
 
   const handleResetCamera = () => {
-    setViewState({
-      longitude: mapLng,
-      latitude: mapLat,
-      zoom: 17.5,
-      pitch: 62,
-      bearing: -25,
-      maxPitch: 85,
-    });
+    fitBoundsToBuilding();
   };
 
   const SCALE_ELEVATION = 1.0; // 1:1 True metric volumetric elevation
@@ -212,10 +244,16 @@ export default function MapDeckGL({
 
   // ── 2. Stacked Volumetric Transparent Floors GeoJSON ──
   const floorsGeoJSON = useMemo(() => {
+    const visualGap = presentationMetrics.deckGLVisualGap; // Display-only visual stratum separation
+
     const features = cadastralVolumes.floorVolumes.map((fv) => {
       const isFloorIsolated = selectedFloor === fv.floorIndex;
       const isHovered = hoveredFloorNumber === fv.floorIndex;
       const poly = fv.polygon;
+
+      // DISPLAY-ONLY elevation offset for strata separation without mutating true cadastral zMin/zMax
+      const renderZBase = fv.zBase + (fv.floorIndex >= 0 ? fv.floorIndex * visualGap : 0);
+      const renderSliceHeight = Math.max(0.2, fv.sliceHeight - (fv.floorIndex >= 0 ? visualGap * 0.35 : 0));
 
       const polygons =
         poly?.type === 'MultiPolygon'
@@ -227,10 +265,13 @@ export default function MapDeckGL({
         properties: {
           floor_number: fv.floorIndex,
           floorLabel: fv.floorLabel,
+          // Real metric cadastral dimensions preserved exactly
           z_min: fv.zMin,
           z_max: fv.zMax,
-          sliceHeight: fv.sliceHeight,
-          zBase: fv.zBase,
+          sliceHeight: renderSliceHeight,
+          rawSliceHeight: fv.sliceHeight,
+          zBase: renderZBase,
+          rawZBase: fv.zBase,
           zCenter: fv.zCenter,
           isFloorIsolated,
           isHovered,
@@ -238,17 +279,18 @@ export default function MapDeckGL({
         geometry: {
           type: poly.type || 'Polygon',
           coordinates: polygons[0] ? polygons[0].map((ring: number[][]) =>
-            ring.map((coord: number[]) => [coord[0], coord[1], fv.zBase])
+            ring.map((coord: number[]) => [coord[0], coord[1], renderZBase])
           ) : [],
         },
       };
     });
 
     return { type: 'FeatureCollection', features };
-  }, [cadastralVolumes.floorVolumes, selectedFloor, hoveredFloorNumber]);
+  }, [cadastralVolumes.floorVolumes, selectedFloor, hoveredFloorNumber, presentationMetrics.deckGLVisualGap]);
 
   // ── 3. Cadastral Units Subdivision GeoJSON ──
   const unitsGeoJSON = useMemo(() => {
+    const visualGap = presentationMetrics.deckGLVisualGap;
     const rawUnits = cadastralVolumes.unitVolumes;
     const filteredUnits = selectedFloor !== null
       ? rawUnits.filter((u) => u.floorNumber === selectedFloor)
@@ -258,6 +300,8 @@ export default function MapDeckGL({
       const isSelected = selectedUnit?.unit_id === u.unitId;
       const isHovered = hoveredUnitId === u.unitId;
       const isFloorIsolated = selectedFloor === u.floorNumber;
+      const renderZBase = u.zBase + (u.floorNumber >= 0 ? u.floorNumber * visualGap : 0);
+      const renderSliceHeight = Math.max(0.2, u.sliceHeight - (u.floorNumber >= 0 ? visualGap * 0.35 : 0));
 
       const poly = u.polygon;
       const polygons =
@@ -276,8 +320,10 @@ export default function MapDeckGL({
           area_sqm: u.areaSqm,
           z_min: u.zMin,
           z_max: u.zMax,
-          sliceHeight: u.sliceHeight,
-          zBase: u.zBase,
+          sliceHeight: renderSliceHeight,
+          rawSliceHeight: u.sliceHeight,
+          zBase: renderZBase,
+          rawZBase: u.zBase,
           zCenter: u.zCenter,
           isSelected,
           isHovered,
@@ -286,14 +332,14 @@ export default function MapDeckGL({
         geometry: {
           type: 'Polygon',
           coordinates: polygon.map((ring: number[][]) =>
-            ring.map((coord: number[]) => [coord[0], coord[1], u.zBase])
+            ring.map((coord: number[]) => [coord[0], coord[1], renderZBase])
           ),
         },
       }));
     });
 
     return { type: 'FeatureCollection', features };
-  }, [cadastralVolumes.unitVolumes, selectedUnit, hoveredUnitId, selectedFloor]);
+  }, [cadastralVolumes.unitVolumes, selectedUnit, hoveredUnitId, selectedFloor, presentationMetrics.deckGLVisualGap]);
 
   // ── 4. Subsurface Infrastructure GeoJSON & Pipelines ──
   const undergroundUnitsGeoJSON = useMemo(() => {
@@ -475,39 +521,41 @@ export default function MapDeckGL({
             const p = f.properties;
             // Floor Isolated Mode
             if (p.isFloorIsolated) {
-              return [56, 189, 248, 225]; // Prominent active cyan highlight
+              return [56, 189, 248, 225]; // Prominent active cyan highlight (~0.88 opacity)
             }
+            // Inactive ghosted floors when a floor or basement is isolated
             if (selectedFloor !== null && !p.isFloorIsolated) {
-              return isLightStyle ? [203, 213, 225, 25] : [15, 23, 42, 30]; // Ghosted inactive floors
+              return isLightStyle ? [203, 213, 225, 20] : [15, 23, 42, 25]; // Faint ghosting
             }
             if (p.isHovered) {
               return [56, 189, 248, 190];
             }
             // Below-ground basement stratum: distinct subtle cadastral violet/indigo tint
             if (p.floor_number < 0) {
-              return isLightStyle ? [129, 140, 248, 140] : [99, 102, 241, 150];
+              return isLightStyle ? [129, 140, 248, 160] : [99, 102, 241, 175];
             }
-            // All Floors Mode: Elegant stacked translucent strata
+            // All Floors Mode: Translucent stacked strata (~0.26 opacity) for clear multi-floor readability
             const palette = isLightStyle ? CADASTRAL_FLOOR_COLORS_LIGHT : CADASTRAL_FLOOR_COLORS_DARK;
             const idx = Math.max(0, (p.floor_number || 1) - 1);
             const rgb = palette[idx % palette.length];
-            return [...rgb, isLightStyle ? 140 : 120];
+            return [...rgb, isLightStyle ? 85 : 70];
           },
           getLineColor: (f: any) => {
             const p = f.properties;
             if (p.isFloorIsolated) return [255, 255, 255, 255];
             if (selectedFloor !== null && !p.isFloorIsolated) {
-              return isLightStyle ? [148, 163, 184, 40] : [71, 85, 105, 35];
+              return isLightStyle ? [148, 163, 184, 30] : [71, 85, 105, 25];
             }
             if (p.isHovered) return [255, 255, 255, 240];
-            if (p.floor_number < 0) return isLightStyle ? [99, 102, 241, 230] : [165, 180, 252, 210];
-            return isLightStyle ? [15, 23, 42, 200] : [255, 255, 255, 160];
+            if (p.floor_number < 0) return isLightStyle ? [99, 102, 241, 240] : [165, 180, 252, 230];
+            // Strong crisp cyan/teal outline so B1, F1, F2 layers remain visually crisp
+            return isLightStyle ? [14, 165, 233, 220] : [56, 189, 248, 200];
           },
           getLineWidth: (f: any) => {
             const p = f.properties;
             if (p.isFloorIsolated) return 3.2;
-            if (p.isHovered) return 2.2;
-            return isLightStyle ? 1.5 : 1.2;
+            if (p.isHovered) return 2.4;
+            return isLightStyle ? 1.8 : 1.6;
           },
           lineWidthUnits: 'pixels',
           material: {
@@ -951,17 +999,21 @@ export default function MapDeckGL({
             fontSize: 11,
             lineHeight: 1.6,
             backdropFilter: 'blur(8px)',
-            minWidth: 260,
+            minWidth: 280,
             boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
           }}
         >
           <div style={{ fontWeight: 700, color: '#38bdf8', marginBottom: 6, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 4 }}>
             ⚡ DECK.GL CADASTRAL TELEMETRY
           </div>
-          <div>Cadastral Provider: <strong style={{ color: '#38bdf8' }}>UnifiedBuildingData (Volumetric)</strong></div>
-          <div>Visual Mode: <strong style={{ color: '#10b981' }}>Volumetric Cadastre</strong></div>
-          <div>Floor Volumes: <strong style={{ color: '#38bdf8' }}>{cadastralVolumes.totalFloors}</strong></div>
-          <div>Units Subdivision: <strong style={{ color: '#a5b4fc' }}>{cadastralVolumes.unitVolumes.length}</strong></div>
+          <div>Presentation Class: <strong style={{ color: '#facc15' }}>{presentationMetrics.classification} ({presentationMetrics.isLowRise ? 'Low-Rise Framing' : presentationMetrics.isMidRise ? 'Mid-Rise Framing' : 'High-Rise Framing'})</strong></div>
+          <div>Real Cadastral Height: <strong style={{ color: '#38bdf8' }}>{buildingHeight.toFixed(1)}m</strong></div>
+          <div>Render Geometry Height: <strong style={{ color: '#10b981' }}>{buildingHeight.toFixed(1)}m (1:1 Metric)</strong></div>
+          <div>Visual Scale: <strong style={{ color: '#10b981' }}>1.0× (True Metric Scale)</strong></div>
+          <div>Deck Pitch & Zoom: <strong style={{ color: '#a5b4fc' }}>{viewState.pitch.toFixed(1)}° · Zoom {viewState.zoom.toFixed(2)}</strong></div>
+          <div>Floor Separation Gap: <strong style={{ color: '#38bdf8' }}>{presentationMetrics.deckGLVisualGap.toFixed(2)}m (Display only)</strong></div>
+          <div>Floor Volumes: <strong style={{ color: '#38bdf8' }}>{cadastralVolumes.totalFloors} floors</strong></div>
+          <div>Units Subdivision: <strong style={{ color: '#a5b4fc' }}>{cadastralVolumes.unitVolumes.length} units</strong></div>
           <div>Underground Layers: <strong style={{ color: '#a78bfa' }}>{(undergroundUnitsGeoJSON?.features?.length || 0) + utilityPipelines.length}</strong></div>
           <div>Selected Floor: <strong style={{ color: selectedFloor !== null ? '#fde047' : '#94a3b8' }}>{selectedFloor !== null ? `Floor ${selectedFloor}` : 'ALL'}</strong></div>
           <div>Selected Unit: <strong style={{ color: selectedUnit ? '#38bdf8' : '#94a3b8' }}>{selectedUnit?.unit_id || 'None'}</strong></div>

@@ -19,6 +19,10 @@ import {
   scaleShape,
   evaluateBestGeometryProvider,
   validateBuildingData,
+  getPresentationClassification,
+  fitCameraToObject,
+  PresentationClass,
+  PresentationMetrics,
   ShapeMetrics,
   FootprintDimensions,
   ProportionalZoning,
@@ -575,56 +579,67 @@ function generatePlazaTexture() {
   return tex;
 }
 
-// Build surrounding context: Ground plaza, trees, lamp posts
-function buildSurroundingContext(scene: THREE.Scene, dims: { width: number; depth: number }, sceneExtent: number) {
+// Build surrounding context: Ground plaza, trees, lamp posts scaled proportionally to building footprint
+function buildSurroundingContext(
+  scene: THREE.Scene,
+  dims: { width: number; depth: number },
+  buildingHeight: number
+) {
+  const groundWidth = Math.max(dims.width * 2.5, 40);
+  const groundDepth = Math.max(dims.depth * 2.5, 40);
+
   const plazaTex = generatePlazaTexture();
-  plazaTex.repeat.set(2, 2);
-  const groundGeo = new THREE.PlaneGeometry(sceneExtent * 2.5, sceneExtent * 2.5);
+  plazaTex.repeat.set(Math.max(1, Math.round(groundWidth / 25)), Math.max(1, Math.round(groundDepth / 25)));
+  const groundGeo = new THREE.PlaneGeometry(groundWidth, groundDepth);
   const groundMat = new THREE.MeshStandardMaterial({
     map: plazaTex,
     roughness: 0.75,
     metalness: 0.2,
   });
   const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+  groundMesh.name = 'groundPlazaMesh';
   groundMesh.rotation.x = -Math.PI / 2;
   groundMesh.position.y = -0.05;
   groundMesh.receiveShadow = true;
   scene.add(groundMesh);
 
+  // Scale surrounding trees and props relative to building height and footprint so small buildings aren't dwarfed
+  const propScale = Math.min(Math.max(buildingHeight / 25, 0.45), 1.25);
   const treeBarkMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.9 });
   const treeFoliageMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6, metalness: 0.1 });
   const lampPoleMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.2 });
   const lampGlowMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xfef08a, emissiveIntensity: 1.2 });
 
-  const marginX = dims.width / 2 + 6;
-  const marginZ = dims.depth / 2 + 6;
+  const marginX = (dims.width / 2) + Math.max(3, dims.width * 0.12);
+  const marginZ = (dims.depth / 2) + Math.max(3, dims.depth * 0.12);
   const treePositions = [
-    [-marginX - 4, -marginZ],
-    [-marginX - 4, 0],
-    [-marginX - 4, marginZ],
-    [marginX + 4, -marginZ],
-    [marginX + 4, 0],
-    [marginX + 4, marginZ],
-    [-marginX / 2, -marginZ - 5],
-    [marginX / 2, -marginZ - 5],
-    [-marginX / 2, marginZ + 5],
-    [marginX / 2, marginZ + 5],
+    [-marginX - 3 * propScale, -marginZ],
+    [-marginX - 3 * propScale, 0],
+    [-marginX - 3 * propScale, marginZ],
+    [marginX + 3 * propScale, -marginZ],
+    [marginX + 3 * propScale, 0],
+    [marginX + 3 * propScale, marginZ],
+    [-marginX / 2, -marginZ - 4 * propScale],
+    [marginX / 2, -marginZ - 4 * propScale],
+    [-marginX / 2, marginZ + 4 * propScale],
+    [marginX / 2, marginZ + 4 * propScale],
   ];
 
   treePositions.forEach(([x, z]) => {
     const treeGroup = new THREE.Group();
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.45, 3.5, 8), treeBarkMat);
-    trunk.position.y = 1.75;
+    const trunkH = 3.5 * propScale;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3 * propScale, 0.45 * propScale, trunkH, 8), treeBarkMat);
+    trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
     treeGroup.add(trunk);
 
-    const f1 = new THREE.Mesh(new THREE.IcosahedronGeometry(2.2, 1), treeFoliageMat);
-    f1.position.y = 4.2;
+    const f1 = new THREE.Mesh(new THREE.IcosahedronGeometry(2.0 * propScale, 1), treeFoliageMat);
+    f1.position.y = trunkH + 1.2 * propScale;
     f1.castShadow = true;
     treeGroup.add(f1);
 
-    const f2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.6, 1), treeFoliageMat);
-    f2.position.y = 5.8;
+    const f2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.4 * propScale, 1), treeFoliageMat);
+    f2.position.y = trunkH + 2.5 * propScale;
     f2.castShadow = true;
     treeGroup.add(f2);
 
@@ -641,12 +656,13 @@ function buildSurroundingContext(scene: THREE.Scene, dims: { width: number; dept
 
   lampPositions.forEach(([x, z]) => {
     const lampGroup = new THREE.Group();
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 4.2, 8), lampPoleMat);
-    pole.position.y = 2.1;
+    const poleH = 4.0 * propScale;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08 * propScale, 0.12 * propScale, poleH, 8), lampPoleMat);
+    pole.position.y = poleH / 2;
     lampGroup.add(pole);
 
-    const globe = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 12), lampGlowMat);
-    globe.position.y = 4.3;
+    const globe = new THREE.Mesh(new THREE.SphereGeometry(0.32 * propScale, 12, 12), lampGlowMat);
+    globe.position.y = poleH + 0.15 * propScale;
     lampGroup.add(globe);
 
     lampGroup.position.set(x, 0, z);
@@ -1662,6 +1678,32 @@ export default function MapThreeJS({
   const floorHeight = getFloorHeight(verifiedBuilding);
   const floorInfo = useMemo(() => getFloorCountInfo(verifiedBuilding), [verifiedBuilding]);
 
+  // Generic geometric presentation classification (LOW_RISE, MID_RISE, HIGH_RISE)
+  const presentationMetrics = useMemo(
+    () => getPresentationClassification(buildingHeight, dims),
+    [buildingHeight, dims]
+  );
+
+  // Optional display-only vertical enhancement (Default: False / True Scale 1:1)
+  const [enhancedView, setEnhancedView] = useState(false);
+
+  // Apply visual-only Y scale to render groups without modifying underlying data
+  useEffect(() => {
+    const visualYScale = enhancedView
+      ? (buildingHeight < 12 ? 1.35 : buildingHeight < 20 ? 1.15 : 1.0)
+      : 1.0;
+
+    if (visualBuildingGroupRef.current) {
+      visualBuildingGroupRef.current.scale.y = visualYScale;
+    }
+    if (cadastralULPINGroupRef.current) {
+      cadastralULPINGroupRef.current.scale.y = visualYScale;
+    }
+    if (facadeDetailsGroupRef.current) {
+      facadeDetailsGroupRef.current.scale.y = visualYScale;
+    }
+  }, [enhancedView, buildingHeight]);
+
   // Stable building identifier — building geometry is reconstructed ONLY when target building changes
   const buildingKey = useMemo(
     () => `${verifiedBuilding?.building_id || ''}_${centerLat.toFixed(6)}_${centerLng.toFixed(6)}_${verifiedBuilding?.osm_id || ''}`,
@@ -1697,7 +1739,7 @@ export default function MapThreeJS({
     const height = mountRef.current.clientHeight || 520;
 
     const maxDim = Math.max(dims.width, dims.depth, 10);
-    const sceneExtent = Math.max(maxDim * 3, buildingHeight * 0.7, 60);
+    const sceneExtent = presentationMetrics.threeJSGroundExtent;
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
@@ -1712,9 +1754,8 @@ export default function MapThreeJS({
     scene.add(skyDome);
 
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.5, 100000);
-    const heightFactor = buildingHeight > 500 ? 1.6 : buildingHeight > 250 ? 1.4 : 1.1;
-    const targetCamDist = Math.max(maxDim * 2.2, buildingHeight * heightFactor, 45);
-    camera.position.set(targetCamDist * 0.9, buildingHeight * 0.55 + maxDim * 0.25, targetCamDist * 0.9);
+    const [initPosX, initPosY, initPosZ] = presentationMetrics.threeJSCameraPosition;
+    camera.position.set(initPosX, initPosY, initPosZ);
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -1729,13 +1770,13 @@ export default function MapThreeJS({
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    const targetY = buildingHeight * (buildingHeight > 300 ? 0.42 : 0.45);
+    const targetY = presentationMetrics.threeJSLookAtY;
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.target.set(0, targetY, 0);
     controls.maxPolarAngle = Math.PI / 2 - 0.02;
-    controls.minDistance = Math.max(4, maxDim * 0.3);
+    controls.minDistance = Math.max(3, maxDim * 0.1);
     controls.maxDistance = Math.max(25000, buildingHeight * 15);
     controlsRef.current = controls;
 
@@ -1770,8 +1811,8 @@ export default function MapThreeJS({
     rimLight.position.set(-maxDim * 1.5, buildingHeight * 0.8, -maxDim * 1.5);
     scene.add(rimLight);
 
-    // Surrounding Plaza & Landscaping
-    buildSurroundingContext(scene, dims, sceneExtent);
+    // Surrounding Plaza & Landscaping (Proportionally scaled to building footprint)
+    buildSurroundingContext(scene, dims, buildingHeight);
 
     // ─────────────────────────────────────────────────────────────
     // UNDERGROUND VISUALIZATION & 3D UTILITY PIPELINES
@@ -2037,21 +2078,12 @@ export default function MapThreeJS({
         }
       }
 
-      // Dynamic camera auto-framing according to actual rendered metric dimensions
-      const maxDim = Math.max(size.x, size.y, size.z, 15);
-      const heightRatio = size.y / Math.max(size.x, size.z, 1);
-      const targetDist = Math.max(maxDim * (heightRatio > 2.0 ? 1.35 : 1.55), size.y * 1.15, 45);
-
-      camera.position.set(
-        center.x + targetDist * 0.85,
-        center.y + size.y * 0.15,
-        center.z + targetDist * 0.85
-      );
-      camera.lookAt(center.x, center.y * 0.9, center.z);
-      controls.target.set(center.x, center.y * 0.9, center.z);
-      controls.minDistance = Math.max(2, maxDim * 0.08);
-      controls.maxDistance = Math.max(35000, maxDim * 15);
-      controls.update();
+      // Dynamic adaptive camera auto-framing (~55-75% viewport fill without scaling metric model)
+      fitCameraToObject(camera, controls, visualBuildingGroup, {
+        padding: 1.15,
+        isLowRise: presentationMetrics.isLowRise,
+        elevationAngleDeg: presentationMetrics.threeJSCameraElevationDeg,
+      });
 
       const isAiAssisted = isReferenceAssisted || Boolean(inferredAiData && inferredAiData.confidence >= 0.50);
 
@@ -2194,20 +2226,17 @@ export default function MapThreeJS({
           // Register original materials and apply active material mode (Unified Cadastral default)
           registerAndApplyMaterials(visualBuildingGroup, materialModeRef.current, wireframeMode);
 
-          // Auto-frame camera and OrbitControls using the loaded model bounding box
-          const bBox = customResult.boundingBox;
-          const center = customResult.center;
-          const size = customResult.dimensions;
-          const maxDim = Math.max(size.width, size.depth, size.height, 15);
-          const targetDist = Math.max(maxDim * 1.35, 40);
+          // Auto-frame camera and OrbitControls using adaptive object bounding box
+          fitCameraToObject(camera, controls, visualBuildingGroup, {
+            padding: 1.15,
+            isLowRise: presentationMetrics.isLowRise,
+            elevationAngleDeg: presentationMetrics.threeJSCameraElevationDeg,
+          });
 
-          camera.position.set(targetDist * 0.9, center.y + maxDim * 0.35, targetDist * 0.9);
-          controls.target.set(center.x, center.y * 0.8, center.z);
-          controls.minDistance = Math.max(2, maxDim * 0.15);
-          controls.maxDistance = Math.max(1500, maxDim * 12);
-          controls.update();
-
-          const visualH = size.height || customModelConfig.calibratedHeightM || buildingHeight;
+          const modelBox = new THREE.Box3().setFromObject(visualBuildingGroup);
+          const modelSize = new THREE.Vector3();
+          modelBox.getSize(modelSize);
+          const visualH = modelSize.y || customModelConfig.calibratedHeightM || buildingHeight;
 
           setTelemetry({
             provider: 'CUSTOM_MODEL',
@@ -2372,6 +2401,13 @@ export default function MapThreeJS({
             });
 
             const o2wBBox = new THREE.Box3().setFromObject(visualBuildingGroup);
+
+            // Dynamic adaptive camera auto-framing for OSM2World geometry
+            fitCameraToObject(camera, controls, visualBuildingGroup, {
+              padding: 1.15,
+              isLowRise: presentationMetrics.isLowRise,
+              elevationAngleDeg: presentationMetrics.threeJSCameraElevationDeg,
+            });
 
             setTelemetry({
               provider: 'OSM2WORLD',
@@ -3033,7 +3069,7 @@ export default function MapThreeJS({
         </div>
       </div>
 
-      {/* Appearance Style Toggle (Unified Cadastral / Source Materials) */}
+      {/* Appearance Style & Presentation Scale Toggles */}
       <div className="three-material-toggle-group">
         <button
           className={`three-mat-btn ${materialMode === 'UNIFIED' ? 'active' : ''}`}
@@ -3051,7 +3087,36 @@ export default function MapThreeJS({
           <Layers size={12} />
           <span>Source Materials</span>
         </button>
+
+        <span className="toggle-separator" />
+
+        {/* Presentation Scale: True Scale (1:1 default) vs Enhanced View */}
+        <button
+          className={`three-mat-btn ${!enhancedView ? 'active' : ''}`}
+          onClick={() => setEnhancedView(false)}
+          title="True 1:1 metric cadastral scale (Authoritative standard)"
+        >
+          <span>True Scale (1:1)</span>
+        </button>
+        <button
+          className={`three-mat-btn ${enhancedView ? 'active' : ''}`}
+          onClick={() => setEnhancedView(true)}
+          title="Optional display-only vertical enhancement for low-rise inspection"
+        >
+          <Sparkles size={12} />
+          <span>Enhanced View</span>
+        </button>
       </div>
+
+      {/* Visual Height Enhancement Warning Badge */}
+      {enhancedView && (
+        <div className="enhanced-view-badge">
+          <Sparkles size={13} className="text-amber-300" />
+          <span>
+            Visual Height Enhancement: {buildingHeight < 12 ? '1.35×' : buildingHeight < 20 ? '1.15×' : '1.0×'} (Display Only · Cadastral 1:1 Preserved)
+          </span>
+        </div>
+      )}
 
       {/* ── 10. COMPREHENSIVE ARCHITECTURAL TELEMETRY HUD ── */}
       {showDebugHud && (
@@ -3063,6 +3128,30 @@ export default function MapThreeJS({
             </span>
           </div>
           <div className="hud-grid">
+            <div className="hud-item">
+              <span className="hud-k">Presentation Class:</span>
+              <span className="hud-v font-bold text-amber-300">
+                {presentationMetrics.classification} ({presentationMetrics.isLowRise ? 'Low-Rise Framing' : presentationMetrics.isMidRise ? 'Mid-Rise Framing' : 'High-Rise Framing'})
+              </span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Visual Scale:</span>
+              <span className="hud-v font-bold text-emerald-300">
+                {enhancedView ? `${(buildingHeight < 12 ? 1.35 : buildingHeight < 20 ? 1.15 : 1.0).toFixed(2)}× [Enhanced Display]` : '1.0× (True Metric 1:1)'}
+              </span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Real Cadastral Height:</span>
+              <span className="hud-v font-bold text-sky-400">{buildingHeight.toFixed(1)}m</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Render Geometry Height:</span>
+              <span className="hud-v font-mono text-slate-200">{telemetry.visualHeight.toFixed(1)}m</span>
+            </div>
+            <div className="hud-item">
+              <span className="hud-k">Camera Distance / Elev:</span>
+              <span className="hud-v font-mono text-indigo-300">{Math.round(camDistMeters)}m · {presentationMetrics.threeJSCameraElevationDeg}° angle</span>
+            </div>
             <div className="hud-item">
               <span className="hud-k">Provider:</span>
               <span className="hud-v font-bold text-sky-400">
@@ -3103,17 +3192,7 @@ export default function MapThreeJS({
             </div>
             <div className="hud-item">
               <span className="hud-k">Active LOD:</span>
-              <span className="hud-v font-bold text-sky-400">{activeLod} ({Math.round(camDistMeters)}m cam)</span>
-            </div>
-            <div className="hud-item">
-              <span className="hud-k">Source / Render Height:</span>
-              <span className="hud-v font-bold text-sky-400">
-                {telemetry.sourceHeightM ? `${telemetry.sourceHeightM.toFixed(1)}m` : 'N/A'} / {telemetry.renderedHeightM ? `${telemetry.renderedHeightM.toFixed(1)}m` : `${telemetry.visualHeight.toFixed(1)}m`}
-              </span>
-            </div>
-            <div className="hud-item">
-              <span className="hud-k">Model Scale:</span>
-              <span className="hud-v font-bold text-emerald-300">1.0 (Real Metric)</span>
+              <span className="hud-v font-bold text-sky-400">{activeLod}</span>
             </div>
             <div className="hud-item">
               <span className="hud-k">Building Parts:</span>
@@ -3135,10 +3214,6 @@ export default function MapThreeJS({
                 </span>
               </div>
             )}
-            <div className="hud-item">
-              <span className="hud-k">Parts Collapsed:</span>
-              <span className="hud-v font-bold text-emerald-300">NO</span>
-            </div>
             <div className="hud-item">
               <span className="hud-k">Roof / Crown:</span>
               <span className="hud-v">{telemetry.roofType} (~{telemetry.roofHeightM.toFixed(1)}m)</span>

@@ -13,10 +13,24 @@ export interface FootprintDimensions {
   areaSqm: number;
   centerLat: number;
   centerLng: number;
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
 }
 
 export function getFootprintDimensions(footprint?: GeoJSONPolygon | any | null): FootprintDimensions {
-  const fallback = { width: 30, depth: 30, areaSqm: 900, centerLat: 0, centerLng: 0 };
+  const fallback = {
+    width: 30,
+    depth: 30,
+    areaSqm: 900,
+    centerLat: 0,
+    centerLng: 0,
+    minLat: 0,
+    maxLat: 0,
+    minLng: 0,
+    maxLng: 0,
+  };
   if (!footprint) return fallback;
 
   let rings: number[][][] = [];
@@ -31,6 +45,10 @@ export function getFootprintDimensions(footprint?: GeoJSONPolygon | any | null):
   const allPoints = rings.flatMap((r) => r);
   const lngs = allPoints.map((p) => p[0]);
   const lats = allPoints.map((p) => p[1]);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
   const centerLng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
   const centerLat = lats.reduce((a, b) => a + b, 0) / lats.length;
   const mLng = metersPerDegLng(centerLat);
@@ -65,6 +83,10 @@ export function getFootprintDimensions(footprint?: GeoJSONPolygon | any | null):
     areaSqm: Math.round(areaSqm),
     centerLat,
     centerLng,
+    minLat,
+    maxLat,
+    minLng,
+    maxLng,
   };
 }
 
@@ -527,5 +549,204 @@ export function validateBuildingData(data: Building | any): { isValid: boolean; 
   }
   return { isValid: true };
 }
+
+// ─────────────────────────────────────────────────────────────
+// GENERIC GEOMETRIC PRESENTATION CLASSIFIER & ADAPTIVE CAMERA
+// Strictly for viewport framing, pitch, zoom, and display aids.
+// NEVER alters cadastral dimensions, zMin/zMax, or source heights.
+// ─────────────────────────────────────────────────────────────
+
+export type PresentationClass = 'LOW_RISE' | 'MID_RISE' | 'HIGH_RISE';
+
+export interface PresentationMetrics {
+  classification: PresentationClass;
+  isLowRise: boolean;
+  isMidRise: boolean;
+  isHighRise: boolean;
+  aspectRatio: number;
+  heightM: number;
+  horizontalSpanM: number;
+  // ThreeJS adaptive parameters
+  threeJSCameraDistance: number;
+  threeJSCameraElevationDeg: number;
+  threeJSLookAtY: number;
+  threeJSCameraPosition: [number, number, number];
+  threeJSGroundExtent: number;
+  // DeckGL adaptive parameters
+  deckGLPitch: number;
+  deckGLBaseZoom: number;
+  deckGLVisualGap: number;
+}
+
+/**
+ * Classifies building dimensions generically into presentation tiers.
+ * Rule: LOW_RISE (<=15m or aspect < 0.35), MID_RISE (15m-60m), HIGH_RISE (>60m).
+ */
+export function getPresentationClassification(
+  heightM: number,
+  dims?: { width: number; depth: number } | null
+): PresentationMetrics {
+  const width = dims?.width || 30;
+  const depth = dims?.depth || 30;
+  const horizontalSpanM = Math.max(width, depth, 10);
+  const safeHeight = Math.max(heightM, 1);
+  const aspectRatio = safeHeight / horizontalSpanM;
+
+  let classification: PresentationClass;
+  if (safeHeight <= 15 || aspectRatio < 0.35) {
+    classification = 'LOW_RISE';
+  } else if (safeHeight <= 60) {
+    classification = 'MID_RISE';
+  } else {
+    classification = 'HIGH_RISE';
+  }
+
+  const isLowRise = classification === 'LOW_RISE';
+  const isMidRise = classification === 'MID_RISE';
+  const isHighRise = classification === 'HIGH_RISE';
+
+  // Three.js adaptive camera parameters
+  let threeJSCameraDistance: number;
+  let threeJSCameraElevationDeg: number;
+  let threeJSLookAtY: number;
+  let threeJSCameraPosition: [number, number, number];
+
+  if (isLowRise) {
+    // Low-rise: lower three-quarter angle (25°-35°), closer framing
+    threeJSCameraElevationDeg = 28;
+    threeJSCameraDistance = Math.max(horizontalSpanM * 1.35, safeHeight * 2.8, 18);
+    threeJSLookAtY = safeHeight * 0.35;
+    threeJSCameraPosition = [
+      horizontalSpanM * 0.95,
+      Math.max(safeHeight * 1.15, horizontalSpanM * 0.38),
+      horizontalSpanM * 1.15,
+    ];
+  } else if (isMidRise) {
+    threeJSCameraElevationDeg = 38;
+    threeJSCameraDistance = Math.max(horizontalSpanM * 1.6, safeHeight * 1.3, 35);
+    threeJSLookAtY = safeHeight * 0.45;
+    threeJSCameraPosition = [
+      horizontalSpanM * 1.1,
+      safeHeight * 0.55 + horizontalSpanM * 0.25,
+      horizontalSpanM * 1.1,
+    ];
+  } else {
+    // High-rise: higher/farther framing
+    const heightFactor = safeHeight > 500 ? 1.6 : safeHeight > 250 ? 1.4 : 1.15;
+    threeJSCameraElevationDeg = 45;
+    threeJSCameraDistance = Math.max(horizontalSpanM * 2.2, safeHeight * heightFactor, 50);
+    threeJSLookAtY = safeHeight * (safeHeight > 300 ? 0.42 : 0.45);
+    threeJSCameraPosition = [
+      threeJSCameraDistance * 0.85,
+      safeHeight * 0.55 + horizontalSpanM * 0.25,
+      threeJSCameraDistance * 0.85,
+    ];
+  }
+
+  // Ground plane: sized relative to building footprint (not huge fixed size for small buildings)
+  const threeJSGroundExtent = Math.max(horizontalSpanM * 2.5, 40);
+
+  // Deck.gl adaptive parameters
+  let deckGLPitch: number;
+  let deckGLBaseZoom: number;
+  let deckGLVisualGap: number;
+
+  if (isLowRise) {
+    deckGLPitch = 65;
+    // For smaller footprints zoom in tighter
+    if (horizontalSpanM < 30) deckGLBaseZoom = 19.0;
+    else if (horizontalSpanM < 70) deckGLBaseZoom = 18.2;
+    else deckGLBaseZoom = 17.6;
+    deckGLVisualGap = 0.12; // 12cm visual gap to clearly separate B1/F1/F2 strata
+  } else if (isMidRise) {
+    deckGLPitch = 58;
+    deckGLBaseZoom = horizontalSpanM < 50 ? 17.8 : 17.2;
+    deckGLVisualGap = 0.08;
+  } else {
+    deckGLPitch = safeHeight > 250 ? 45 : 50;
+    deckGLBaseZoom = safeHeight > 500 ? 15.2 : safeHeight > 250 ? 15.8 : 16.5;
+    deckGLVisualGap = 0.04;
+  }
+
+  return {
+    classification,
+    isLowRise,
+    isMidRise,
+    isHighRise,
+    aspectRatio,
+    heightM: safeHeight,
+    horizontalSpanM,
+    threeJSCameraDistance,
+    threeJSCameraElevationDeg,
+    threeJSLookAtY,
+    threeJSCameraPosition,
+    threeJSGroundExtent,
+    deckGLPitch,
+    deckGLBaseZoom,
+    deckGLVisualGap,
+  };
+}
+
+/**
+ * Fits camera and controls to an object bounding box so it occupies ~55-75% of viewport
+ * without scaling the model itself.
+ */
+export function fitCameraToObject(
+  camera: THREE.PerspectiveCamera,
+  controls: any,
+  object: THREE.Object3D,
+  options?: {
+    padding?: number;
+    elevationAngleDeg?: number;
+    isLowRise?: boolean;
+  }
+): void {
+  const box = new THREE.Box3().setFromObject(object);
+  if (box.isEmpty()) return;
+
+  const size = new THREE.Vector3();
+  const center = new THREE.Vector3();
+  box.getSize(size);
+  box.getCenter(center);
+
+  const horizontalSize = Math.max(size.x, size.z, 8);
+  const height = Math.max(size.y, 1);
+  const aspect = height / horizontalSize;
+  const isLow = options?.isLowRise ?? (aspect < 0.35 || height <= 15);
+
+  // Target lookAt point
+  const targetY = center.y + (isLow ? height * 0.35 : height * (height > 300 ? 0.42 : 0.45));
+  controls.target.set(center.x, targetY, center.z);
+
+  const padding = options?.padding || 1.15;
+  const fovRad = (camera.fov * Math.PI) / 180;
+  const aspectCanvas = camera.aspect || 1.5;
+  const vFovDist = (size.y / 2) / Math.tan(fovRad / 2);
+  const hFovDist = (horizontalSize / 2) / (Math.tan(fovRad / 2) * aspectCanvas);
+  const baseFitDist = Math.max(vFovDist, hFovDist) * padding;
+
+  if (isLow) {
+    // Low-rise: lower three-quarter angle (25°-35°) to highlight architectural strata
+    const elevationRad = THREE.MathUtils.degToRad(options?.elevationAngleDeg ?? 28);
+    const azimuthAngle = Math.PI / 4; // 45° corner perspective
+    const horizDist = Math.max(horizontalSize * 1.35, baseFitDist * 0.85);
+    const posX = center.x + horizDist * Math.cos(azimuthAngle);
+    const posY = center.y + Math.max(height * 1.15, horizDist * Math.sin(elevationRad));
+    const posZ = center.z + horizDist * Math.sin(azimuthAngle);
+    camera.position.set(posX, posY, posZ);
+  } else {
+    const azimuthAngle = Math.PI / 4;
+    const posY = center.y + height * 0.55 + horizontalSize * 0.25;
+    const posX = center.x + baseFitDist * 0.75 * Math.cos(azimuthAngle);
+    const posZ = center.z + baseFitDist * 0.75 * Math.sin(azimuthAngle);
+    camera.position.set(posX, posY, posZ);
+  }
+
+  camera.lookAt(center.x, targetY, center.z);
+  controls.minDistance = Math.max(2, horizontalSize * 0.08);
+  controls.maxDistance = Math.max(35000, Math.max(horizontalSize, height) * 15);
+  controls.update();
+}
+
 
 
