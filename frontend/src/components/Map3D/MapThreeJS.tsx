@@ -1222,9 +1222,15 @@ function constructMultiMassBuilding(
       const extrusionH = Math.max(resolvedTopHeight - baseElev - roofH, 1.0);
 
       // 4. Convert part footprint relative to the ONE SHARED BUILDING ORIGIN (centerLng, centerLat)
-      const partFootprint = part.footprint || building.footprint;
+      // IMPORTANT: Do NOT fall back to parent building footprint when a part has no footprint.
+      // If all parts stacked the same parent polygon they would overlap/cancel visually.
+      const partFootprint = part.footprint;
+      if (!partFootprint) return; // Skip parts without their own geometry
       const partShapes = footprintToShapes(partFootprint, centerLng, centerLat);
+      if (partShapes.length === 0) return; // Skip if shape conversion failed
       const partMetrics = getShapeMetrics(partFootprint, centerLng, centerLat);
+      // Skip degenerate zero-area parts (thin slivers / collapsed polygons)
+      if (partMetrics.areaSqm < 1.0) return;
       const classification = classifyBuildingPart(part, partMetrics);
       partTypes.push(classification);
 
