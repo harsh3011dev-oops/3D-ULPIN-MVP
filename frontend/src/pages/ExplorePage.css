@@ -621,3 +621,28 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 768px) {
+  .explore-container {
+    padding: 16px 12px;
+  }
+  
+  .interface-card, .search-card {
+    padding: 16px;
+  }
+  
+  .detected-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .detected-title {
+    font-size: 1.25rem;
+    word-break: break-word;
+  }
+  
+  .map-preview-frame {
+    height: 150px;
+  }
+}
