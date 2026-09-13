@@ -1684,26 +1684,6 @@ export default function MapThreeJS({
     [buildingHeight, dims]
   );
 
-  // Optional display-only vertical enhancement (Default: False / True Scale 1:1)
-  const [enhancedView, setEnhancedView] = useState(false);
-
-  // Apply visual-only Y scale to render groups without modifying underlying data
-  useEffect(() => {
-    const visualYScale = enhancedView
-      ? (buildingHeight < 12 ? 1.35 : buildingHeight < 20 ? 1.15 : 1.0)
-      : 1.0;
-
-    if (visualBuildingGroupRef.current) {
-      visualBuildingGroupRef.current.scale.y = visualYScale;
-    }
-    if (cadastralULPINGroupRef.current) {
-      cadastralULPINGroupRef.current.scale.y = visualYScale;
-    }
-    if (facadeDetailsGroupRef.current) {
-      facadeDetailsGroupRef.current.scale.y = visualYScale;
-    }
-  }, [enhancedView, buildingHeight]);
-
   // Stable building identifier — building geometry is reconstructed ONLY when target building changes
   const buildingKey = useMemo(
     () => `${verifiedBuilding?.building_id || ''}_${centerLat.toFixed(6)}_${centerLng.toFixed(6)}_${verifiedBuilding?.osm_id || ''}`,
@@ -3087,36 +3067,7 @@ export default function MapThreeJS({
           <Layers size={12} />
           <span>Source Materials</span>
         </button>
-
-        <span className="toggle-separator" />
-
-        {/* Presentation Scale: True Scale (1:1 default) vs Enhanced View */}
-        <button
-          className={`three-mat-btn ${!enhancedView ? 'active' : ''}`}
-          onClick={() => setEnhancedView(false)}
-          title="True 1:1 metric cadastral scale (Authoritative standard)"
-        >
-          <span>True Scale (1:1)</span>
-        </button>
-        <button
-          className={`three-mat-btn ${enhancedView ? 'active' : ''}`}
-          onClick={() => setEnhancedView(true)}
-          title="Optional display-only vertical enhancement for low-rise inspection"
-        >
-          <Sparkles size={12} />
-          <span>Enhanced View</span>
-        </button>
       </div>
-
-      {/* Visual Height Enhancement Warning Badge */}
-      {enhancedView && (
-        <div className="enhanced-view-badge">
-          <Sparkles size={13} className="text-amber-300" />
-          <span>
-            Visual Height Enhancement: {buildingHeight < 12 ? '1.35×' : buildingHeight < 20 ? '1.15×' : '1.0×'} (Display Only · Cadastral 1:1 Preserved)
-          </span>
-        </div>
-      )}
 
       {/* ── 10. COMPREHENSIVE ARCHITECTURAL TELEMETRY HUD ── */}
       {showDebugHud && (
@@ -3137,7 +3088,7 @@ export default function MapThreeJS({
             <div className="hud-item">
               <span className="hud-k">Visual Scale:</span>
               <span className="hud-v font-bold text-emerald-300">
-                {enhancedView ? `${(buildingHeight < 12 ? 1.35 : buildingHeight < 20 ? 1.15 : 1.0).toFixed(2)}× [Enhanced Display]` : '1.0× (True Metric 1:1)'}
+                1.0× (True Metric 1:1)
               </span>
             </div>
             <div className="hud-item">
