@@ -58,8 +58,7 @@ def _extract_json(text: str) -> Optional[dict]:
 
 async def analyze_building_image(image_path: str) -> Optional[Dict[str, Any]]:
     """
-    Sends a satellite image to Gemini Vision to visually extract:
-    - footprint_pixels: list of [x, y] pixel coordinates
+    Sends a satellite image to Gemini Vision to visually extract semantic information:
     - estimated_floors: int
     - roof_shape: str (flat, gabled, hipped, dome, pyramidal, mansard, complex)
     - building_color: str
@@ -101,7 +100,6 @@ async def analyze_building_image(image_path: str) -> Optional[Dict[str, Any]]:
         f"Image dimensions: {img_w} x {img_h} pixels (width x height).\n\n"
         f"Task: Inspect the main building structure in the center of the image.\n\n"
         f"Return ONLY a valid JSON object (no extra text, no markdown formatting) with these exact keys:\n"
-        f"- footprint_pixels: array of [x, y] coordinates tracing the building perimeter (x: 0-{img_w}, y: 0-{img_h}). Minimum 4 points.\n"
         f"- estimated_floors: integer floor count estimated from architectural scale, shadows, and height.\n"
         f"- roof_shape: one of 'flat', 'gabled', 'hipped', 'dome', 'pyramidal', 'mansard', 'barrel', 'round', 'complex'.\n"
         f"- building_color: dominant roof/facade color name (e.g. 'white', 'red', 'sandstone', 'gray', 'terracotta', 'dark_glass').\n"
@@ -109,7 +107,7 @@ async def analyze_building_image(image_path: str) -> Optional[Dict[str, Any]]:
         f"- architectural_form: one of 'central_mass', 'tower', 'podium', 'wings', 'courtyard', 'monument'.\n"
         f"- symmetry: one of 'radial', 'bilateral', 'asymmetric'.\n"
         f"- confidence: integer 0-100 indicating confidence in this visual analysis.\n\n"
-        f"If no building is clearly visible, return: {{\"confidence\": 0, \"footprint_pixels\": []}}\n"
+        f"If no building is clearly visible, return: {{\"confidence\": 0}}\n"
     )
 
     payload = {
@@ -178,11 +176,10 @@ async def analyze_building_image(image_path: str) -> Optional[Dict[str, Any]]:
                         return None
 
                     conf = int(parsed.get("confidence", 0))
-                    pixels = parsed.get("footprint_pixels", [])
 
                     logger.info(
-                        "✅ Gemini Vision [%s]: confidence=%d, footprint_points=%d, floors=%s, roof=%s, material=%s, color=%s",
-                        model, conf, len(pixels),
+                        "✅ Gemini Vision [%s]: confidence=%d, floors=%s, roof=%s, material=%s, color=%s",
+                        model, conf,
                         parsed.get("estimated_floors"),
                         parsed.get("roof_shape"),
                         parsed.get("building_material"),
