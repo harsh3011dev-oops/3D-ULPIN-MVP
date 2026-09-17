@@ -29,6 +29,187 @@ if (!fs.existsSync(modelsDir)) {
   fs.mkdirSync(modelsDir, { recursive: true });
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REAL-LIFE ENVIRONMENT & SURROUNDINGS GEOMETRY ENGINE
+// Generates realistic roads, sidewalks, trees, vehicles, walls, and landscape.
+// ─────────────────────────────────────────────────────────────────────────────
+const asphaltMat = new THREE.MeshStandardMaterial({ color: 0x1e2229, roughness: 0.9, metalness: 0.05, name: 'Asphalt_Road' });
+const roadMarkingWhite = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4, metalness: 0.1, name: 'Road_Marking_White' });
+const roadMarkingYellow = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.4, metalness: 0.1, name: 'Road_Marking_Yellow' });
+const sidewalkConcrete = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.75, metalness: 0.1, name: 'Sidewalk_Concrete' });
+const grassLawnMat = new THREE.MeshStandardMaterial({ color: 0x2d6a4f, roughness: 0.92, metalness: 0.02, name: 'Manicured_Lawn' });
+const gardenHedgeMat = new THREE.MeshStandardMaterial({ color: 0x1b4332, roughness: 0.85, metalness: 0.02, name: 'Perimeter_Hedge' });
+const barkDark = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.9, name: 'Tree_Bark_Dark' });
+const palmBark = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.85, name: 'Palm_Bark' });
+const foliageGreen = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.65, metalness: 0.05, name: 'Foliage_Green' });
+const cypressFoliage = new THREE.MeshStandardMaterial({ color: 0x143621, roughness: 0.75, metalness: 0.02, name: 'Cypress_Foliage' });
+const streetLightSteel = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.25, name: 'StreetLight_Steel' });
+const carTireRubber = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9, metalness: 0.1, name: 'Car_Tire_Rubber' });
+const carGlassTinted = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.1, metalness: 0.9, name: 'Car_Glass_Tinted' });
+const contextBuildingMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7, metalness: 0.2, transparent: true, opacity: 0.65, name: 'Neighbor_Context_Building' });
+const stoneBalustrade = new THREE.MeshStandardMaterial({ color: 0xc89d6e, roughness: 0.8, metalness: 0.05, name: 'Stone_Balustrade' });
+
+function createPalmTree(x, y, z, scale = 1.0) {
+  const g = new THREE.Group();
+  g.name = 'Palm_Tree';
+  const trunkGeo = new THREE.CylinderGeometry(0.22 * scale, 0.35 * scale, 7.5 * scale, 8);
+  const trunk = new THREE.Mesh(trunkGeo, palmBark);
+  trunk.position.set(0, (7.5 * scale) / 2, 0);
+  trunk.rotation.z = 0.05;
+  trunk.castShadow = true;
+  g.add(trunk);
+
+  const frondCount = 10;
+  for (let i = 0; i < frondCount; i++) {
+    const angle = (i / frondCount) * Math.PI * 2;
+    const frondGeo = new THREE.ConeGeometry(0.8 * scale, 3.8 * scale, 4);
+    frondGeo.translate(0, 1.9 * scale, 0);
+    const frond = new THREE.Mesh(frondGeo, foliageGreen);
+    frond.position.set(0, 7.2 * scale, 0);
+    frond.rotation.y = angle;
+    frond.rotation.z = Math.PI / 2.8;
+    g.add(frond);
+  }
+  g.position.set(x, y, z);
+  return g;
+}
+
+function createCypressTree(x, y, z, height = 7.0) {
+  const g = new THREE.Group();
+  g.name = 'Mughal_Cypress_Tree';
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 1.2, 8), barkDark);
+  trunk.position.y = 0.6;
+  g.add(trunk);
+
+  const cone1 = new THREE.Mesh(new THREE.ConeGeometry(1.1, height * 0.55, 8), cypressFoliage);
+  cone1.position.y = height * 0.35;
+  cone1.castShadow = true;
+  g.add(cone1);
+
+  const cone2 = new THREE.Mesh(new THREE.ConeGeometry(0.85, height * 0.45, 8), cypressFoliage);
+  cone2.position.y = height * 0.62;
+  cone2.castShadow = true;
+  g.add(cone2);
+
+  const cone3 = new THREE.Mesh(new THREE.ConeGeometry(0.5, height * 0.3, 8), cypressFoliage);
+  cone3.position.y = height * 0.84;
+  cone3.castShadow = true;
+  g.add(cone3);
+
+  g.position.set(x, y, z);
+  return g;
+}
+
+function createShadeTree(x, y, z, scale = 1.0) {
+  const g = new THREE.Group();
+  g.name = 'Shade_Tree_Neem';
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35 * scale, 0.55 * scale, 4.0 * scale, 8), barkDark);
+  trunk.position.y = 2.0 * scale;
+  trunk.castShadow = true;
+  g.add(trunk);
+
+  const canopy1 = new THREE.Mesh(new THREE.DodecahedronGeometry(2.4 * scale, 1), foliageGreen);
+  canopy1.position.set(0, 4.8 * scale, 0);
+  canopy1.castShadow = true;
+  g.add(canopy1);
+
+  const canopy2 = new THREE.Mesh(new THREE.DodecahedronGeometry(1.8 * scale, 1), foliageGreen);
+  canopy2.position.set(0.8 * scale, 5.8 * scale, 0.4 * scale);
+  canopy2.castShadow = true;
+  g.add(canopy2);
+
+  const canopy3 = new THREE.Mesh(new THREE.DodecahedronGeometry(1.6 * scale, 1), foliageGreen);
+  canopy3.position.set(-0.7 * scale, 5.4 * scale, -0.5 * scale);
+  canopy3.castShadow = true;
+  g.add(canopy3);
+
+  g.position.set(x, y, z);
+  return g;
+}
+
+function createVehicle(x, y, z, rotY = 0, bodyColorHex = 0x1e40af) {
+  const g = new THREE.Group();
+  g.name = 'Surrounding_Vehicle';
+  const carPaint = new THREE.MeshStandardMaterial({ color: bodyColorHex, roughness: 0.25, metalness: 0.8 });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.7, 4.4), carPaint);
+  body.position.y = 0.55;
+  body.castShadow = true;
+  g.add(body);
+
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.65, 2.3), carGlassTinted);
+  cabin.position.set(0, 1.15, -0.2);
+  cabin.castShadow = true;
+  g.add(cabin);
+
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.08, 2.1), carPaint);
+  roof.position.set(0, 1.5, -0.2);
+  g.add(roof);
+
+  const wheelGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.24, 12);
+  wheelGeo.rotateZ(Math.PI / 2);
+  const wPositions = [
+    [-0.95, 0.34, 1.3],
+    [0.95, 0.34, 1.3],
+    [-0.95, 0.34, -1.3],
+    [0.95, 0.34, -1.3],
+  ];
+  wPositions.forEach(([wx, wy, wz]) => {
+    const wheel = new THREE.Mesh(wheelGeo, carTireRubber);
+    wheel.position.set(wx, wy, wz);
+    g.add(wheel);
+  });
+
+  const headMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xfef08a, emissiveIntensity: 0.8 });
+  const tailMat = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 0.8 });
+  const hl1 = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.12, 0.05), headMat);
+  hl1.position.set(-0.65, 0.65, 2.22);
+  g.add(hl1);
+  const hl2 = hl1.clone();
+  hl2.position.x = 0.65;
+  g.add(hl2);
+
+  const tl1 = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.12, 0.05), tailMat);
+  tl1.position.set(-0.65, 0.65, -2.22);
+  g.add(tl1);
+  const tl2 = tl1.clone();
+  tl2.position.x = 0.65;
+  g.add(tl2);
+
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+  return g;
+}
+
+function createStreetLightPost(x, y, z, rotY = 0) {
+  const g = new THREE.Group();
+  g.name = 'Street_Light_Luminaire';
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.14, 6.5, 8), streetLightSteel);
+  pole.position.y = 3.25;
+  pole.castShadow = true;
+  g.add(pole);
+
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 1.4), streetLightSteel);
+  arm.position.set(0, 6.35, 0.6);
+  g.add(arm);
+
+  const fixture = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.1, 0.6), streetLightSteel);
+  fixture.position.set(0, 6.3, 1.2);
+  g.add(fixture);
+
+  const lampBulb = new THREE.Mesh(
+    new THREE.BoxGeometry(0.24, 0.04, 0.5),
+    new THREE.MeshStandardMaterial({ color: 0xffedd5, emissive: 0xffedd5, emissiveIntensity: 1.4 })
+  );
+  lampBulb.position.set(0, 6.24, 1.2);
+  g.add(lampBulb);
+
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+  return g;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. RANI KI VAV (The Queen's Stepwell, Patan, Gujarat)
 // Inverted subterranean stepwell descending 28m across 7 terraced levels,
@@ -206,6 +387,65 @@ function createRaniKiVavScene() {
   );
   water.position.set(0, -27.5, -30);
   root.add(water);
+
+  // ─────────────────────────────────────────────────────────────
+  // SURROUNDINGS: ASI HERITAGE LANDSCAPE PARK & APPROACH PROMENADE
+  // ─────────────────────────────────────────────────────────────
+  const surroundingsGroup = new THREE.Group();
+  surroundingsGroup.name = 'Surrounding_ASI_Heritage_Park';
+  root.add(surroundingsGroup);
+
+  const parkLawn = new THREE.Mesh(new THREE.PlaneGeometry(150, 130), grassLawnMat);
+  parkLawn.rotation.x = -Math.PI / 2;
+  parkLawn.position.set(0, -0.05, 0);
+  parkLawn.receiveShadow = true;
+  surroundingsGroup.add(parkLawn);
+
+  const promenade = new THREE.Mesh(new THREE.BoxGeometry(10, 0.25, 36), groundPlaza);
+  promenade.position.set(0, 0.1, 58);
+  promenade.receiveShadow = true;
+  surroundingsGroup.add(promenade);
+
+  const railingNorth = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.1, 74), stoneBalustrade);
+  railingNorth.position.set(-14.5, 1.5, 0);
+  surroundingsGroup.add(railingNorth);
+
+  const railingSouth = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.1, 74), stoneBalustrade);
+  railingSouth.position.set(14.5, 1.5, 0);
+  surroundingsGroup.add(railingSouth);
+
+  const railingWest = new THREE.Mesh(new THREE.BoxGeometry(30, 1.1, 1.0), stoneBalustrade);
+  railingWest.position.set(0, 1.5, -37.5);
+  surroundingsGroup.add(railingWest);
+
+  const raniTreeCoords = [
+    [-26, 0, -25], [-28, 0, 0], [-26, 0, 25], [-22, 0, 48],
+    [26, 0, -25], [28, 0, 0], [26, 0, 25], [22, 0, 48],
+    [-14, 0, 64], [14, 0, 64],
+    [-42, 0, -15], [-42, 0, 20], [42, 0, -15], [42, 0, 20],
+    [-20, 0, -42], [20, 0, -42]
+  ];
+  raniTreeCoords.forEach(([tx, ty, tz], i) => {
+    surroundingsGroup.add(createShadeTree(tx, ty, tz, 0.85 + (i % 3) * 0.15));
+  });
+
+  const eastRoad = new THREE.Mesh(new THREE.BoxGeometry(12, 0.2, 120), asphaltMat);
+  eastRoad.position.set(0, 0.05, 78);
+  surroundingsGroup.add(eastRoad);
+
+  for (let rz = 25; rz <= 130; rz += 8) {
+    const dash = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.02, 4.0), roadMarkingWhite);
+    dash.position.set(0, 0.16, rz);
+    surroundingsGroup.add(dash);
+  }
+
+  surroundingsGroup.add(createVehicle(-6, 0.1, 74, Math.PI / 2, 0x1e3a8a));
+  surroundingsGroup.add(createVehicle(0, 0.1, 74, Math.PI / 2, 0xd97706));
+  surroundingsGroup.add(createVehicle(6, 0.1, 74, Math.PI / 2, 0xe2e8f0));
+
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.4, 1.0), sandstoneDark);
+  plinth.position.set(6.5, 0.7, 44);
+  surroundingsGroup.add(plinth);
 
   return root;
 }
@@ -494,6 +734,94 @@ function createAamKhasBaghScene() {
   });
   root.add(baradari);
 
+  // ─────────────────────────────────────────────────────────────
+  // SURROUNDINGS: 16TH-CENTURY MUGHAL CHARBAGH ENCLOSURE & BASTIONS
+  // ─────────────────────────────────────────────────────────────
+  const surroundingsGroup = new THREE.Group();
+  surroundingsGroup.name = 'Surrounding_Mughal_Charbagh_Enclosure';
+  root.add(surroundingsGroup);
+
+  const outerLawn = new THREE.Mesh(new THREE.PlaneGeometry(140, 130), grassLawnMat);
+  outerLawn.rotation.x = -Math.PI / 2;
+  outerLawn.position.set(0, -0.22, 0);
+  outerLawn.receiveShadow = true;
+  surroundingsGroup.add(outerLawn);
+
+  const quadW = 26;
+  const quadD = 24;
+  const quadCoords = [
+    [-18, 0, -16], [18, 0, -16],
+    [-18, 0, 16], [18, 0, 16]
+  ];
+  quadCoords.forEach(([qx, qy, qz]) => {
+    const chaman = new THREE.Mesh(new THREE.BoxGeometry(quadW, 0.15, quadD), grassLawnMat);
+    chaman.position.set(qx, -0.05, qz);
+    chaman.receiveShadow = true;
+    surroundingsGroup.add(chaman);
+
+    const border = new THREE.Mesh(new THREE.BoxGeometry(quadW + 1.2, 0.22, quadD + 1.2), gardenPaving);
+    border.position.set(qx, -0.1, qz);
+    surroundingsGroup.add(border);
+  });
+
+  const cypressCoords = [
+    [-4, 0, -32], [4, 0, -32],
+    [-4, 0, -24], [4, 0, -24],
+    [-4, 0, -12], [4, 0, -12],
+    [-4, 0, 12], [4, 0, 12],
+    [-4, 0, 24], [4, 0, 24],
+    [-4, 0, 32], [4, 0, 32],
+    [-24, 0, -4], [-24, 0, 4],
+    [-14, 0, -4], [-14, 0, 4],
+    [14, 0, -4], [14, 0, 4],
+    [24, 0, -4], [24, 0, 4],
+    [32, 0, -4], [32, 0, 4],
+  ];
+  cypressCoords.forEach(([cx, cy, cz]) => {
+    surroundingsGroup.add(createCypressTree(cx, cy, cz, 6.5 + (Math.abs(cx + cz) % 3) * 0.5));
+  });
+
+  const wallH = 4.2;
+  const wallThick = 1.4;
+  const wallNorth = new THREE.Mesh(new THREE.BoxGeometry(86, wallH, wallThick), mughalBrick);
+  wallNorth.position.set(0, wallH / 2, -38);
+  surroundingsGroup.add(wallNorth);
+
+  const wallSouth = new THREE.Mesh(new THREE.BoxGeometry(86, wallH, wallThick), mughalBrick);
+  wallSouth.position.set(0, wallH / 2, 38);
+  surroundingsGroup.add(wallSouth);
+
+  const wallWest = new THREE.Mesh(new THREE.BoxGeometry(wallThick, wallH, 76), mughalBrick);
+  wallWest.position.set(-43, wallH / 2, 0);
+  surroundingsGroup.add(wallWest);
+
+  const wallEast = new THREE.Mesh(new THREE.BoxGeometry(wallThick, wallH, 76), mughalBrick);
+  wallEast.position.set(43, wallH / 2, 0);
+  surroundingsGroup.add(wallEast);
+
+  const bastionCoords = [
+    [-43, 0, -38], [43, 0, -38],
+    [-43, 0, 38], [43, 0, 38]
+  ];
+  bastionCoords.forEach(([bx, by, bz]) => {
+    const burj = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.7, wallH + 1.2, 16), mughalBrick);
+    burj.position.set(bx, (wallH + 1.2) / 2, bz);
+    surroundingsGroup.add(burj);
+
+    const burjDome = new THREE.Mesh(new THREE.SphereGeometry(2.4, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), buffPlaster);
+    burjDome.position.set(bx, wallH + 1.2, bz);
+    surroundingsGroup.add(burjDome);
+  });
+
+  const darwaza = new THREE.Mesh(new THREE.BoxGeometry(14, 6.5, 3.2), mughalBrick);
+  darwaza.position.set(0, 3.25, 38);
+  surroundingsGroup.add(darwaza);
+
+  const archCut = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 3.4, 16, 1, false, 0, Math.PI), buffPlaster);
+  archCut.position.set(0, 3.2, 38);
+  archCut.rotation.z = Math.PI / 2;
+  surroundingsGroup.add(archCut);
+
   return root;
 }
 
@@ -758,6 +1086,113 @@ function createSmartCityScene() {
     lampHead.position.set(lx, ly + 4.0, lz);
     root.add(lampHead);
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // SURROUNDINGS: MODERN SMART CITY DUAL-LANE ROADWAY, PALMS, PARKING & INFRASTRUCTURE
+  // ─────────────────────────────────────────────────────────────
+  const surroundingsGroup = new THREE.Group();
+  surroundingsGroup.name = 'Surrounding_SmartCity_Urban_Infrastructure';
+  root.add(surroundingsGroup);
+
+  const roadWidth = 12.0;
+  const southRoad = new THREE.Mesh(new THREE.BoxGeometry(140, 0.2, roadWidth), asphaltMat);
+  southRoad.position.set(0, 0.08, 42);
+  southRoad.receiveShadow = true;
+  surroundingsGroup.add(southRoad);
+
+  for (let rx = -60; rx <= 60; rx += 6) {
+    const dash = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.02, 0.22), roadMarkingYellow);
+    dash.position.set(rx, 0.2, 42);
+    surroundingsGroup.add(dash);
+  }
+
+  const whiteEdge1 = new THREE.Mesh(new THREE.BoxGeometry(140, 0.02, 0.2), roadMarkingWhite);
+  whiteEdge1.position.set(0, 0.2, 42 - (roadWidth / 2) + 0.5);
+  surroundingsGroup.add(whiteEdge1);
+  const whiteEdge2 = new THREE.Mesh(new THREE.BoxGeometry(140, 0.02, 0.2), roadMarkingWhite);
+  whiteEdge2.position.set(0, 0.2, 42 + (roadWidth / 2) - 0.5);
+  surroundingsGroup.add(whiteEdge2);
+
+  const crosswalkPositions = [-25, 25];
+  crosswalkPositions.forEach((cx) => {
+    for (let bar = -5; bar <= 5; bar += 1.1) {
+      const zebraBar = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.02, 3.8), roadMarkingWhite);
+      zebraBar.position.set(cx + bar, 0.21, 42);
+      surroundingsGroup.add(zebraBar);
+    }
+  });
+
+  const southSidewalk = new THREE.Mesh(new THREE.BoxGeometry(140, 0.35, 4.0), sidewalkConcrete);
+  southSidewalk.position.set(0, 0.17, 34);
+  surroundingsGroup.add(southSidewalk);
+
+  const fountainPool = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 5.5, 0.8, 24), concreteFacade);
+  fountainPool.position.set(0, 0.4, 22);
+  surroundingsGroup.add(fountainPool);
+
+  const fountainWater = new THREE.Mesh(new THREE.CylinderGeometry(5.0, 5.0, 0.6, 24), curtainGlassTeal);
+  fountainWater.position.set(0, 0.6, 22);
+  surroundingsGroup.add(fountainWater);
+
+  const sculpturePillar = new THREE.Mesh(new THREE.ConeGeometry(1.2, 6.5, 4), steelFrame);
+  sculpturePillar.position.set(0, 3.6, 22);
+  sculpturePillar.rotation.y = Math.PI / 4;
+  surroundingsGroup.add(sculpturePillar);
+
+  const parkingPlaza = new THREE.Mesh(new THREE.BoxGeometry(24, 0.2, 44), asphaltMat);
+  parkingPlaza.position.set(-36, 0.1, -4);
+  surroundingsGroup.add(parkingPlaza);
+
+  const carportRoof = new THREE.Mesh(new THREE.BoxGeometry(22, 0.25, 38), solarPanelMat);
+  carportRoof.position.set(-36, 4.2, -4);
+  carportRoof.rotation.z = -0.08;
+  surroundingsGroup.add(carportRoof);
+
+  for (let pz = -18; pz <= 18; pz += 12) {
+    const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4.2, 8), steelFrame);
+    post1.position.set(-42, 2.1, pz);
+    surroundingsGroup.add(post1);
+    const post2 = post1.clone();
+    post2.position.x = -30;
+    surroundingsGroup.add(post2);
+  }
+
+  surroundingsGroup.add(createVehicle(-40, 0.2, -14, 0, 0x0284c7));
+  surroundingsGroup.add(createVehicle(-40, 0.2, -4, 0, 0x10b981));
+  surroundingsGroup.add(createVehicle(-40, 0.2, 6, 0, 0xf59e0b));
+  surroundingsGroup.add(createVehicle(-32, 0.2, -14, Math.PI, 0xe11d48));
+  surroundingsGroup.add(createVehicle(-32, 0.2, -4, Math.PI, 0x475569));
+  surroundingsGroup.add(createVehicle(-32, 0.2, 6, Math.PI, 0x0284c7));
+
+  const palmCoords = [
+    [-34, 0, 30], [-20, 0, 30], [-8, 0, 30], [8, 0, 30], [20, 0, 30], [34, 0, 30],
+    [-46, 0, 18], [-46, 0, 4], [-46, 0, -12], [-46, 0, -26],
+    [38, 0, 18], [38, 0, 4], [38, 0, -12], [38, 0, -26],
+    [-18, 0, 16], [18, 0, 16]
+  ];
+  palmCoords.forEach(([px, py, pz], i) => {
+    surroundingsGroup.add(createPalmTree(px, py, pz, 0.85 + (i % 3) * 0.12));
+  });
+
+  const lightCoords = [
+    [-40, 0, 35], [-15, 0, 35], [15, 0, 35], [40, 0, 35],
+    [-24, 0, 12], [24, 0, 12]
+  ];
+  lightCoords.forEach(([lx, ly, lz]) => {
+    surroundingsGroup.add(createStreetLightPost(lx, ly, lz, Math.PI / 2));
+  });
+
+  const neighbor1 = new THREE.Mesh(new THREE.BoxGeometry(32, 22, 24), contextBuildingMat);
+  neighbor1.position.set(-36, 11, 62);
+  surroundingsGroup.add(neighbor1);
+
+  const neighbor2 = new THREE.Mesh(new THREE.BoxGeometry(38, 16, 26), contextBuildingMat);
+  neighbor2.position.set(36, 8, 62);
+  surroundingsGroup.add(neighbor2);
+
+  const gatehouse = new THREE.Mesh(new THREE.BoxGeometry(5.0, 3.2, 4.0), concreteFacade);
+  gatehouse.position.set(0, 1.6, 32);
+  surroundingsGroup.add(gatehouse);
 
   return root;
 }

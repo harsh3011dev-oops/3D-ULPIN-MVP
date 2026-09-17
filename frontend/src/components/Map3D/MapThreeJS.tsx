@@ -582,104 +582,265 @@ function generatePlazaTexture() {
   return tex;
 }
 
-// Build surrounding context: Ground site plaza, trees, lamp posts
+// ─────────────────────────────────────────────────────────────
+// REAL-LIFE ENVIRONMENT & SURROUNDINGS GEOMETRY ENGINE
+// Builds authentic roads, crosswalks, sidewalks, trees, parked vehicles,
+// streetlights, parcel boundaries, and neighboring context buildings.
+// ─────────────────────────────────────────────────────────────
 function buildSurroundingContext(
   scene: THREE.Scene,
   dims: { width: number; depth: number },
-  sceneExtent: number
+  sceneExtent: number,
+  building?: Building,
+  customModelConfig?: CustomModelConfig | null
 ) {
-  // Ground extends broadly across the site (min 80m x 80m, extending with footprint and building height)
-  const groundWidth = Math.max(dims.width * 4.0, sceneExtent * 2.5, 80);
-  const groundDepth = Math.max(dims.depth * 4.0, sceneExtent * 2.5, 80);
+  const surroundingsGroup = new THREE.Group();
+  surroundingsGroup.name = 'surroundingContextGroup';
+  scene.add(surroundingsGroup);
 
-  const plazaTex = generatePlazaTexture();
-  plazaTex.repeat.set(Math.max(2, Math.round(groundWidth / 35)), Math.max(2, Math.round(groundDepth / 35)));
+  const isKerala = (building?.address && /kerala|thiruvananthapuram|trivandrum|kochi/i.test(building.address)) ||
+                   (customModelConfig?.id === 'thiruvananthapuram-tald-lidar') ||
+                   (building?.latitude != null && building.latitude < 12.0 && building.latitude > 7.0);
+
+  const isMughalHeritage = (building?.building_name && /bagh|mughal|sirhind|hammam|baradari/i.test(building.building_name)) ||
+                           (customModelConfig?.id === 'aam-khas-bagh-lidar');
+
+  const isStepwell = (building?.building_name && /stepwell|vav|patan/i.test(building.building_name)) ||
+                     (customModelConfig?.id === 'rani-ki-vav-lidar');
+
+  const groundWidth = Math.max(dims.width * 4.5, sceneExtent * 3.0, 130);
+  const groundDepth = Math.max(dims.depth * 4.5, sceneExtent * 3.0, 130);
+
+  // 1. Broad Ground Base (Lawn / Terrain)
+  const grassMat = new THREE.MeshStandardMaterial({
+    color: isMughalHeritage ? 0x234d20 : isStepwell ? 0x2d6a4f : 0x1e3a1e,
+    roughness: 0.9,
+    metalness: 0.02,
+    name: 'Surrounding_Grass_Terrain'
+  });
   const groundGeo = new THREE.PlaneGeometry(groundWidth, groundDepth);
-  const groundMat = new THREE.MeshStandardMaterial({
+  const groundMesh = new THREE.Mesh(groundGeo, grassMat);
+  groundMesh.rotation.x = -Math.PI / 2;
+  groundMesh.position.y = -0.06;
+  groundMesh.receiveShadow = true;
+  surroundingsGroup.add(groundMesh);
+
+  // 2. Central Parcel Paving Plinth
+  const plazaTex = generatePlazaTexture();
+  plazaTex.repeat.set(Math.max(2, Math.round(dims.width / 15)), Math.max(2, Math.round(dims.depth / 15)));
+  const parcelPlazaGeo = new THREE.BoxGeometry(dims.width * 1.5, 0.1, dims.depth * 1.5);
+  const parcelPlazaMat = new THREE.MeshStandardMaterial({
     map: plazaTex,
     roughness: 0.75,
-    metalness: 0.2,
+    metalness: 0.15,
+    name: 'Parcel_Plaza_Plinth'
   });
-  const groundMesh = new THREE.Mesh(groundGeo, groundMat);
-  groundMesh.name = 'groundPlazaMesh';
-  groundMesh.rotation.x = -Math.PI / 2;
-  groundMesh.position.y = -0.05;
-  groundMesh.receiveShadow = true;
-  scene.add(groundMesh);
+  const parcelPlazaMesh = new THREE.Mesh(parcelPlazaGeo, parcelPlazaMat);
+  parcelPlazaMesh.position.set(0, -0.01, 0);
+  parcelPlazaMesh.receiveShadow = true;
+  surroundingsGroup.add(parcelPlazaMesh);
 
-  // Standard architectural site scale for surrounding trees and lamp posts
-  const treeBarkMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.9 });
-  const treeFoliageMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6, metalness: 0.1 });
-  const lampPoleMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.2 });
-  const lampGlowMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xfef08a, emissiveIntensity: 1.2 });
-
-  const marginX = dims.width / 2 + 6;
-  const marginZ = dims.depth / 2 + 6;
-  const treePositions = [
-    [-marginX - 4, -marginZ],
-    [-marginX - 4, 0],
-    [-marginX - 4, marginZ],
-    [marginX + 4, -marginZ],
-    [marginX + 4, 0],
-    [marginX + 4, marginZ],
-    [-marginX / 2, -marginZ - 5],
-    [marginX / 2, -marginZ - 5],
-    [-marginX / 2, marginZ + 5],
-    [marginX / 2, marginZ + 5],
+  // 3. Cadastral Property Boundary Line (Glowing perimeter boundary)
+  const bndW = dims.width * 1.5;
+  const bndD = dims.depth * 1.5;
+  const bndPoints = [
+    new THREE.Vector3(-bndW / 2, 0.05, -bndD / 2),
+    new THREE.Vector3(bndW / 2, 0.05, -bndD / 2),
+    new THREE.Vector3(bndW / 2, 0.05, bndD / 2),
+    new THREE.Vector3(-bndW / 2, 0.05, bndD / 2),
+    new THREE.Vector3(-bndW / 2, 0.05, -bndD / 2),
   ];
-
-  treePositions.forEach(([x, z]) => {
-    const treeGroup = new THREE.Group();
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.45, 3.5, 8), treeBarkMat);
-    trunk.position.y = 1.75;
-    trunk.castShadow = true;
-    treeGroup.add(trunk);
-
-    const f1 = new THREE.Mesh(new THREE.IcosahedronGeometry(2.0, 1), treeFoliageMat);
-    f1.position.y = 4.2;
-    f1.castShadow = true;
-    treeGroup.add(f1);
-
-    const f2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.4, 1), treeFoliageMat);
-    f2.position.set(0.3, 5.2, 0.2);
-    f2.castShadow = true;
-    treeGroup.add(f2);
-
-    treeGroup.position.set(x, 0, z);
-    scene.add(treeGroup);
+  const bndGeo = new THREE.BufferGeometry().setFromPoints(bndPoints);
+  const bndMat = new THREE.LineDashedMaterial({
+    color: 0x06b6d4,
+    dashSize: 2.0,
+    gapSize: 1.0,
+    linewidth: 2,
   });
+  const bndLine = new THREE.Line(bndGeo, bndMat);
+  bndLine.computeLineDistances();
+  surroundingsGroup.add(bndLine);
 
-  const lampPositions = [
-    [-marginX - 2, -marginZ + 8],
-    [-marginX - 2, marginZ - 8],
-    [marginX + 2, -marginZ + 8],
-    [marginX + 2, marginZ - 8],
-    [0, -marginZ - 4],
-    [0, marginZ + 4],
+  // Cadastral Corner Marker Pegs (P1, P2, P3, P4)
+  const pegMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.8 });
+  const cornerCoords = [
+    [-bndW / 2, -bndD / 2],
+    [bndW / 2, -bndD / 2],
+    [bndW / 2, bndD / 2],
+    [-bndW / 2, bndD / 2]
   ];
-
-  lampPositions.forEach(([x, z]) => {
-    const lampGroup = new THREE.Group();
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 4.5, 8), lampPoleMat);
-    pole.position.y = 2.25;
-    pole.castShadow = true;
-    lampGroup.add(pole);
-
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.3), lampPoleMat);
-    head.position.set(0, 4.5, 0);
-    lampGroup.add(head);
-
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), lampGlowMat);
-    bulb.position.set(0, 4.35, 0);
-    lampGroup.add(bulb);
-
-    const light = new THREE.PointLight(0xfef08a, 0.8, 12);
-    light.position.set(0, 4.35, 0);
-    lampGroup.add(light);
-
-    lampGroup.position.set(x, 0, z);
-    scene.add(lampGroup);
+  cornerCoords.forEach(([cx, cz]) => {
+    const peg = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.6, 8), pegMat);
+    peg.position.set(cx, 0.3, cz);
+    surroundingsGroup.add(peg);
   });
+
+  // 4. Real-World Roadway Network (Asphalt Street, Yellow Centerlines, Crosswalks, Sidewalks)
+  const roadAsphaltMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.9, metalness: 0.05 });
+  const roadWhiteMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4, metalness: 0.1 });
+  const roadYellowMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.4, metalness: 0.1 });
+  const sidewalkMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.75, metalness: 0.1 });
+
+  const roadZ = bndD / 2 + 10;
+  const roadW = 10.0;
+  const roadLen = groundWidth;
+
+  const frontRoad = new THREE.Mesh(new THREE.BoxGeometry(roadLen, 0.12, roadW), roadAsphaltMat);
+  frontRoad.position.set(0, 0.02, roadZ);
+  frontRoad.receiveShadow = true;
+  surroundingsGroup.add(frontRoad);
+
+  for (let rx = -roadLen / 2 + 4; rx <= roadLen / 2 - 4; rx += 5) {
+    const dash = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.02, 0.18), roadYellowMat);
+    dash.position.set(rx, 0.09, roadZ);
+    surroundingsGroup.add(dash);
+  }
+
+  const crossX = [-dims.width / 2, dims.width / 2];
+  crossX.forEach((cx) => {
+    for (let bar = -3.5; bar <= 3.5; bar += 1.0) {
+      const zebra = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.02, roadW * 0.8), roadWhiteMat);
+      zebra.position.set(cx + bar, 0.09, roadZ);
+      surroundingsGroup.add(zebra);
+    }
+  });
+
+  const sidewalk = new THREE.Mesh(new THREE.BoxGeometry(roadLen, 0.22, 3.2), sidewalkMat);
+  sidewalk.position.set(0, 0.1, roadZ - (roadW / 2) - 1.6);
+  surroundingsGroup.add(sidewalk);
+
+  // 5. Authentic Trees according to Regional Context
+  const barkMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.9 });
+  const foliageMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.65, metalness: 0.05 });
+  const cypressMat = new THREE.MeshStandardMaterial({ color: 0x143621, roughness: 0.75, metalness: 0.02 });
+
+  const treeXOffsets = [-bndW / 2 - 6, bndW / 2 + 6];
+  const treeZRange = [-bndD / 2, 0, bndD / 2];
+
+  treeXOffsets.forEach((tx) => {
+    treeZRange.forEach((tz, idx) => {
+      const treeGrp = new THREE.Group();
+      if (isKerala) {
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.35, 7.5, 8), barkMat);
+        trunk.position.y = 3.75;
+        trunk.rotation.z = tx > 0 ? -0.06 : 0.06;
+        treeGrp.add(trunk);
+        for (let frond = 0; frond < 8; frond++) {
+          const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.7, 3.5, 4), foliageMat);
+          leaf.position.set(0, 7.2, 0);
+          leaf.rotation.y = (frond / 8) * Math.PI * 2;
+          leaf.rotation.z = Math.PI / 2.8;
+          treeGrp.add(leaf);
+        }
+      } else if (isMughalHeritage) {
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 1.2, 8), barkMat);
+        trunk.position.y = 0.6;
+        treeGrp.add(trunk);
+        const c1 = new THREE.Mesh(new THREE.ConeGeometry(1.2, 4.0, 8), cypressMat);
+        c1.position.y = 2.8;
+        treeGrp.add(c1);
+        const c2 = new THREE.Mesh(new THREE.ConeGeometry(0.8, 3.2, 8), cypressMat);
+        c2.position.y = 4.8;
+        treeGrp.add(c2);
+      } else {
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 3.8, 8), barkMat);
+        trunk.position.y = 1.9;
+        treeGrp.add(trunk);
+        const canopy = new THREE.Mesh(new THREE.DodecahedronGeometry(2.5 + (idx % 2) * 0.5, 1), foliageMat);
+        canopy.position.y = 4.6;
+        treeGrp.add(canopy);
+      }
+      treeGrp.position.set(tx, 0, tz);
+      surroundingsGroup.add(treeGrp);
+    });
+  });
+
+  // 6. Street Lighting Poles with Warm Light Cast
+  const lightPoleMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.25 });
+  const lightGlowMat = new THREE.MeshStandardMaterial({ color: 0xffedd5, emissive: 0xffedd5, emissiveIntensity: 1.4 });
+  const lightPositions = [
+    [-bndW / 2 + 5, roadZ - 5],
+    [bndW / 2 - 5, roadZ - 5],
+    [0, roadZ - 5]
+  ];
+  lightPositions.forEach(([lx, lz]) => {
+    const lamp = new THREE.Group();
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 5.5, 8), lightPoleMat);
+    pole.position.y = 2.75;
+    lamp.add(pole);
+
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 1.2), lightPoleMat);
+    arm.position.set(0, 5.4, 0.6);
+    lamp.add(arm);
+
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), lightGlowMat);
+    bulb.position.set(0, 5.3, 1.1);
+    lamp.add(bulb);
+
+    const ptLight = new THREE.PointLight(0xffedd5, 0.8, 14);
+    ptLight.position.set(0, 5.3, 1.1);
+    lamp.add(ptLight);
+
+    lamp.position.set(lx, 0, lz);
+    surroundingsGroup.add(lamp);
+  });
+
+  // 7. Parked Vehicles along the street curb
+  const carPaintMat1 = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3, metalness: 0.7 });
+  const carPaintMat2 = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.3, metalness: 0.7 });
+  const carPaintMat3 = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.3, metalness: 0.7 });
+  const carGlassMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.1, metalness: 0.9 });
+  const tireMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 });
+
+  const parkedCars = [
+    { x: -bndW / 2 + 12, z: roadZ - 3, color: carPaintMat1 },
+    { x: bndW / 2 - 12, z: roadZ - 3, color: carPaintMat2 },
+    { x: -bndW / 2 + 20, z: roadZ - 3, color: carPaintMat3 }
+  ];
+  parkedCars.forEach(({ x, z, color }) => {
+    const car = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.7, 1.9), color);
+    body.position.y = 0.5;
+    car.add(body);
+
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.65, 1.6), carGlassMat);
+    cabin.position.set(-0.2, 1.1, 0);
+    car.add(cabin);
+
+    const wGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.22, 10);
+    wGeo.rotateX(Math.PI / 2);
+    [[-1.3, -0.9], [-1.3, 0.9], [1.3, -0.9], [1.3, 0.9]].forEach(([wx, wz]) => {
+      const w = new THREE.Mesh(wGeo, tireMat);
+      w.position.set(wx, 0.32, wz);
+      car.add(w);
+    });
+
+    car.position.set(x, 0, z);
+    surroundingsGroup.add(car);
+  });
+
+  // 8. Neighboring Real-World Context Building Massings across the road
+  if (!isStepwell && !isMughalHeritage) {
+    const contextMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.65,
+      metalness: 0.25,
+      transparent: true,
+      opacity: 0.65,
+      name: 'Context_Neighbor_Building'
+    });
+
+    const neighborConfigs = [
+      { x: -38, z: roadZ + 22, w: 26, h: 18, d: 20 },
+      { x: 0, z: roadZ + 24, w: 32, h: 24, d: 22 },
+      { x: 38, z: roadZ + 22, w: 28, h: 15, d: 20 }
+    ];
+    neighborConfigs.forEach(({ x, z, w, h, d }) => {
+      const nMesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), contextMat);
+      nMesh.position.set(x, h / 2, z);
+      surroundingsGroup.add(nMesh);
+    });
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1883,7 +2044,7 @@ export default function MapThreeJS({
     scene.add(rimLight);
 
     // Surrounding Site Plaza & Landscaping (Broader ground area for proper site context)
-    buildSurroundingContext(scene, dims, sceneExtent);
+    buildSurroundingContext(scene, dims, sceneExtent, building, findCustomModel(building));
 
     // ─────────────────────────────────────────────────────────────
     // UNDERGROUND VISUALIZATION & 3D UTILITY PIPELINES
