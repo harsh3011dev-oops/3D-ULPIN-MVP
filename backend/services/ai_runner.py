@@ -158,7 +158,7 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
                         building_id=building.id,
                         unit_id=u['unit_id'],
                         ulpin=u['ulpin'],
-                        floor=u['floor'],
+                        floor=u['floor_number'],
                         floor_height_m=u['floor_height_m'],
                         polygon_2d=unit_wkt,
                         centroid_lat=u['centroid'][0],
@@ -239,7 +239,7 @@ def _get_mock_ai_result(parcel_id: str) -> dict:
         "units": [
             {
                 "unit_id": "UNIT_F01_A01",
-                "floor": 1,
+                "floor_number": 1,
                 "floor_height_m": 3.5,
                 "polygon_2d": {
                     "type": "Polygon",

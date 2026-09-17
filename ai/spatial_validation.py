@@ -67,7 +67,7 @@ def validate_spatial_data(
     # Group units by floor for overlap checking
     floors_map = {}
     for unit in units:
-        floors_map.setdefault(unit["floor"], []).append(unit)
+        floors_map.setdefault(unit["floor_number"], []).append(unit)
 
     # Check 1: Overlaps within each floor
     for floor_num, floor_units in floors_map.items():
