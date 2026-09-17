@@ -163,7 +163,14 @@ def process_building(*args, **kwargs) -> dict:
         ctx.floor_count = estimate_floor_count(ctx.osm_data, ctx.semantic_data, in_floor_count)
         
         in_height = float(input_data["height_meters"]) if input_data.get("height_meters") else None
-        ctx.height = estimate_building_height(ctx.osm_data, ctx.floor_count, in_height)
+        ctx.height = estimate_building_height(
+            ctx.osm_data, 
+            ctx.floor_count, 
+            in_height,
+            latitude=ctx.latitude,
+            longitude=ctx.longitude,
+            footprint=ctx.footprint.geometry if ctx.footprint else None
+        )
         
         # 7. 3D Generation & Extrusion
         extrusion = extrude_building(ctx.footprint.geometry, ctx.height.value_meters, ctx.floor_count.value)
