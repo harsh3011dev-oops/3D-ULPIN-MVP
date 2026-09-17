@@ -1,0 +1,222 @@
+.campus-building-selector {
+  margin: 10px 14px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.campus-selector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+  padding-bottom: 8px;
+}
+
+.campus-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #fbbf24;
+  letter-spacing: 0.04em;
+}
+
+.campus-badge {
+  font-size: 0.62rem;
+  padding: 2px 7px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 9999px;
+  font-weight: 600;
+}
+
+.campus-summary-text {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.campus-buildings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.campus-bld-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+  color: #f1f5f9;
+}
+
+.campus-bld-card:hover {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(56, 189, 248, 0.4);
+  transform: translateY(-1px);
+}
+
+.campus-bld-card.active-bld {
+  background: rgba(14, 165, 233, 0.15);
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+}
+
+.bld-card-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.bld-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.bld-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bld-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bld-sub {
+  font-size: 0.65rem;
+  color: #64748b;
+}
+
+.bld-meta-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.tag-type {
+  font-size: 0.62rem;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.tag-spec {
+  font-size: 0.62rem;
+  color: #94a3b8;
+}
+
+/* Selected telemetry preview */
+.selected-building-telemetry {
+  background: rgba(15, 23, 42, 0.85);
+  border-radius: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.telemetry-banner {
+  border-left: 3px solid #38bdf8;
+  padding-left: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.telemetry-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+}
+
+.t-label {
+  color: #64748b;
+}
+
+.t-val {
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 6px;
+  border-radius: 6px;
+}
+
+.t-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tc-label {
+  font-size: 0.58rem;
+  color: #64748b;
+}
+
+.tc-val {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.t-desc {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  line-height: 1.35;
+  margin: 4px 0 0 0;
+  font-family: var(--font-sans, sans-serif);
+}
+
+.btn-inspect-building-cert {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 7px 12px;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.2), rgba(16, 185, 129, 0.2));
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 6px;
+  color: #38bdf8;
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-inspect-building-cert:hover {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.35), rgba(16, 185, 129, 0.35));
+  border-color: #38bdf8;
+  color: #ffffff;
+}

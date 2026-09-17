@@ -491,3 +491,120 @@ export interface InferredMetadataRequest {
 }
 
 export type ThreeMaterialMode = 'UNIFIED' | 'SOURCE';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MULTI-BUILDING CAMPUS HIERARCHY (Phase 4 — nextplan.md)
+// Represents individual sub-buildings within a campus / complex parcel.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A single structure within a multi-building campus or complex */
+export interface CampusBuilding {
+  /** Unique ID for this sub-building within the campus */
+  id: string;
+  /** Display name (e.g. "Tower A", "Shahi Hammam", "Baradari") */
+  name: string;
+  /** Short label for selector chips */
+  shortLabel: string;
+  /** Optional description of the building's purpose */
+  description?: string;
+  /** Architecture type: tower, pavilion, hammam, baradari, stepwell, etc. */
+  buildingType?: string;
+  /** Height in metres */
+  heightM: number;
+  /** Number of above-ground floors */
+  floors: number;
+  /** Number of subterranean floors (negative) */
+  subterraneanFloors?: number;
+  /** Floor height in metres (defaults to 3.5) */
+  floorHeightM?: number;
+  /** Approximate local offset [x, z] from campus centre in metres */
+  localOffset?: [number, number];
+  /** Hex color for 3D highlighting (e.g. '#0284c7') */
+  color?: string;
+  /** Optional icon emoji */
+  icon?: string;
+}
+
+/** Campus-level metadata attached to a custom model config */
+export interface CampusMetadata {
+  /** Whether this site is a multi-building campus */
+  isMultiBuilding: boolean;
+  /** Total number of discrete structures in the campus */
+  buildingCount: number;
+  /** List of individual sub-buildings */
+  buildings: CampusBuilding[];
+  /** Optional campus-wide description */
+  campusDescription?: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FLOOR SLICE — Dedicated floor entity for proper B→F→U hierarchy
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A single floor slice of a building (Phase 3 — nextplan.md) */
+export interface FloorSlice {
+  /** Floor number (negative = basement, 0 = ground, 1+ = above) */
+  floorNumber: number;
+  /** Human-readable label (e.g. "G", "F1", "B2") */
+  label: string;
+  /** Absolute elevation of floor base in metres */
+  zMin: number;
+  /** Absolute elevation of floor ceiling in metres */
+  zMax: number;
+  /** Floor height in metres */
+  heightM: number;
+  /** Floor area in square metres */
+  areaSqm?: number;
+  /** Use type of this floor (e.g. "Office", "Retail", "Parking") */
+  useType?: string;
+  /** Units on this floor */
+  unitIds?: string[];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VOLUMETRIC ULPIN CERTIFICATE — Unit-level 3D property identity
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Full volumetric cadastral record for a single unit */
+export interface VolumetricULPINCertificate {
+  /** Full formatted 3D ULPIN string: PARCEL-BLDG-FXX-UXX-GEOHASH */
+  ulpin: string;
+  /** Parcel identifier */
+  parcelId: string;
+  /** Building identifier */
+  buildingId: string;
+  /** Floor number */
+  floorNumber: number;
+  /** Floor label (e.g. "F3", "G", "B1") */
+  floorLabel: string;
+  /** Unit identifier */
+  unitId: string;
+  /** Unit name or number */
+  unitLabel: string;
+  /** Floor area in square metres */
+  areaSqm: number;
+  /** Floor area in square feet */
+  areaSqft: number;
+  /** Volume of the unit in cubic metres (areaSqm × floorHeight) */
+  volumeM3: number;
+  /** Absolute elevation base (bottom of floor) in metres */
+  zMin: number;
+  /** Absolute elevation ceiling (top of floor) in metres */
+  zMax: number;
+  /** Geohash of unit centroid */
+  geohash?: string;
+  /** Centroid coordinates [lat, lon] */
+  centroid?: [number, number];
+  /** Owner / title holder name */
+  owner?: string;
+  /** Use type (Residential, Commercial, etc.) */
+  useType?: string;
+  /** Cadastral validation status */
+  status?: string;
+  /** Whether bounds were derived from LiDAR scan */
+  isLidarVerified?: boolean;
+  /** Scan precision if LiDAR */
+  lidarPrecision?: string;
+  /** ISO timestamp of certificate generation */
+  generatedAt: string;
+}

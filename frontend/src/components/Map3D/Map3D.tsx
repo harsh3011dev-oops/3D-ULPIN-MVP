@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import MapDeckGL from './MapDeckGL';
 import MapThreeJS from './MapThreeJS';
 import ThreeJSErrorBoundary from '../ErrorBoundary/ThreeJSErrorBoundary';
-import { Building, Unit } from '../../types';
+import { Building, Unit, CampusBuilding } from '../../types';
 import { Compass, Box, Camera, Download, Check } from 'lucide-react';
 import './Map3D.css';
 
@@ -11,6 +11,9 @@ interface Map3DProps {
   selectedUnit: Unit | null;
   onUnitClick: (unit: Unit) => void;
   selectedFloor: number | null;
+  onFloorSelect?: (floor: number | null) => void;
+  selectedCampusBuildingId?: string | null;
+  onCampusBuildingSelect?: (building: CampusBuilding | null) => void;
   isLeftOpen?: boolean;
   isRightOpen?: boolean;
   onToggleLeft?: () => void;
@@ -22,6 +25,9 @@ export default function Map3D({
   selectedUnit,
   onUnitClick,
   selectedFloor,
+  onFloorSelect,
+  selectedCampusBuildingId,
+  onCampusBuildingSelect,
   isLeftOpen,
   isRightOpen,
   onToggleLeft,
@@ -220,6 +226,9 @@ export default function Map3D({
             selectedUnit={selectedUnit}
             onUnitClick={onUnitClick}
             selectedFloor={selectedFloor}
+            onFloorSelect={onFloorSelect}
+            selectedCampusBuildingId={selectedCampusBuildingId}
+            onCampusBuildingSelect={onCampusBuildingSelect}
             isLeftOpen={isLeftOpen}
             isRightOpen={isRightOpen}
             onToggleLeft={onToggleLeft}

@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Building, Unit, BuildingPart, ThreeMaterialMode } from '../../types';
+import { Building, Unit, BuildingPart, ThreeMaterialMode, CampusBuilding, CampusMetadata } from '../../types';
+import CertificateModal from '../CertificateModal/CertificateModal';
 import {
   getBuildingCenter,
   getBuildingHeight,
@@ -86,6 +87,9 @@ interface MapThreeJSProps {
   selectedUnit: Unit | null;
   onUnitClick: (unit: Unit) => void;
   selectedFloor: number | null;
+  onFloorSelect?: (floor: number | null) => void;
+  selectedCampusBuildingId?: string | null;
+  onCampusBuildingSelect?: (building: CampusBuilding | null) => void;
   isLeftOpen?: boolean;
   isRightOpen?: boolean;
   onToggleLeft?: () => void;
@@ -1585,11 +1589,63 @@ function constructMultiMassBuilding(
 // COMPONENT MAIN
 // ─────────────────────────────────────────────────────────────
 
+
+/** Helper to traverse object hierarchy and match a campus building */
+function getCampusBuildingFromObject(obj: THREE.Object3D | null, campus?: CampusMetadata | null): CampusBuilding | null {
+  if (!campus?.buildings) return null;
+  let curr: THREE.Object3D | null = obj;
+  while (curr && curr.type !== 'Scene') {
+    const nodeName = curr.name;
+    if (nodeName) {
+      const match = campus.buildings.find((b) =>
+        b.id === nodeName ||
+        nodeName.toLowerCase().includes(b.id.toLowerCase()) ||
+        nodeName.toLowerCase().includes(b.shortLabel.toLowerCase())
+      );
+      if (match) return match;
+    }
+    curr = curr.parent;
+  }
+  if (obj) {
+    const worldPos = new THREE.Vector3();
+    obj.getWorldPosition(worldPos);
+    let closestB: CampusBuilding | null = null;
+    let minDist = Infinity;
+    for (const b of campus.buildings) {
+      if (b.localOffset) {
+        const d = Math.hypot(worldPos.x - b.localOffset[0], worldPos.z - b.localOffset[1]);
+        if (d < minDist) {
+          minDist = d;
+          closestB = b;
+        }
+      }
+    }
+    if (closestB && minDist < 25) {
+      return closestB;
+    }
+  }
+  return null;
+}
+
+function isObjectChildOfBuilding(obj: THREE.Object3D | null, buildingId: string): boolean {
+  let curr: THREE.Object3D | null = obj;
+  while (curr && curr.type !== 'Scene') {
+    if (curr.name === buildingId || curr.name.includes(buildingId)) {
+      return true;
+    }
+    curr = curr.parent;
+  }
+  return false;
+}
+
 export default function MapThreeJS({
   building,
   selectedUnit,
   onUnitClick,
   selectedFloor,
+  onFloorSelect,
+  selectedCampusBuildingId,
+  onCampusBuildingSelect,
   isLeftOpen,
   isRightOpen,
   onToggleLeft,
@@ -1625,6 +1681,31 @@ export default function MapThreeJS({
   const [groundElevation, setGroundElevation] = useState<number | null>(null);
   const [activeLod, setActiveLod] = useState<LODLevel>('MEDIUM');
   const [showDebugHud, setShowDebugHud] = useState(false);
+
+  const customModelConfig = useMemo(() => findCustomModel(building), [building]);
+  const campus = customModelConfig?.campus;
+  const campusRef = useRef<CampusMetadata | null | undefined>(campus);
+  campusRef.current = campus;
+
+  const [selectedCampusBuilding, setSelectedCampusBuilding] = useState<CampusBuilding | null>(null);
+  const [, setHoveredCampusBuilding] = useState<CampusBuilding | null>(null);
+  const [showCertificateModal, setShowCertificateModal] = useState(false);
+  const [inspectingUnit, setInspectingUnit] = useState<Unit | null>(null);
+  const floorSliceMeshRef = useRef<THREE.Group | null>(null);
+
+  // Synchronize external selectedCampusBuildingId
+  useEffect(() => {
+    if (!campus?.buildings) return;
+    if (selectedCampusBuildingId) {
+      const match = campus.buildings.find(b => b.id === selectedCampusBuildingId);
+      if (match && match.id !== selectedCampusBuilding?.id) {
+        setSelectedCampusBuilding(match);
+      }
+    } else if (selectedCampusBuildingId === null && selectedCampusBuilding !== null) {
+      setSelectedCampusBuilding(null);
+    }
+  }, [selectedCampusBuildingId, campus]);
+
 
   // Telemetry state strictly reflecting real source data & mesh counts
   const [telemetry, setTelemetry] = useState<ArchitecturalTelemetry>({
@@ -2630,10 +2711,25 @@ export default function MapThreeJS({
       if (intersects.length > 0) {
         setHoveredUnitId((intersects[0].object as THREE.Mesh).userData.unit.unit_id);
         rendererRef.current.domElement.style.cursor = 'pointer';
-      } else {
-        setHoveredUnitId(null);
-        rendererRef.current.domElement.style.cursor = 'grab';
+        return;
       }
+
+      // Check campus building meshes
+      if (visualBuildingGroupRef.current && campusRef.current?.buildings?.length) {
+        const visualHits = raycaster.intersectObjects(visualBuildingGroupRef.current.children, true);
+        if (visualHits.length > 0) {
+          const hitB = getCampusBuildingFromObject(visualHits[0].object, campusRef.current);
+          if (hitB) {
+            setHoveredCampusBuilding(hitB);
+            rendererRef.current.domElement.style.cursor = 'pointer';
+            return;
+          }
+        }
+      }
+
+      setHoveredUnitId(null);
+      setHoveredCampusBuilding(null);
+      rendererRef.current.domElement.style.cursor = 'grab';
     };
 
     const handleClick = (e: MouseEvent) => {
@@ -2649,6 +2745,19 @@ export default function MapThreeJS({
         const clickedMesh = intersects[0].object as THREE.Mesh;
         if (clickedMesh.userData.unit && onUnitClickRef.current) {
           onUnitClickRef.current(clickedMesh.userData.unit as Unit);
+          return;
+        }
+      }
+
+      // Check campus building meshes
+      if (visualBuildingGroupRef.current && campusRef.current?.buildings?.length) {
+        const visualHits = raycaster.intersectObjects(visualBuildingGroupRef.current.children, true);
+        if (visualHits.length > 0) {
+          const hitB = getCampusBuildingFromObject(visualHits[0].object, campusRef.current);
+          if (hitB) {
+            handleSelectCampusBuilding(hitB);
+            return;
+          }
         }
       }
     };
@@ -2793,30 +2902,86 @@ export default function MapThreeJS({
       }
     });
 
-    // 2. Visual Building Envelope: Fades smoothly when a floor is isolated; fully opaque otherwise
+    // 2. Visual Building Envelope & Campus Isolation:
     if (visualBuildingGroupRef.current) {
       visualBuildingGroupRef.current.visible = true;
       visualBuildingGroupRef.current.traverse((child) => {
         if ((child as THREE.Mesh).isMesh) {
           const m = child as THREE.Mesh;
-          const targetOpacity = selectedFloor !== null ? 0.2 : 1.0;
+          const belongsToSelected = selectedCampusBuilding
+            ? isObjectChildOfBuilding(m, selectedCampusBuilding.id)
+            : true;
+
+          const isDimmed = !belongsToSelected || selectedFloor !== null;
+          const targetOpacity = isDimmed ? 0.22 : 1.0;
+          const isTransp = isDimmed;
+
           if (Array.isArray(m.material)) {
             m.material.forEach((mat) => {
-              mat.transparent = selectedFloor !== null;
+              mat.transparent = isTransp;
               mat.opacity = targetOpacity;
-              mat.depthWrite = selectedFloor === null;
+              mat.depthWrite = !isDimmed;
               mat.needsUpdate = true;
             });
           } else if (m.material) {
-            m.material.transparent = selectedFloor !== null;
+            m.material.transparent = isTransp;
             m.material.opacity = targetOpacity;
-            m.material.depthWrite = selectedFloor === null;
+            m.material.depthWrite = !isDimmed;
             m.material.needsUpdate = true;
           }
         }
       });
     }
-  }, [selectedUnit, selectedFloor]);
+
+    // 3. 3D Cadastral Floor Slice Overlay Box
+    if (floorSliceMeshRef.current && sceneRef.current) {
+      sceneRef.current.remove(floorSliceMeshRef.current);
+      floorSliceMeshRef.current.traverse((c) => {
+        if ((c as THREE.Mesh).geometry) (c as THREE.Mesh).geometry.dispose();
+      });
+      floorSliceMeshRef.current = null;
+    }
+
+    if (selectedFloor !== null && sceneRef.current) {
+      const h = floorHeight;
+      const zMin = selectedFloor < 0 ? selectedFloor * h : (selectedFloor - 1) * h;
+      const zMax = selectedFloor < 0 ? (selectedFloor + 1) * h : selectedFloor * h;
+      const sliceCenterY = (zMin + zMax) / 2;
+      const sliceH = h;
+      const sliceW = Math.max(dims.width * 1.08, 22);
+      const sliceD = Math.max(dims.depth * 1.08, 22);
+
+      const sliceGroup = new THREE.Group();
+      sliceGroup.name = 'Cadastral_3D_Floor_Slice';
+
+      const slabGeom = new THREE.BoxGeometry(sliceW, sliceH, sliceD);
+      const slabMat = new THREE.MeshStandardMaterial({
+        color: 0x06b6d4,
+        emissive: 0x083344,
+        emissiveIntensity: 0.6,
+        transparent: true,
+        opacity: 0.38,
+        roughness: 0.2,
+        metalness: 0.1,
+        depthWrite: false,
+      });
+      const slabMesh = new THREE.Mesh(slabGeom, slabMat);
+      slabMesh.position.set(0, sliceCenterY, 0);
+      sliceGroup.add(slabMesh);
+
+      const edgesGeom = new THREE.EdgesGeometry(slabGeom);
+      const edgesMat = new THREE.LineBasicMaterial({
+        color: 0x38bdf8,
+        linewidth: 2,
+      });
+      const wireframe = new THREE.LineSegments(edgesGeom, edgesMat);
+      wireframe.position.set(0, sliceCenterY, 0);
+      sliceGroup.add(wireframe);
+
+      sceneRef.current.add(sliceGroup);
+      floorSliceMeshRef.current = sliceGroup;
+    }
+  }, [selectedUnit, selectedFloor, selectedCampusBuilding]);
 
   // ─────────────────────────────────────────────────────────────
   // LAYER VISIBILITY CONTROLLER:
@@ -2869,6 +3034,86 @@ export default function MapThreeJS({
     }
   };
 
+
+  const handleSelectCampusBuilding = (bld: CampusBuilding | null) => {
+    setSelectedCampusBuilding(bld);
+    onCampusBuildingSelect?.(bld);
+
+    if (bld && controlsRef.current && cameraRef.current) {
+      const [ox, oz] = bld.localOffset || [0, 0];
+      const targetY = (bld.heightM || 15) * 0.45;
+      controlsRef.current.target.set(ox, targetY, oz);
+      const dist = Math.max(bld.heightM * 1.6, 25);
+      cameraRef.current.position.set(ox + dist * 0.85, targetY + dist * 0.55, oz + dist * 0.85);
+      controlsRef.current.update();
+
+      setTelemetry((prev) => ({
+        ...prev,
+        provider: 'CUSTOM_MODEL',
+        geometrySource: `${bld.name} (${bld.buildingType || 'Campus Structure'})`,
+        visualHeight: bld.heightM,
+        cadastralHeight: bld.heightM,
+        statusBadge: `${bld.shortLabel} · Multi-Building Complex`,
+        sourceMetadata: {
+          ...prev.sourceMetadata,
+          height: bld.heightM,
+          levels: bld.floors,
+        },
+      }));
+    } else if (controlsRef.current && cameraRef.current && building) {
+      controlsRef.current.target.set(0, buildingHeight * 0.35, 0);
+      const maxDim = Math.max(dims.width, dims.depth, buildingHeight, 25);
+      const targetDist = Math.max(maxDim * 1.35, 45);
+      cameraRef.current.position.set(targetDist * 0.9, buildingHeight * 0.45 + targetDist * 0.3, targetDist * 0.9);
+      controlsRef.current.update();
+    }
+  };
+
+  const handleInspectBuildingCertificate = (bld: CampusBuilding) => {
+    const floorH = bld.floorHeightM || 3.8;
+    const certUnit: Unit = {
+      unit_id: `BLDG-${bld.shortLabel.toUpperCase().replace(/\s+/g, '')}-001`,
+      floor: 1,
+      floor_number: 1,
+      ulpin: `ULPIN-${building.building_id || 'COMPLEX'}-${bld.shortLabel.toUpperCase().replace(/\s+/g, '')}-3D`,
+      unit_name: bld.name,
+      unit_number: bld.shortLabel,
+      use_type: bld.buildingType || 'Multi-Building Sub-Structure',
+      area_sqm: Math.round((bld.heightM * 15) + 350),
+      floor_height_m: floorH,
+      z_min: 0,
+      z_max: bld.heightM,
+      centroid: [building.latitude || 28.6139, building.longitude || 77.2090],
+      owner: (building as any).owner || 'Institutional Campus Cadastre',
+      status: 'Verified',
+    };
+    setInspectingUnit(certUnit);
+    setShowCertificateModal(true);
+  };
+
+  const minFloor = -(campus?.buildings?.find(b => b.id === selectedCampusBuilding?.id)?.subterraneanFloors || customModelConfig?.subterraneanFloors || building.basement_count || 0);
+  const maxFloor = selectedCampusBuilding?.floors || building.floor_count || customModelConfig?.floorCount || 5;
+
+  const handleFloorDown = () => {
+    if (!onFloorSelect) return;
+    if (selectedFloor === null) {
+      onFloorSelect(1);
+    } else if (selectedFloor > minFloor) {
+      const nextF = selectedFloor - 1 === 0 ? -1 : selectedFloor - 1;
+      if (nextF >= minFloor) onFloorSelect(nextF);
+    }
+  };
+
+  const handleFloorUp = () => {
+    if (!onFloorSelect) return;
+    if (selectedFloor === null) {
+      onFloorSelect(1);
+    } else if (selectedFloor < maxFloor) {
+      const nextF = selectedFloor + 1 === 0 ? 1 : selectedFloor + 1;
+      if (nextF <= maxFloor) onFloorSelect(nextF);
+    }
+  };
+
   const selectedFloorUnit = useMemo(() => {
     if (selectedFloor === null) return null;
     return (building?.units || []).find((u) => getUnitFloor(u) === selectedFloor);
@@ -2877,6 +3122,125 @@ export default function MapThreeJS({
   return (
     <div className="threejs-map-container">
       <div className="threejs-canvas-wrapper" ref={mountRef} />
+
+      {/* ── Campus / Multi-Building Complex Switcher (Phase 4 nextplan.md) ── */}
+      {campus?.isMultiBuilding && (
+        <div className="campus-complex-bar font-mono">
+          <div className="campus-bar-header">
+            <Landmark size={14} className="text-amber-400" />
+            <span className="campus-bar-title">{campus.campusDescription || 'Campus Complex'}</span>
+            <span className="campus-count-badge">{campus.buildingCount} Structures</span>
+          </div>
+          <div className="campus-chips-row">
+            <button
+              type="button"
+              className={`campus-chip ${!selectedCampusBuilding ? 'active' : ''}`}
+              onClick={() => handleSelectCampusBuilding(null)}
+            >
+              <span>🌐 All Complex</span>
+            </button>
+            {campus.buildings.map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                className={`campus-chip ${selectedCampusBuilding?.id === b.id ? 'active' : ''}`}
+                style={selectedCampusBuilding?.id === b.id ? { borderColor: b.color || '#38bdf8' } : {}}
+                onClick={() => handleSelectCampusBuilding(b)}
+              >
+                <span>{b.icon || '🏢'}</span>
+                <span>{b.shortLabel}</span>
+                <span className="chip-metric">{b.heightM}m · {b.floors}F</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Selected Sub-Building Detail Card ── */}
+      {selectedCampusBuilding && (
+        <div className="selected-campus-card font-mono">
+          <div className="campus-card-header">
+            <div className="campus-card-title-row">
+              <span className="card-icon">{selectedCampusBuilding.icon || '🏢'}</span>
+              <div>
+                <h4 className="card-title">{selectedCampusBuilding.name}</h4>
+                <span className="card-type">{selectedCampusBuilding.buildingType || 'Multi-Building Sub-Structure'}</span>
+              </div>
+            </div>
+            <button className="card-close-btn" onClick={() => handleSelectCampusBuilding(null)}>✕</button>
+          </div>
+          <div className="campus-card-metrics">
+            <div className="metric-cell">
+              <span className="m-label">Height</span>
+              <span className="m-val">{selectedCampusBuilding.heightM}m</span>
+            </div>
+            <div className="metric-cell">
+              <span className="m-label">Levels</span>
+              <span className="m-val">{selectedCampusBuilding.floors} Above{selectedCampusBuilding.subterraneanFloors ? ` + ${selectedCampusBuilding.subterraneanFloors} Sub` : ''}</span>
+            </div>
+            <div className="metric-cell">
+              <span className="m-label">Floor Ht</span>
+              <span className="m-val">{selectedCampusBuilding.floorHeightM || 3.8}m</span>
+            </div>
+          </div>
+          {selectedCampusBuilding.description && (
+            <p className="campus-card-desc">{selectedCampusBuilding.description}</p>
+          )}
+          <button
+            type="button"
+            className="btn-inspect-cert font-mono"
+            onClick={() => handleInspectBuildingCertificate(selectedCampusBuilding)}
+          >
+            <ShieldCheck size={14} />
+            <span>Inspect 3D ULPIN Title Deed</span>
+          </button>
+        </div>
+      )}
+
+      {/* ── Floor-by-Floor 3D Slicer Controller ── */}
+      <div className="threejs-floor-slicer font-mono">
+        <div className="floor-slicer-label">
+          <Layers size={13} className="text-cyan-400" />
+          <span>3D FLOOR SLICE:</span>
+        </div>
+        <button
+          type="button"
+          className="floor-step-btn"
+          disabled={minFloor >= maxFloor || (selectedFloor !== null && selectedFloor <= minFloor)}
+          onClick={handleFloorDown}
+          title="Step Down Floor Level"
+        >
+          <ChevronDown size={14} />
+        </button>
+        <div className="floor-current-badge">
+          {selectedFloor === null ? (
+            <span className="all-floors-text">All Levels Active</span>
+          ) : (
+            <span className="isolated-floor-text">
+              {selectedFloor < 0 ? `B${Math.abs(selectedFloor)}` : `Level F${selectedFloor}`} ({selectedFloor < 0 ? `${(selectedFloor * floorHeight).toFixed(1)}m` : `+${((selectedFloor - 1) * floorHeight).toFixed(1)}m`} to {selectedFloor < 0 ? `${((selectedFloor + 1) * floorHeight).toFixed(1)}m` : `+${(selectedFloor * floorHeight).toFixed(1)}m`})
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          className="floor-step-btn"
+          disabled={minFloor >= maxFloor || (selectedFloor !== null && selectedFloor >= maxFloor)}
+          onClick={handleFloorUp}
+          title="Step Up Floor Level"
+        >
+          <ChevronUp size={14} />
+        </button>
+        {selectedFloor !== null && (
+          <button
+            type="button"
+            className="floor-reset-btn"
+            onClick={() => onFloorSelect ? onFloorSelect(null) : undefined}
+            title="Reset 3D Slicing to Full Building"
+          >
+            ✕ Reset
+          </button>
+        )}
+      </div>
 
       {/* ── 3D Anchored Floating Building Assessment Badge ── */}
       {apexScreenPos && apexScreenPos.visible && (
@@ -2967,6 +3331,30 @@ export default function MapThreeJS({
                 ? `Use: ${building.basement_use || 'Library'} · Source: ${building.basement_source || 'Verified project input'} · Area: ~${dims.areaSqm ? Math.round(dims.areaSqm * 0.95).toLocaleString() : '850'} m²`
                 : `Area: ~${dims.areaSqm ? Math.round(dims.areaSqm * 0.95).toLocaleString() : '850'} m² · Isolated Level`}
             </div>
+            <button
+              type="button"
+              className="btn-inspect-cert font-mono"
+              style={{ marginTop: 6, width: '100%' }}
+              onClick={() => {
+                setInspectingUnit(selectedFloorUnit || {
+                  unit_id: selectedFloor === -1 ? 'B1-LIB' : `UNIT_F0${selectedFloor}_A01`,
+                  floor: selectedFloor,
+                  floor_number: selectedFloor,
+                  ulpin: (selectedFloorUnit as Unit | undefined)?.ulpin || `${building?.building_id || 'ULPIN'}-${selectedFloor < 0 ? `B${Math.abs(selectedFloor)}-LIB` : `F0${selectedFloor}-01`}`,
+                  area_sqm: dims.areaSqm ? Math.round(dims.areaSqm * 0.95) : 850,
+                  floor_height_m: floorHeight,
+                  z_min: selectedFloor < 0 ? selectedFloor * floorHeight : (selectedFloor - 1) * floorHeight,
+                  z_max: selectedFloor < 0 ? (selectedFloor + 1) * floorHeight : selectedFloor * floorHeight,
+                  use_type: selectedFloor === -1 ? (building.basement_use || 'Library') : 'Volumetric Cadastral Parcel',
+                  owner: 'Registered Property Holder',
+                  status: 'Verified',
+                });
+                setShowCertificateModal(true);
+              }}
+            >
+              <ShieldCheck size={12} />
+              <span>Inspect 3D Title Deed</span>
+            </button>
           </div>
         </div>
       )}

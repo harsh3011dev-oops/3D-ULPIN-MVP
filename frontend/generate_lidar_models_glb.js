@@ -79,34 +79,46 @@ function createRaniKiVavScene() {
   rimEast.position.set(0, 0, 41);
   root.add(rimEast);
 
+  const toranaGroup = new THREE.Group();
+  toranaGroup.name = "Entrance_Torana_Pavilion";
+  root.add(toranaGroup);
+
+  const tiersGroup = new THREE.Group();
+  tiersGroup.name = "Subterranean_Pavilion_Tiers";
+  root.add(tiersGroup);
+
+  const wellGroup = new THREE.Group();
+  wellGroup.name = "Deep_Well_Shaft_Reservoir";
+  root.add(wellGroup);
+
   // Entrance Torana Gateway Pavilion (Ground Level at East)
   const toranaLeft = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 6.0, 12), sandstoneMain);
   toranaLeft.position.set(-5, 4.0, 38);
   toranaLeft.castShadow = true;
-  root.add(toranaLeft);
+  toranaGroup.add(toranaLeft);
 
   const toranaRight = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 6.0, 12), sandstoneMain);
   toranaRight.position.set(5, 4.0, 38);
   toranaRight.castShadow = true;
-  root.add(toranaRight);
+  toranaGroup.add(toranaRight);
 
   const toranaBeam = new THREE.Mesh(new THREE.BoxGeometry(13, 0.8, 1.2), sandstoneDark);
   toranaBeam.position.set(0, 7.0, 38);
-  root.add(toranaBeam);
+  toranaGroup.add(toranaBeam);
 
   const toranaCrest = new THREE.Mesh(new THREE.CylinderGeometry(0, 1.2, 1.8, 4), sandstoneMain);
   toranaCrest.position.set(0, 8.2, 38);
   toranaCrest.rotation.y = Math.PI / 4;
-  root.add(toranaCrest);
+  toranaGroup.add(toranaCrest);
 
   // Deep Stepwell Excavation Trench Retaining Walls
   const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(2, 28, 68), sandstoneDark);
   wallLeft.position.set(-10, -14, 0);
-  root.add(wallLeft);
+  tiersGroup.add(wallLeft);
 
   const wallRight = new THREE.Mesh(new THREE.BoxGeometry(2, 28, 68), sandstoneDark);
   wallRight.position.set(10, -14, 0);
-  root.add(wallRight);
+  tiersGroup.add(wallRight);
 
   // 7 Subterranean Terraced Pavilion Levels (Descending from East to West)
   const TOTAL_LEVELS = 7;
@@ -124,7 +136,7 @@ function createRaniKiVavScene() {
     platform.position.set(0, -depth, zPos);
     platform.castShadow = true;
     platform.receiveShadow = true;
-    root.add(platform);
+    tiersGroup.add(platform);
 
     // Pillared Pavilion Arcade (Torana & Carved Pillars across the terrace)
     const pillarCount = 6;
@@ -136,14 +148,14 @@ function createRaniKiVavScene() {
       );
       pillar.position.set(px, -depth + 1.8, zPos);
       pillar.castShadow = true;
-      root.add(pillar);
+      tiersGroup.add(pillar);
 
       const cap = new THREE.Mesh(
         new THREE.BoxGeometry(0.9, 0.35, 0.9),
         sandstoneDark
       );
       cap.position.set(px, -depth + 3.7, zPos);
-      root.add(cap);
+      tiersGroup.add(cap);
     }
 
     // Horizontal Beam / Lintel spanning the pillars
@@ -152,7 +164,7 @@ function createRaniKiVavScene() {
       sandstoneMain
     );
     lintel.position.set(0, -depth + 3.9, zPos);
-    root.add(lintel);
+    tiersGroup.add(lintel);
 
     // Stepped lateral stairway flights descending to this terrace
     const stepCount = 8;
@@ -163,7 +175,7 @@ function createRaniKiVavScene() {
       );
       stepMesh.position.set(0, -depth + 3.8 - (s * 0.45), zPos + 4.2 - (s * 1.0));
       stepMesh.receiveShadow = true;
-      root.add(stepMesh);
+      tiersGroup.add(stepMesh);
     }
   }
 
@@ -175,7 +187,7 @@ function createRaniKiVavScene() {
     sandstoneDark
   );
   wellWall.position.set(0, -15, -30);
-  root.add(wellWall);
+  wellGroup.add(wellWall);
 
   for (let ring = 1; ring <= 5; ring++) {
     const ringMesh = new THREE.Mesh(
@@ -184,7 +196,7 @@ function createRaniKiVavScene() {
     );
     ringMesh.rotation.x = Math.PI / 2;
     ringMesh.position.set(0, -(ring * 5), -30);
-    root.add(ringMesh);
+    wellGroup.add(ringMesh);
   }
 
   // Sacred Water Surface at Bottom of Well

@@ -8,7 +8,7 @@
  * - If no custom model exists, the pipeline continues through OSM2World / OSM fallbacks.
  */
 
-import { Building } from '../types';
+import { Building, CampusMetadata } from '../types';
 
 export interface CustomModelConfig {
   id: string;
@@ -34,6 +34,7 @@ export interface CustomModelConfig {
   lidarPrecision?: string;
   subterraneanFloors?: number;
   datasetDoi?: string;
+  campus?: CampusMetadata;
 
   /** Renderer-specific transform overrides */
   threeTransform?: {
@@ -136,6 +137,53 @@ export const REGISTERED_CUSTOM_MODELS: CustomModelConfig[] = [
     buildingType: 'hammam / royal complex',
     description: 'Terrestrial LiDAR point cloud digital twin of the 16th-century Mughal royal garden complex in Sirhind, Punjab, featuring the Shahi Hammam with hypocaust heating, Daulat Khana-e-Khas palace pavilion, Baradari, and Charbagh water canals.',
     attribution: 'CyArk, Archaeological Survey of India (ASI) & Autodesk (OpenHeritage3D)',
+    campus: {
+      isMultiBuilding: true,
+      buildingCount: 3,
+      campusDescription: '16th-century Mughal Royal Garden & Subterranean Complex',
+      buildings: [
+        {
+          id: 'Building_1_Shahi_Hammam',
+          name: 'Shahi Hammam & Subterranean Hypocaust',
+          shortLabel: 'Hammam',
+          buildingType: 'Royal Bathhouse & Subterranean Heating',
+          heightM: 9.5,
+          floors: 2,
+          subterraneanFloors: 1,
+          floorHeightM: 4.5,
+          localOffset: [0, -18],
+          color: '#38bdf8',
+          icon: '♨️',
+          description: 'Imperial Mughal royal bath complex with octagonal caldarium, tepidarium, vaulted domes, and subterranean hypocaust fuel chamber channels.'
+        },
+        {
+          id: 'Building_2_Daulat_Khana_e_Khas',
+          name: 'Daulat Khana-e-Khas Palace Pavilion',
+          shortLabel: 'Palace',
+          buildingType: 'Mughal Imperial Palace',
+          heightM: 10.0,
+          floors: 2,
+          floorHeightM: 4.5,
+          localOffset: [0, 18],
+          color: '#f59e0b',
+          icon: '👑',
+          description: 'Two-story private imperial residence of Mughal Emperor Shah Jahan with cusped arch colonnade and ornamental stone roof parapets.'
+        },
+        {
+          id: 'Building_3_Baradari_Pavilion',
+          name: 'Baradari Garden Pavilion',
+          shortLabel: 'Baradari',
+          buildingType: 'Garden Pavilion',
+          heightM: 8.0,
+          floors: 1,
+          floorHeightM: 5.0,
+          localOffset: [18, 0],
+          color: '#10b981',
+          icon: '🏛️',
+          description: 'Twelve-door pillared summer pavilion overlooking the Charbagh geometric gardens and central water channel fountains.'
+        }
+      ]
+    },
   },
   {
     id: 'rani-ki-vav-lidar',
@@ -166,6 +214,55 @@ export const REGISTERED_CUSTOM_MODELS: CustomModelConfig[] = [
     buildingType: 'stepwell',
     description: 'High-density Terrestrial Laser Scan (TLS) 3D digital twin of the 11th-century Maru-Gurjara inverted temple stepwell with entrance Torana gateway, 7 subterranean pavilion tiers descending 28m, and circular well.',
     attribution: 'CyArk & Archaeological Survey of India (ASI) Heritage Digital Archive',
+    campus: {
+      isMultiBuilding: true,
+      buildingCount: 3,
+      campusDescription: '11th-century UNESCO Stepwell Subterranean Complex',
+      buildings: [
+        {
+          id: 'Entrance_Torana_Pavilion',
+          name: 'Torana Gateway & Ground Pavilion',
+          shortLabel: 'Torana',
+          buildingType: 'Ceremonial Gateway',
+          heightM: 4.5,
+          floors: 1,
+          subterraneanFloors: 0,
+          floorHeightM: 4.5,
+          localOffset: [0, 38],
+          color: '#f97316',
+          icon: '⛩️',
+          description: 'Carved stone entrance torana gateway pillars and stepped transition pavilion to the inverted underground temple.'
+        },
+        {
+          id: 'Subterranean_Pavilion_Tiers',
+          name: 'Descending Subterranean Strata (Tiers 1-7)',
+          shortLabel: 'Strata 1-7',
+          buildingType: 'Subterranean Stepped Corridor',
+          heightM: 28.0,
+          floors: 1,
+          subterraneanFloors: 7,
+          floorHeightM: 4.0,
+          localOffset: [0, 0],
+          color: '#06b6d4',
+          icon: '📐',
+          description: 'Seven progressive subterranean pavilion tiers descending 28 metres below ground level with over 500 sculpted niches.'
+        },
+        {
+          id: 'Deep_Well_Shaft_Reservoir',
+          name: 'Circular Deep Well Chamber',
+          shortLabel: 'Well Shaft',
+          buildingType: 'Deep Water Shaft',
+          heightM: 28.0,
+          floors: 1,
+          subterraneanFloors: 7,
+          floorHeightM: 4.0,
+          localOffset: [0, -30],
+          color: '#3b82f6',
+          icon: '💧',
+          description: 'Circular vertical well shaft lined with carved bracket figures reaching the historical water table at -28m elevation.'
+        }
+      ]
+    },
   },
   {
     id: 'thiruvananthapuram-tald-lidar',
@@ -195,6 +292,65 @@ export const REGISTERED_CUSTOM_MODELS: CustomModelConfig[] = [
     buildingType: 'smart city multi-building campus',
     description: 'High-density Airborne Laser Scanning (ALS) digital twin of Thiruvananthapuram Smart City commercial tech campus, featuring the 8-story Commercial Tower, 5-story IT Wing, 3-story Innovation Hub, connecting skybridge, and smart urban concourse.',
     attribution: 'Indian Institute of Space Science and Technology (IIST / ISRO)',
+    campus: {
+      isMultiBuilding: true,
+      buildingCount: 4,
+      campusDescription: 'High-density Airborne LiDAR Multi-Building Tech Campus',
+      buildings: [
+        {
+          id: 'Tower_A_Commercial_HighRise',
+          name: 'Tower A — Commercial High-Rise',
+          shortLabel: 'Tower A',
+          buildingType: 'Commercial Office Tower',
+          heightM: 32.0,
+          floors: 8,
+          floorHeightM: 3.8,
+          localOffset: [-12, -8],
+          color: '#0284c7',
+          icon: '🏢',
+          description: '8-story primary commercial tower with glass curtain facade, corporate offices, rooftop plant room, and ground reception concourse.'
+        },
+        {
+          id: 'Tower_B_IT_Operations_Wing',
+          name: 'Tower B — IT Operations Wing',
+          shortLabel: 'Tower B',
+          buildingType: 'IT Operations Wing',
+          heightM: 20.0,
+          floors: 5,
+          floorHeightM: 3.8,
+          localOffset: [14, -8],
+          color: '#10b981',
+          icon: '💻',
+          description: '5-story tech operations and data infrastructure wing with dedicated server bays, connected to Tower A via Level 4 Skybridge.'
+        },
+        {
+          id: 'Elevated_Skybridge_L4',
+          name: 'Elevated Skybridge (Level 4 Link)',
+          shortLabel: 'Skybridge',
+          buildingType: 'Elevated Pedestrian Link',
+          heightM: 4.0,
+          floors: 1,
+          floorHeightM: 4.0,
+          localOffset: [1, -8],
+          color: '#f59e0b',
+          icon: '🌉',
+          description: 'Structural pedestrian skybridge linking Tower A and Tower B at Level 4 (+14.5m elevation) across the central boulevard.'
+        },
+        {
+          id: 'Wing_C_Innovation_Research_Hub',
+          name: 'Wing C — Innovation & Research Hub',
+          shortLabel: 'Wing C',
+          buildingType: 'R&D Innovation Facility',
+          heightM: 12.0,
+          floors: 3,
+          floorHeightM: 3.8,
+          localOffset: [0, 15],
+          color: '#8b5cf6',
+          icon: '🔬',
+          description: '3-story incubation lab and auditorium with outdoor green terrace and solar canopy array.'
+        }
+      ]
+    },
   },
 ];
 

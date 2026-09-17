@@ -8,7 +8,9 @@ import ValidationAlert from '../components/ValidationAlert/ValidationAlert';
 import UndergroundPanel from '../components/UndergroundPanel/UndergroundPanel';
 import CertificateModal from '../components/CertificateModal/CertificateModal';
 import { getBuilding } from '../api/api';
-import { Building, Unit } from '../types';
+import { Building, Unit, CampusBuilding } from '../types';
+import BuildingSelector from '../components/BuildingSelector/BuildingSelector';
+import { findCustomModel } from '../data/customModels';
 import { getBuildingCenter } from '../utils/footprintUtils';
 import { applyVerifiedBuildingMetadata, getVerifiedBuildingMetadata } from '../utils/verifiedBuildingMetadata';
 import {
@@ -26,6 +28,8 @@ export default function MapPage() {
   const [isLoading, setIsLoading]         = useState(true);
   const [loadError, setLoadError]         = useState<string | null>(null);
   const [showGlobalCert, setShowGlobalCert] = useState(false);
+  const [selectedCampusBuilding, setSelectedCampusBuilding] = useState<CampusBuilding | null>(null);
+  const [certCampusUnit, setCertCampusUnit] = useState<Unit | null>(null);
 
   const navigate = useNavigate();
 
@@ -111,6 +115,7 @@ export default function MapPage() {
           <Map3D
             building={building}
             selectedFloor={selectedFloor}
+            onFloorSelect={setSelectedFloor}
             selectedUnit={selectedUnit}
             onUnitClick={(unit) => {
               setSelectedUnit(unit);
@@ -119,6 +124,8 @@ export default function MapPage() {
                 setSelectedFloor(fn);
               }
             }}
+            selectedCampusBuildingId={selectedCampusBuilding?.id || null}
+            onCampusBuildingSelect={setSelectedCampusBuilding}
             isRightOpen={isRightOpen}
             onToggleRight={() => setIsRightOpen(!isRightOpen)}
           />
@@ -266,10 +273,47 @@ export default function MapPage() {
                   </div>
                 )}
 
+                {/* Multi-Building Campus & Society Selector (Phase 4 nextplan.md) */}
+                {(() => {
+                  const customCfg = findCustomModel(verifiedBuilding);
+                  const campus = customCfg?.campus;
+                  if (!campus || !campus.isMultiBuilding) return null;
+                  return (
+                    <BuildingSelector
+                      campus={campus}
+                      selectedBuildingId={selectedCampusBuilding?.id || null}
+                      onSelectBuilding={(bld) => {
+                        setSelectedCampusBuilding(bld);
+                        setSelectedFloor(null);
+                      }}
+                      onOpenCertificate={(bld) => {
+                        const floorH = bld.floorHeightM || 3.8;
+                        const cUnit: Unit = {
+                          unit_id: `BLDG-${bld.shortLabel.toUpperCase().replace(/\s+/g, '')}-001`,
+                          floor: 1,
+                          floor_number: 1,
+                          ulpin: `ULPIN-${verifiedBuilding.building_id || 'COMPLEX'}-${bld.shortLabel.toUpperCase().replace(/\s+/g, '')}-3D`,
+                          unit_name: bld.name,
+                          unit_number: bld.shortLabel,
+                          use_type: bld.buildingType || 'Multi-Building Sub-Structure',
+                          area_sqm: Math.round((bld.heightM * 15) + 350),
+                          floor_height_m: floorH,
+                          z_min: 0,
+                          z_max: bld.heightM,
+                          centroid: [verifiedBuilding.latitude || 28.6139, verifiedBuilding.longitude || 77.2090],
+                          owner: (verifiedBuilding as any).owner || 'Institutional Campus Cadastre',
+                          status: 'Verified',
+                        };
+                        setCertCampusUnit(cUnit);
+                      }}
+                    />
+                  );
+                })()}
+
                 {/* Floor Isolator */}
                 <div className="floor-isolator-section">
                   <FloorSelector
-                    totalFloors={floorCount}
+                    totalFloors={selectedCampusBuilding?.floors || floorCount}
                     basementFloors={basementFloors}
                     basementUse={verified?.basementUse || verifiedBuilding.basement_use || 'Library'}
                     floorLabels={verified?.floorLabels}
@@ -372,6 +416,15 @@ export default function MapPage() {
         </aside>
 
       </div>
+      )}
+
+      {/* Campus Sub-Building Volumetric Certificate Modal */}
+      {certCampusUnit && (
+        <CertificateModal
+          unit={certCampusUnit}
+          building={building}
+          onClose={() => setCertCampusUnit(null)}
+        />
       )}
 
       {/* Global 3D Title Deed Certificate Modal (from Demo Tour or Toolbar) */}
