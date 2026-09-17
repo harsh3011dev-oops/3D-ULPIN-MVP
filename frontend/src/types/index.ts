@@ -301,6 +301,10 @@ export interface AutoDetectBuildingResult {
   osm_id?: string | null;
   wikidata?: string | null;
   building_type?: string | null;
+  is_lidar?: boolean;
+  lidar_precision?: string;
+  subterranean_floors?: number;
+  dataset_doi?: string;
 }
 
 export interface CreateBuildingPayload {

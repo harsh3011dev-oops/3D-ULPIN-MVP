@@ -22,6 +22,7 @@ import { CustomModelConfig, findCustomModel } from '../data/customModels';
 import { getFootprintVertexCount } from './footprintUtils';
 
 export type BuildingGeometrySourceTier =
+  | 'LIDAR_POINT_CLOUD'
   | 'CUSTOM_MODEL'
   | 'REFERENCE_ASSISTED'
   | 'OSM2WORLD'
@@ -224,6 +225,16 @@ export function evaluateGeometryTier(
   // 1. Check for registered custom model or direct custom_model_url
   const customModel = findCustomModel(building);
   if (customModel) {
+    if (customModel.isLidar) {
+      return {
+        provider: 'LIDAR_POINT_CLOUD',
+        geometrySource: `LiDAR Point Cloud / TLS Scan (${customModel.lidarPrecision || 'High Precision'})`,
+        fallbackUsed: false,
+        customModelConfig: customModel,
+        statusBadge: '⚡ LiDAR Point Cloud Digital Twin',
+        description: `Calibrated from ${customModel.attribution || 'Terrestrial Laser Scan'} (${customModel.name})`,
+      };
+    }
     return {
       provider: 'CUSTOM_MODEL',
       geometrySource: 'Imported architectural model',

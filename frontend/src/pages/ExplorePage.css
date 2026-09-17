@@ -139,6 +139,31 @@
   color: var(--text-muted);
 }
 
+.presets-subgroup-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--accent-teal);
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
+
+.lidar-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #0D9488;
+  box-shadow: 0 0 8px #14B8A6;
+  animation: pulseLidar 1.6s infinite ease-in-out;
+}
+
+@keyframes pulseLidar {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.4); opacity: 1; box-shadow: 0 0 12px #2DD4BF; }
+}
+
 .presets-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -147,8 +172,9 @@
 
 .preset-tag-btn {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   padding: 8px 10px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
@@ -158,6 +184,31 @@
   color: var(--text-primary);
   cursor: pointer;
   transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.preset-btn-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.preset-name-text {
+  font-weight: 600;
+  font-size: 0.73rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preset-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 0.62rem;
+  color: var(--text-muted);
 }
 
 .preset-tag-btn:hover {
@@ -165,6 +216,144 @@
   border-color: var(--accent-teal);
   color: var(--accent-teal);
   transform: translateY(-1px);
+}
+
+/* ── Glowing LiDAR Trained Preset Button ── */
+.preset-lidar-btn {
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.05) 0%, rgba(20, 184, 166, 0.02) 100%);
+  border-color: rgba(13, 148, 136, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+
+.preset-lidar-btn:hover,
+.preset-lidar-btn.active-lidar {
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.12) 0%, rgba(45, 212, 191, 0.08) 100%);
+  border-color: #0D9488;
+  box-shadow: 0 2px 10px rgba(13, 148, 136, 0.18);
+  transform: translateY(-1px);
+}
+
+.badge-lidar-glow {
+  background: rgba(13, 148, 136, 0.14);
+  color: #0D9488;
+  border: 1px solid rgba(13, 148, 136, 0.35);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.preset-dim-spec {
+  color: var(--text-secondary);
+  font-size: 0.62rem;
+}
+
+/* ── Quick Search Shortcuts Bar in Search Form ── */
+.quick-search-shortcuts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+
+.quick-search-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.quick-search-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.quick-search-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.quick-search-pill:hover {
+  border-color: var(--accent-teal);
+  color: var(--accent-teal);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.1);
+}
+
+.quick-search-pill.active {
+  background: var(--accent-teal);
+  border-color: var(--accent-teal);
+  color: #FFFFFF;
+}
+
+.quick-search-pill.lidar-pill {
+  background: rgba(13, 148, 136, 0.06);
+  border-color: rgba(13, 148, 136, 0.35);
+}
+
+.pill-lidar-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #0D9488;
+  box-shadow: 0 0 6px #14B8A6;
+}
+
+.pill-lidar-badge {
+  background: #0D9488;
+  color: #FFFFFF;
+  font-size: 0.55rem;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+}
+
+/* ── LiDAR Verified Telemetry Banner on Detected Result Card ── */
+.lidar-verified-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.1) 0%, rgba(20, 184, 166, 0.05) 100%);
+  border: 1px solid rgba(13, 148, 136, 0.4);
+  border-radius: var(--radius-xs);
+  margin-top: 4px;
+}
+
+.lidar-banner-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #0D9488;
+  letter-spacing: 0.04em;
+}
+
+.lidar-banner-sub {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
 }
 
 .preview-specs-footer {
