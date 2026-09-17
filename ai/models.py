@@ -4,6 +4,7 @@ from typing import List, Optional, Dict, Any
 class UnitRecord(BaseModel):
     unit_id: str
     floor_number: int
+    floor: Optional[int] = None
     label: str
     polygon_2d: dict  # GeoJSON
     centroid: List[float]
@@ -14,15 +15,27 @@ class UnitRecord(BaseModel):
     ulpin: str
     generation_method: str = "prototype_grid"
 
+    def model_post_init(self, __context: Any) -> None:
+        if self.floor is None:
+            self.floor = self.floor_number
+
 class FloorRecord(BaseModel):
     floor_number: int
     label: str
     z_min: float
     z_max: float
     floor_height_m: float
+    height_meters: Optional[float] = None
     footprint: dict  # GeoJSON
+    polygon_2d: Optional[dict] = None
     units: List[UnitRecord] = Field(default_factory=list)
     generation_method: str = "mathematical_slicing"
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.height_meters is None:
+            self.height_meters = self.floor_height_m
+        if self.polygon_2d is None:
+            self.polygon_2d = self.footprint
 
 class HeightEstimate(BaseModel):
     value_meters: float

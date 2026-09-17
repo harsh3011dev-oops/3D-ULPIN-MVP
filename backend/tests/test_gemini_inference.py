@@ -1,3 +1,4 @@
+from backend.config import settings
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 from httpx import AsyncClient, ASGITransport
@@ -70,7 +71,8 @@ async def test_infer_metadata_endpoint_mocked():
     mock_client_instance.__aenter__.return_value = mock_client_instance
     mock_client_instance.__aexit__.return_value = None
 
-    with patch("backend.services.gemini_architectural_inference.httpx.AsyncClient", return_value=mock_client_instance):
+    with patch("backend.services.gemini_architectural_inference.httpx.AsyncClient", return_value=mock_client_instance), \
+         patch.object(settings, "gemini_api_key", "dummy_test_key"):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             req_payload = {
@@ -108,7 +110,8 @@ async def test_infer_metadata_endpoint_failure_fallback():
     mock_client_instance.__aenter__.return_value = mock_client_instance
     mock_client_instance.__aexit__.return_value = None
 
-    with patch("backend.services.gemini_architectural_inference.httpx.AsyncClient", return_value=mock_client_instance):
+    with patch("backend.services.gemini_architectural_inference.httpx.AsyncClient", return_value=mock_client_instance), \
+         patch.object(settings, "gemini_api_key", "dummy_test_key"):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             req_payload = {

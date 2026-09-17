@@ -210,7 +210,13 @@ def process_building(*args, **kwargs) -> dict:
                 floor_rec.units.append(unit_rec)
             ctx.floors.append(floor_rec)
             
-        all_units_dicts = [u.model_dump() for u in ctx.get_all_units()]
+        all_units_dicts_raw = [u.model_dump() for u in ctx.get_all_units()]
+        # Ensure legacy "floor" key is set (= floor_number) for frontend/test compatibility
+        all_units_dicts = []
+        for u in all_units_dicts_raw:
+            if "floor" not in u or u["floor"] is None:
+                u["floor"] = u.get("floor_number", 1)
+            all_units_dicts.append(u)
         
         # 8. Spatial Validation
         ctx.validation = validate_spatial_data(all_units_dicts, ctx.footprint.geometry)
@@ -276,6 +282,7 @@ def process_building(*args, **kwargs) -> dict:
                 "floor_height_m": extrusion["floor_height_m"]
             },
             "units": all_units_dicts,
+            "floors": [f.model_dump() for f in ctx.floors],
             "validation": ctx.validation,
             "osm_id": ctx.osm_data.get("osm_id"),
             "raw_osm_data": ctx.osm_data.get("raw_osm_data"),

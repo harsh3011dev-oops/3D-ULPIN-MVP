@@ -58,6 +58,18 @@ class UnitResponse(BaseModel):
     z_max: Optional[float] = None
     floor_height_m: Optional[float] = None
 
+class FloorResponse(BaseModel):
+    id: Optional[str] = None
+    floor_number: int
+    label: Optional[str] = None
+    z_min: float
+    z_max: float
+    height_meters: float
+    area_sqm: Optional[float] = None
+    polygon_2d: Optional[Dict[str, Any]] = None
+    total_units: Optional[int] = 0
+    units: Optional[List[UnitResponse]] = None
+
 class BuildingValidationSummary(BaseModel):
     is_valid: bool = True
     overlaps_detected: int = 0
@@ -73,6 +85,7 @@ class BuildingResponse(BaseModel):
     floor_count: int
     total_units: int
     units: List[UnitResponse]
+    floors: Optional[List[FloorResponse]] = None
     building_name: Optional[str] = None
     address: Optional[str] = None
     latitude: Optional[float] = None
