@@ -31,8 +31,8 @@ if (!fs.existsSync(modelsDir)) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. RANI KI VAV (The Queen's Stepwell, Patan, Gujarat)
-// Inverted temple stepwell: 65m length, 20m width, 28m depth.
-// 7 terraced subterranean strata with pillared pavilions, stair sequences, and well.
+// Inverted subterranean stepwell descending 28m across 7 terraced levels,
+// with ground-level entrance Torana gateway, colonnaded pavilions, and circular well.
 // ─────────────────────────────────────────────────────────────────────────────
 function createRaniKiVavScene() {
   const root = new THREE.Group();
@@ -75,9 +75,29 @@ function createRaniKiVavScene() {
   rimRight.position.set(14, 0, 0);
   root.add(rimRight);
 
-  const rimEast = new THREE.Mesh(new THREE.BoxGeometry(36, 2, 10), groundPlaza);
-  rimEast.position.set(0, 0, 40);
+  const rimEast = new THREE.Mesh(new THREE.BoxGeometry(36, 2, 12), groundPlaza);
+  rimEast.position.set(0, 0, 41);
   root.add(rimEast);
+
+  // Entrance Torana Gateway Pavilion (Ground Level at East)
+  const toranaLeft = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 6.0, 12), sandstoneMain);
+  toranaLeft.position.set(-5, 4.0, 38);
+  toranaLeft.castShadow = true;
+  root.add(toranaLeft);
+
+  const toranaRight = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 6.0, 12), sandstoneMain);
+  toranaRight.position.set(5, 4.0, 38);
+  toranaRight.castShadow = true;
+  root.add(toranaRight);
+
+  const toranaBeam = new THREE.Mesh(new THREE.BoxGeometry(13, 0.8, 1.2), sandstoneDark);
+  toranaBeam.position.set(0, 7.0, 38);
+  root.add(toranaBeam);
+
+  const toranaCrest = new THREE.Mesh(new THREE.CylinderGeometry(0, 1.2, 1.8, 4), sandstoneMain);
+  toranaCrest.position.set(0, 8.2, 38);
+  toranaCrest.rotation.y = Math.PI / 4;
+  root.add(toranaCrest);
 
   // Deep Stepwell Excavation Trench Retaining Walls
   const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(2, 28, 68), sandstoneDark);
@@ -91,7 +111,7 @@ function createRaniKiVavScene() {
   // 7 Subterranean Terraced Pavilion Levels (Descending from East to West)
   const TOTAL_LEVELS = 7;
   for (let lvl = 1; lvl <= TOTAL_LEVELS; lvl++) {
-    const depth = lvl * 3.8; // Descending depth
+    const depth = lvl * 3.8;
     const zPos = 30 - lvl * 8.5;
     const terraceW = 18;
     const terraceL = 8;
@@ -118,7 +138,6 @@ function createRaniKiVavScene() {
       pillar.castShadow = true;
       root.add(pillar);
 
-      // Capital / Bracket atop pillar
       const cap = new THREE.Mesh(
         new THREE.BoxGeometry(0.9, 0.35, 0.9),
         sandstoneDark
@@ -158,7 +177,6 @@ function createRaniKiVavScene() {
   wellWall.position.set(0, -15, -30);
   root.add(wellWall);
 
-  // Cylindrical inner tiers of the well
   for (let ring = 1; ring <= 5; ring++) {
     const ringMesh = new THREE.Mesh(
       new THREE.TorusGeometry(wellRadius, 0.4, 8, 32),
@@ -181,17 +199,20 @@ function createRaniKiVavScene() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. AAM KHAS BAGH (Mughal Hammam & Subterranean Channels, Sirhind, Punjab)
-// 16th-century Mughal royal bathhouse: central octagonal vaulted hall,
-// subterranean hypocaust terracotta heating channels, rooftop steam vents & domes.
+// 2. AAM KHAS BAGH (Mughal Royal Multi-Building Complex, Sirhind, Punjab)
+// Complete Mughal royal garden enclosure featuring 3 historical structures:
+// 1. Shahi Hammam (Royal Bathhouse with subterranean hypocaust furnace & dome)
+// 2. Daulat Khana-e-Khas (Two-Story Royal Palace Pavilion with arched jharokhas)
+// 3. Baradari (Twelve-Arched Garden Pleasure Pavilion)
+// Connected by central Mughal Charbagh water canals (Nahr) and fountain basins.
 // ─────────────────────────────────────────────────────────────────────────────
 function createAamKhasBaghScene() {
   const root = new THREE.Group();
-  root.name = 'Aam_Khas_Bagh_LiDAR_Digital_Twin';
+  root.name = 'Aam_Khas_Bagh_Mughal_Complex_LiDAR';
 
-  // Materials: Mughal Sirhind Teracotta Bricks, Plaster & Domes
+  // Materials: Mughal Baked Brick, Lime Plaster, Water & Sandstone
   const mughalBrick = new THREE.MeshStandardMaterial({
-    color: 0xbd5338, // Rich baked Mughal terracotta brick
+    color: 0xbd5338, // Sirhind red baked terracotta brick
     roughness: 0.78,
     metalness: 0.05,
     name: 'Mughal_Terracotta_Brick',
@@ -203,7 +224,7 @@ function createAamKhasBaghScene() {
     name: 'Buff_Lime_Plaster',
   });
   const subterraneanStone = new THREE.MeshStandardMaterial({
-    color: 0x6e473b, // Dark underground hypocaust flue masonry
+    color: 0x6e473b, // Underground hypocaust masonry
     roughness: 0.9,
     metalness: 0.02,
     name: 'Hypocaust_Masonry',
@@ -215,152 +236,290 @@ function createAamKhasBaghScene() {
     name: 'Terracotta_Heating_Conduits',
   });
   const marbleBasin = new THREE.MeshStandardMaterial({
-    color: 0xf0f3f4, // Central ablution fountain
+    color: 0xf0f3f4, // Marble fountain basins
     roughness: 0.3,
     metalness: 0.1,
-    name: 'Hammam_Fountain_Marble',
+    name: 'Marble_Water_Feature',
+  });
+  const canalWater = new THREE.MeshStandardMaterial({
+    color: 0x2471a3,
+    roughness: 0.2,
+    metalness: 0.75,
+    transparent: true,
+    opacity: 0.85,
+    name: 'Mughal_Canal_Water',
+  });
+  const gardenPaving = new THREE.MeshStandardMaterial({
+    color: 0x937047,
+    roughness: 0.85,
+    metalness: 0.05,
+    name: 'Sandstone_Walkway_Paving',
   });
 
-  // 1. SUBTERRANEAN HYPOCAUST HEATING SYSTEM (Beneath 0.0m floor level)
-  const hypoBase = new THREE.Mesh(
-    new THREE.BoxGeometry(36, 1.2, 36),
-    subterraneanStone
+  // 0. CHARBAGH GARDEN PLAZA & INTERCONNECTING WATER CANAL (NAHR)
+  const gardenPlaza = new THREE.Mesh(
+    new THREE.BoxGeometry(84, 0.4, 76),
+    gardenPaving
   );
-  hypoBase.position.set(0, -2.2, 0);
-  root.add(hypoBase);
+  gardenPlaza.position.set(0, -0.2, 0);
+  gardenPlaza.receiveShadow = true;
+  root.add(gardenPlaza);
 
-  // Hypocaust Support Pillars (Suspended bathhouse floor over hot-air channels)
-  for (let x = -14; x <= 14; x += 4.5) {
-    for (let z = -14; z <= 14; z += 4.5) {
-      const pillar = new THREE.Mesh(
-        new THREE.BoxGeometry(1.2, 1.6, 1.2),
-        subterraneanStone
-      );
-      pillar.position.set(x, -1.0, z);
-      root.add(pillar);
+  // Central North-South Water Canal connecting Hammam to Daulat Khana
+  const nahrNS = new THREE.Mesh(
+    new THREE.BoxGeometry(3.6, 0.3, 50),
+    canalWater
+  );
+  nahrNS.position.set(0, 0.05, 0);
+  root.add(nahrNS);
+
+  // East-West Branch Canal connecting to Baradari
+  const nahrEW = new THREE.Mesh(
+    new THREE.BoxGeometry(32, 0.3, 3.6),
+    canalWater
+  );
+  nahrEW.position.set(16, 0.05, 0);
+  root.add(nahrEW);
+
+  // Central Octagonal Water Reservoir & Fountain Basin
+  const centralPool = new THREE.Mesh(
+    new THREE.CylinderGeometry(4.2, 4.2, 0.5, 8),
+    marbleBasin
+  );
+  centralPool.position.set(0, 0.25, 0);
+  root.add(centralPool);
+
+  const centralJet = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.3, 0.5, 1.4, 8),
+    marbleBasin
+  );
+  centralJet.position.set(0, 0.9, 0);
+  root.add(centralJet);
+
+  // ─────────────────────────────────────────────────────────────
+  // BUILDING 1: SHAHI HAMMAM (Royal Bathhouse with Subterranean Hypocaust)
+  // Located at North wing (z = -18)
+  // ─────────────────────────────────────────────────────────────
+  const hammamGroup = new THREE.Group();
+  hammamGroup.name = 'Building_1_Shahi_Hammam';
+  hammamGroup.position.set(0, 0, -18);
+
+  // Subterranean Hypocaust Base & Support Pillars
+  const hypoBase = new THREE.Mesh(new THREE.BoxGeometry(28, 1.0, 24), subterraneanStone);
+  hypoBase.position.set(0, -2.0, 0);
+  hammamGroup.add(hypoBase);
+
+  for (let x = -10; x <= 10; x += 4.5) {
+    for (let z = -8; z <= 8; z += 4.5) {
+      const p = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.5, 1.0), subterraneanStone);
+      p.position.set(x, -0.9, z);
+      hammamGroup.add(p);
     }
   }
 
-  // Terracotta Underfloor Thermal Air Conduits (Laser-scanned heating channels)
-  const conduit1 = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.4, 0.4, 30, 16),
-    terracottaPipes
-  );
-  conduit1.rotation.z = Math.PI / 2;
-  conduit1.position.set(0, -1.1, -6);
-  root.add(conduit1);
+  // Terracotta Underfloor Thermal Air Conduits
+  const pipe1 = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 22, 12), terracottaPipes);
+  pipe1.rotation.z = Math.PI / 2;
+  pipe1.position.set(0, -1.0, -4);
+  hammamGroup.add(pipe1);
 
-  const conduit2 = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.4, 0.4, 30, 16),
-    terracottaPipes
-  );
-  conduit2.rotation.z = Math.PI / 2;
-  conduit2.position.set(0, -1.1, 6);
-  root.add(conduit2);
+  const pipe2 = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 22, 12), terracottaPipes);
+  pipe2.rotation.z = Math.PI / 2;
+  pipe2.position.set(0, -1.0, 4);
+  hammamGroup.add(pipe2);
 
-  // 2. MAIN GROUND BATHHOUSE PLINTH & FLOORING
-  const mainFloor = new THREE.Mesh(
-    new THREE.BoxGeometry(34, 0.6, 34),
-    buffPlaster
-  );
-  mainFloor.position.set(0, 0.3, 0);
-  mainFloor.receiveShadow = true;
-  root.add(mainFloor);
+  // Ground Floor Plinth
+  const hammamPlinth = new THREE.Mesh(new THREE.BoxGeometry(26, 0.6, 22), buffPlaster);
+  hammamPlinth.position.set(0, 0.3, 0);
+  hammamGroup.add(hammamPlinth);
 
-  // Central Octagonal Ablution Basin / Fountain
-  const fountain = new THREE.Mesh(
-    new THREE.CylinderGeometry(3.2, 3.2, 0.7, 8),
-    marbleBasin
-  );
-  fountain.position.set(0, 0.7, 0);
-  root.add(fountain);
+  // Central Octagonal Bathhouse Chamber
+  const centralHall = new THREE.Mesh(new THREE.CylinderGeometry(7.5, 7.5, 5.0, 8, 1, true), mughalBrick);
+  centralHall.position.set(0, 3.1, 0);
+  centralHall.castShadow = true;
+  hammamGroup.add(centralHall);
 
-  // 3. MAIN OCTAGONAL BATHHOUSE HALL (Hammam Chambers)
-  // Central Hall Walls
-  const centralWall = new THREE.Mesh(
-    new THREE.CylinderGeometry(9.2, 9.2, 5.5, 8, 1, true),
-    mughalBrick
-  );
-  centralWall.position.set(0, 3.35, 0);
-  centralWall.castShadow = true;
-  centralWall.receiveShadow = true;
-  root.add(centralWall);
+  const domeDrum = new THREE.Mesh(new THREE.CylinderGeometry(7.0, 7.5, 1.0, 16), buffPlaster);
+  domeDrum.position.set(0, 6.1, 0);
+  hammamGroup.add(domeDrum);
 
-  // Vaulted Roof Drum & Central Mughal Dome
-  const domeDrum = new THREE.Mesh(
-    new THREE.CylinderGeometry(8.6, 9.2, 1.2, 16),
-    buffPlaster
-  );
-  domeDrum.position.set(0, 6.7, 0);
-  root.add(domeDrum);
-
-  const centralDome = new THREE.Mesh(
-    new THREE.SphereGeometry(7.2, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2),
-    buffPlaster
-  );
-  centralDome.position.set(0, 7.3, 0);
+  const centralDome = new THREE.Mesh(new THREE.SphereGeometry(6.2, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), buffPlaster);
+  centralDome.position.set(0, 6.6, 0);
   centralDome.castShadow = true;
-  root.add(centralDome);
+  hammamGroup.add(centralDome);
 
-  // Rooftop Central Steam Lantern / Finial
-  const finial = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.8, 1.2, 1.6, 8),
-    mughalBrick
-  );
-  finial.position.set(0, 14.8, 0);
-  root.add(finial);
+  const steamLantern = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 1.0, 1.4, 8), mughalBrick);
+  steamLantern.position.set(0, 12.8, 0);
+  hammamGroup.add(steamLantern);
 
-  // 4 Corner Steam Chambers (Secondary Domes)
-  const cornerCoords = [
-    [-11, -11],
-    [11, -11],
-    [-11, 11],
-    [11, 11],
-  ];
-  cornerCoords.forEach(([cx, cz]) => {
-    const chamber = new THREE.Mesh(
-      new THREE.BoxGeometry(8, 4.8, 8),
-      mughalBrick
-    );
-    chamber.position.set(cx, 3.0, cz);
-    chamber.castShadow = true;
-    root.add(chamber);
+  // 4 Corner Steam Chambers with cupolas
+  const corners = [[-8.5, -6.5], [8.5, -6.5], [-8.5, 6.5], [8.5, 6.5]];
+  corners.forEach(([cx, cz]) => {
+    const chamber = new THREE.Mesh(new THREE.BoxGeometry(6.5, 4.2, 6.5), mughalBrick);
+    chamber.position.set(cx, 2.7, cz);
+    hammamGroup.add(chamber);
 
-    const miniDome = new THREE.Mesh(
-      new THREE.SphereGeometry(3.5, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2),
-      buffPlaster
-    );
-    miniDome.position.set(cx, 5.4, cz);
-    miniDome.castShadow = true;
-    root.add(miniDome);
+    const miniDome = new THREE.Mesh(new THREE.SphereGeometry(2.8, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), buffPlaster);
+    miniDome.position.set(cx, 4.8, cz);
+    hammamGroup.add(miniDome);
   });
+  root.add(hammamGroup);
+
+  // ─────────────────────────────────────────────────────────────
+  // BUILDING 2: DAULAT KHANA-E-KHAS (Two-Story Royal Palace Pavilion)
+  // Located at South wing (z = +20)
+  // ─────────────────────────────────────────────────────────────
+  const daulatKhana = new THREE.Group();
+  daulatKhana.name = 'Building_2_Daulat_Khana_e_Khas';
+  daulatKhana.position.set(0, 0, 20);
+
+  // Ground Floor Plinth & Main Hall
+  const dkPlinth = new THREE.Mesh(new THREE.BoxGeometry(26, 0.8, 14), mughalBrick);
+  dkPlinth.position.set(0, 0.4, 0);
+  daulatKhana.add(dkPlinth);
+
+  const dkGroundFloor = new THREE.Mesh(new THREE.BoxGeometry(24, 4.5, 12), mughalBrick);
+  dkGroundFloor.position.set(0, 3.05, 0);
+  dkGroundFloor.castShadow = true;
+  daulatKhana.add(dkGroundFloor);
+
+  // Arched Portico Columns on North Face
+  for (let c = -9; c <= 9; c += 4.5) {
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.45, 4.5, 8), buffPlaster);
+    col.position.set(c, 3.05, -6.2);
+    daulatKhana.add(col);
+  }
+
+  // Inter-floor Chhajja / Eaves
+  const chhajja1 = new THREE.Mesh(new THREE.BoxGeometry(25.6, 0.35, 13.6), buffPlaster);
+  chhajja1.position.set(0, 5.4, 0);
+  daulatKhana.add(chhajja1);
+
+  // Upper Floor (Level 2 Royal Chambers)
+  const dkUpperFloor = new THREE.Mesh(new THREE.BoxGeometry(20, 3.8, 10), buffPlaster);
+  dkUpperFloor.position.set(0, 7.5, 0);
+  dkUpperFloor.castShadow = true;
+  daulatKhana.add(dkUpperFloor);
+
+  // Projecting Jharokha Balconies
+  [-6, 6].forEach(jx => {
+    const jharokha = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.2, 1.8), mughalBrick);
+    jharokha.position.set(jx, 7.5, -5.8);
+    daulatKhana.add(jharokha);
+
+    const jharokhaRoof = new THREE.Mesh(new THREE.ConeGeometry(2.0, 1.2, 4), buffPlaster);
+    jharokhaRoof.position.set(jx, 9.2, -5.8);
+    jharokhaRoof.rotation.y = Math.PI / 4;
+    daulatKhana.add(jharokhaRoof);
+  });
+
+  // Rooftop Parapet with Corner Minarets
+  const roofParapet = new THREE.Mesh(new THREE.BoxGeometry(20.6, 0.7, 10.6), mughalBrick);
+  roofParapet.position.set(0, 9.75, 0);
+  daulatKhana.add(roofParapet);
+
+  [[-9.8, -4.8], [9.8, -4.8], [-9.8, 4.8], [9.8, 4.8]].forEach(([mx, mz]) => {
+    const minar = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 2.8, 8), buffPlaster);
+    minar.position.set(mx, 10.8, mz);
+    daulatKhana.add(minar);
+
+    const chhatriCap = new THREE.Mesh(new THREE.ConeGeometry(0.8, 1.0, 8), mughalBrick);
+    chhatriCap.position.set(mx, 12.7, mz);
+    daulatKhana.add(chhatriCap);
+  });
+  root.add(daulatKhana);
+
+  // ─────────────────────────────────────────────────────────────
+  // BUILDING 3: BARADARI (Mughal Twelve-Arched Garden Pavilion)
+  // Located at East garden terrace (x = +26, z = 0)
+  // ─────────────────────────────────────────────────────────────
+  const baradari = new THREE.Group();
+  baradari.name = 'Building_3_Baradari_Pavilion';
+  baradari.position.set(26, 0, 0);
+
+  // Raised Stone Plinth
+  const baradariPlinth = new THREE.Mesh(new THREE.BoxGeometry(16, 1.2, 16), buffPlaster);
+  baradariPlinth.position.set(0, 0.6, 0);
+  baradari.add(baradariPlinth);
+
+  // Pillared Arcade (12 Open Mughal Arched Bays)
+  const bPillars = [
+    [-6, -6], [-2, -6], [2, -6], [6, -6],
+    [-6, 6], [-2, 6], [2, 6], [6, 6],
+    [-6, -2], [-6, 2], [6, -2], [6, 2]
+  ];
+  bPillars.forEach(([px, pz]) => {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 4.2, 8), buffPlaster);
+    p.position.set(px, 3.3, pz);
+    p.castShadow = true;
+    baradari.add(p);
+  });
+
+  // Vaulted Roof & Projecting Stone Eaves (Chhajja)
+  const baradariChhajja = new THREE.Mesh(new THREE.BoxGeometry(17.2, 0.35, 17.2), buffPlaster);
+  baradariChhajja.position.set(0, 5.5, 0);
+  baradari.add(baradariChhajja);
+
+  const baradariRoof = new THREE.Mesh(new THREE.BoxGeometry(14, 1.0, 14), mughalBrick);
+  baradariRoof.position.set(0, 6.1, 0);
+  baradari.add(baradariRoof);
+
+  // Central Low Fluted Mughal Dome
+  const baradariDome = new THREE.Mesh(new THREE.SphereGeometry(3.6, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), buffPlaster);
+  baradariDome.position.set(0, 6.6, 0);
+  baradariDome.castShadow = true;
+  baradari.add(baradariDome);
+
+  // 4 Corner Chhatris
+  [[-6.2, -6.2], [6.2, -6.2], [-6.2, 6.2], [6.2, 6.2]].forEach(([cx, cz]) => {
+    const chhatriPillar = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 1.6, 8), buffPlaster);
+    chhatriPillar.position.set(cx, 7.4, cz);
+    baradari.add(chhatriPillar);
+
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(0.7, 0.9, 8), mughalBrick);
+    cap.position.set(cx, 8.6, cz);
+    baradari.add(cap);
+  });
+  root.add(baradari);
 
   return root;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. THIRUVANANTHAPURAM SMART CITY (TALD LiDAR Urban Digital Twin)
-// Modern 8-story Smart City commercial campus: stepped glass/steel tower,
-// podium, underground utility corridors, rooftop solar panel arrays.
+// 3. THIRUVANANTHAPURAM SMART CITY (TALD LiDAR Urban Multi-Building Campus)
+// High-tech multi-structure urban digital twin from Airborne Laser Scanning:
+// 1. Tower A (Main Commercial Tower, 8 stories, 32m height with solar PV grid)
+// 2. Tower B (IT & Operations Wing, 5 stories, 20m height with stepped terraces)
+// 3. Wing C (Civic Innovation & Research Hub, 3 stories, 12m height with living roof)
+// 4. Elevated Glass Skybridge (Connecting Tower A & Tower B at 4th floor)
+// 5. Shared Urban Podium Concourse with drop-off roundabout, EV stations & plaza.
 // ─────────────────────────────────────────────────────────────────────────────
 function createSmartCityScene() {
   const root = new THREE.Group();
-  root.name = 'Thiruvananthapuram_TALD_LiDAR_Twin';
+  root.name = 'Thiruvananthapuram_TALD_SmartCity_MultiBuilding_Campus';
 
-  // Materials: Modern Smart City Architecture
+  // Materials: High-Tech Smart City Architecture
   const concreteFacade = new THREE.MeshStandardMaterial({
     color: 0x334155, // Architectural slate concrete
     roughness: 0.65,
     metalness: 0.15,
     name: 'Smart_Concrete_Structure',
   });
-  const curtainGlass = new THREE.MeshStandardMaterial({
-    color: 0x0284c7, // Low-E Blue Smart City Glazing
+  const curtainGlassBlue = new THREE.MeshStandardMaterial({
+    color: 0x0284c7, // Low-E Blue Smart City Glazing (Tower A)
     roughness: 0.1,
     metalness: 0.85,
     transparent: true,
-    opacity: 0.82,
-    name: 'Curtain_Wall_Glazing',
+    opacity: 0.84,
+    name: 'Curtain_Wall_Glazing_Blue',
+  });
+  const curtainGlassTeal = new THREE.MeshStandardMaterial({
+    color: 0x0d9488, // Low-E Teal Glazing (Tower B & Skybridge)
+    roughness: 0.1,
+    metalness: 0.85,
+    transparent: true,
+    opacity: 0.84,
+    name: 'Curtain_Wall_Glazing_Teal',
   });
   const solarPanelMat = new THREE.MeshStandardMaterial({
     color: 0x0f172a, // Photovoltaic silicon array
@@ -369,88 +528,224 @@ function createSmartCityScene() {
     name: 'Solar_PV_Array',
   });
   const steelFrame = new THREE.MeshStandardMaterial({
-    color: 0x94a3b8, // Brushed aluminum mullions
+    color: 0x94a3b8, // Brushed aluminum mullions & skybridge truss
     roughness: 0.35,
-    metalness: 0.7,
+    metalness: 0.75,
     name: 'Structural_Steel',
   });
   const podiumStone = new THREE.MeshStandardMaterial({
-    color: 0x1e293b, // Ground concourse
+    color: 0x1e293b, // Dark basalt concourse plaza
     roughness: 0.8,
     metalness: 0.1,
     name: 'Podium_Concourse',
   });
+  const greenRoof = new THREE.MeshStandardMaterial({
+    color: 0x2d6a4f, // Living eco-roof vegetation
+    roughness: 0.85,
+    metalness: 0.05,
+    name: 'Living_Eco_Roof',
+  });
+  const roadAsphalt = new THREE.MeshStandardMaterial({
+    color: 0x18181b,
+    roughness: 0.9,
+    metalness: 0.05,
+    name: 'Campus_Roadway',
+  });
 
-  // 1. Ground Concourse & 2-Story Podium Base (Levels 1-2)
-  const podium = new THREE.Mesh(
-    new THREE.BoxGeometry(42, 8.0, 36),
+  // 0. CAMPUS PODIUM CONCOURSE & ROADWAY (Shared Campus Ground Base)
+  const campusBase = new THREE.Mesh(
+    new THREE.BoxGeometry(86, 1.0, 78),
     podiumStone
   );
-  podium.position.set(0, 4.0, 0);
-  podium.castShadow = true;
-  podium.receiveShadow = true;
-  root.add(podium);
+  campusBase.position.set(0, 0.5, 0);
+  campusBase.receiveShadow = true;
+  root.add(campusBase);
 
-  // Ground Floor Double-Height Glazing Atrium
-  const atrium = new THREE.Mesh(
-    new THREE.BoxGeometry(42.4, 5.0, 16),
-    curtainGlass
+  // Internal Circular Access Roadway / Drop-off
+  const roadway = new THREE.Mesh(
+    new THREE.RingGeometry(12, 17, 32),
+    roadAsphalt
   );
-  atrium.position.set(0, 3.5, 10.2);
-  root.add(atrium);
+  roadway.rotation.x = -Math.PI / 2;
+  roadway.position.set(0, 1.02, 18);
+  roadway.receiveShadow = true;
+  root.add(roadway);
 
-  // 2. Mid-Tier Tower (Levels 3-6)
-  const midTower = new THREE.Mesh(
-    new THREE.BoxGeometry(32, 14.0, 26),
-    curtainGlass
+  // Central Landscaped Planter within Drop-off Roundabout
+  const centralPlanter = new THREE.Mesh(
+    new THREE.CylinderGeometry(10, 10.5, 0.4, 32),
+    greenRoof
   );
-  midTower.position.set(0, 15.0, 0);
-  midTower.castShadow = true;
-  root.add(midTower);
+  centralPlanter.position.set(0, 1.2, 18);
+  root.add(centralPlanter);
 
-  // Structural Floor Slabs (Levels 3, 4, 5, 6)
+  // ─────────────────────────────────────────────────────────────
+  // BUILDING 1: TOWER A (Main Commercial Tower - 8 Stories, 32m Height)
+  // Located at center-west: (x: -12, z: -8)
+  // ─────────────────────────────────────────────────────────────
+  const towerA = new THREE.Group();
+  towerA.name = 'Tower_A_Commercial_HighRise';
+  towerA.position.set(-12, 0, -8);
+
+  // Ground & Podium Base (Levels 1-2)
+  const podiumA = new THREE.Mesh(new THREE.BoxGeometry(32, 7.5, 26), podiumStone);
+  podiumA.position.set(0, 4.75, 0);
+  podiumA.castShadow = true;
+  towerA.add(podiumA);
+
+  const atriumA = new THREE.Mesh(new THREE.BoxGeometry(32.4, 4.5, 12), curtainGlassBlue);
+  atriumA.position.set(0, 4.25, 7.5);
+  towerA.add(atriumA);
+
+  // Mid-Tier Tower (Levels 3-6)
+  const midTowerA = new THREE.Mesh(new THREE.BoxGeometry(26, 14.0, 22), curtainGlassBlue);
+  midTowerA.position.set(0, 15.5, 0);
+  midTowerA.castShadow = true;
+  towerA.add(midTowerA);
+
+  // Concrete Structural Floor Slabs for Levels 3-6
   for (let fl = 1; fl <= 4; fl++) {
-    const slab = new THREE.Mesh(
-      new THREE.BoxGeometry(32.8, 0.4, 26.8),
-      concreteFacade
-    );
-    slab.position.set(0, 8.0 + fl * 3.5, 0);
-    root.add(slab);
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(26.8, 0.45, 22.8), concreteFacade);
+    slab.position.set(0, 8.5 + fl * 3.5, 0);
+    towerA.add(slab);
   }
 
-  // 3. Upper Tower & Penthouse Tier (Levels 7-8)
-  const upperTower = new THREE.Mesh(
-    new THREE.BoxGeometry(22, 7.5, 20),
-    curtainGlass
-  );
-  upperTower.position.set(0, 25.75, 0);
-  upperTower.castShadow = true;
-  root.add(upperTower);
+  // Upper Executive Tier & Penthouse (Levels 7-8)
+  const upperTowerA = new THREE.Mesh(new THREE.BoxGeometry(18, 7.0, 16), curtainGlassBlue);
+  upperTowerA.position.set(0, 26.0, 0);
+  upperTowerA.castShadow = true;
+  towerA.add(upperTowerA);
 
-  const upperSlab = new THREE.Mesh(
-    new THREE.BoxGeometry(22.6, 0.5, 20.6),
-    concreteFacade
-  );
-  upperSlab.position.set(0, 29.75, 0);
-  root.add(upperSlab);
+  const upperSlabA = new THREE.Mesh(new THREE.BoxGeometry(18.6, 0.5, 16.6), concreteFacade);
+  upperSlabA.position.set(0, 29.5, 0);
+  towerA.add(upperSlabA);
 
-  // 4. Rooftop Solar Panel Canopy (Smart City Green Energy)
-  const solarCanopy = new THREE.Mesh(
-    new THREE.BoxGeometry(20, 0.2, 18),
-    solarPanelMat
-  );
-  solarCanopy.position.set(0, 31.5, 0);
-  solarCanopy.rotation.x = -0.08; // 5 degree tilt toward South
+  // Rooftop Solar Photovoltaic Canopy (5-deg tilt)
+  const solarCanopy = new THREE.Mesh(new THREE.BoxGeometry(17, 0.25, 15), solarPanelMat);
+  solarCanopy.position.set(0, 31.2, 0);
+  solarCanopy.rotation.x = -0.08;
   solarCanopy.castShadow = true;
-  root.add(solarCanopy);
+  towerA.add(solarCanopy);
 
-  // Rooftop Telemetry Antenna & Sensor Mast
-  const mast = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.15, 0.35, 6.0, 8),
-    steelFrame
-  );
-  mast.position.set(6, 34.5, -5);
-  root.add(mast);
+  // Telecommunications & Air Quality Sensor Mast
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.3, 5.5, 8), steelFrame);
+  mast.position.set(5, 34.0, -4);
+  towerA.add(mast);
+  root.add(towerA);
+
+  // ─────────────────────────────────────────────────────────────
+  // BUILDING 2: TOWER B (IT & Operations Wing - 5 Stories, 20m Height)
+  // Located at east: (x: +22, z: -8)
+  // ─────────────────────────────────────────────────────────────
+  const towerB = new THREE.Group();
+  towerB.name = 'Tower_B_IT_Operations_Wing';
+  towerB.position.set(22, 0, -8);
+
+  // 5-Story Glass & Concrete Block
+  const blockB = new THREE.Mesh(new THREE.BoxGeometry(22, 17.5, 20), curtainGlassTeal);
+  blockB.position.set(0, 9.75, 0);
+  blockB.castShadow = true;
+  towerB.add(blockB);
+
+  // Floor Plates (Levels 1 to 5)
+  for (let fl = 0; fl <= 5; fl++) {
+    const slabB = new THREE.Mesh(new THREE.BoxGeometry(22.8, 0.4, 20.8), concreteFacade);
+    slabB.position.set(0, 1.0 + fl * 3.5, 0);
+    towerB.add(slabB);
+  }
+
+  // Rooftop HVAC & Mechanical Equipment Enclosures
+  const hvacUnit1 = new THREE.Mesh(new THREE.BoxGeometry(5, 2.2, 4), steelFrame);
+  hvacUnit1.position.set(-4, 19.6, -3);
+  towerB.add(hvacUnit1);
+
+  const hvacUnit2 = new THREE.Mesh(new THREE.BoxGeometry(4, 2.2, 4), steelFrame);
+  hvacUnit2.position.set(4, 19.6, -3);
+  towerB.add(hvacUnit2);
+
+  // Rooftop Terrace Pergola
+  const pergola = new THREE.Mesh(new THREE.BoxGeometry(10, 0.3, 7), steelFrame);
+  pergola.position.set(0, 20.5, 4);
+  towerB.add(pergola);
+
+  for (let px = -4; px <= 4; px += 8) {
+    for (let pz = 1; pz <= 7; pz += 6) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.0, 8), steelFrame);
+      pole.position.set(px, 19.5, pz);
+      towerB.add(pole);
+    }
+  }
+  root.add(towerB);
+
+  // ─────────────────────────────────────────────────────────────
+  // ELEVATED ENCLOSED SKYBRIDGE (Connecting Tower A & Tower B at Level 4)
+  // Spanning between x = 1.0 and x = 11.0, at height y = 14m
+  // ─────────────────────────────────────────────────────────────
+  const skybridge = new THREE.Group();
+  skybridge.name = 'Elevated_Skybridge_L4';
+  skybridge.position.set(5.0, 14.0, -8);
+
+  const bridgeGlass = new THREE.Mesh(new THREE.BoxGeometry(10.0, 3.2, 3.6), curtainGlassTeal);
+  bridgeGlass.castShadow = true;
+  skybridge.add(bridgeGlass);
+
+  const bridgeFloor = new THREE.Mesh(new THREE.BoxGeometry(10.2, 0.3, 3.8), concreteFacade);
+  bridgeFloor.position.set(0, -1.6, 0);
+  skybridge.add(bridgeFloor);
+
+  const bridgeRoof = new THREE.Mesh(new THREE.BoxGeometry(10.2, 0.3, 3.8), steelFrame);
+  bridgeRoof.position.set(0, 1.6, 0);
+  skybridge.add(bridgeRoof);
+  root.add(skybridge);
+
+  // ─────────────────────────────────────────────────────────────
+  // BUILDING 3: WING C (Civic Innovation & Research Hub - 3 Stories, 12m Height)
+  // Located at south-west foreground: (x: -10, z: +22)
+  // ─────────────────────────────────────────────────────────────
+  const wingC = new THREE.Group();
+  wingC.name = 'Wing_C_Innovation_Research_Hub';
+  wingC.position.set(-10, 0, 22);
+
+  // Ground & Mid Floor (Levels 1-2)
+  const baseC = new THREE.Mesh(new THREE.BoxGeometry(20, 7.0, 16), curtainGlassBlue);
+  baseC.position.set(0, 4.5, 0);
+  baseC.castShadow = true;
+  wingC.add(baseC);
+
+  // Cantilevered Upper Floor (Level 3)
+  const upperC = new THREE.Mesh(new THREE.BoxGeometry(22, 3.5, 17), concreteFacade);
+  upperC.position.set(1.0, 9.75, 0);
+  upperC.castShadow = true;
+  wingC.add(upperC);
+
+  // Living Eco-Green Roof on Wing C
+  const greenEcoRoof = new THREE.Mesh(new THREE.BoxGeometry(21.2, 0.35, 16.2), greenRoof);
+  greenEcoRoof.position.set(1.0, 11.7, 0);
+  wingC.add(greenEcoRoof);
+
+  // Rooftop Garden Planters on Eco-Roof
+  const planterC = new THREE.Mesh(new THREE.BoxGeometry(8, 0.6, 5), podiumStone);
+  planterC.position.set(1.0, 12.1, 0);
+  wingC.add(planterC);
+  root.add(wingC);
+
+  // ─────────────────────────────────────────────────────────────
+  // SMART CITY LIGHTING & EV CHARGING POSTS
+  // ─────────────────────────────────────────────────────────────
+  const lampPositions = [
+    [-28, 1.0, -26], [28, 1.0, -26],
+    [-28, 1.0, 32], [28, 1.0, 32],
+    [0, 1.0, -24], [18, 1.0, 24]
+  ];
+  lampPositions.forEach(([lx, ly, lz]) => {
+    const lampPost = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 4.0, 8), steelFrame);
+    lampPost.position.set(lx, ly + 2.0, lz);
+    root.add(lampPost);
+
+    const lampHead = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.15, 0.4), steelFrame);
+    lampHead.position.set(lx, ly + 4.0, lz);
+    root.add(lampHead);
+  });
 
   return root;
 }
@@ -465,17 +760,17 @@ async function generateAll() {
     {
       scene: createRaniKiVavScene(),
       filename: 'rani-ki-vav.glb',
-      label: "Rani ki Vav (The Queen's Stepwell)",
+      label: "Rani ki Vav (The Queen's Stepwell & Entrance Torana)",
     },
     {
       scene: createAamKhasBaghScene(),
       filename: 'aam-khas-bagh.glb',
-      label: 'Aam Khas Bagh (Hammam & Subterranean Conduits)',
+      label: 'Aam Khas Bagh (Mughal Royal Complex: Hammam, Daulat Khana, Baradari)',
     },
     {
       scene: createSmartCityScene(),
       filename: 'tald-smart-city.glb',
-      label: 'Thiruvananthapuram Smart City (TALD LiDAR)',
+      label: 'Thiruvananthapuram Smart City (TALD Multi-Building Campus & Skybridge)',
     },
   ];
 
@@ -501,7 +796,7 @@ async function generateAll() {
     });
   }
 
-  console.log('🎉 All LiDAR 3D models generated successfully!');
+  console.log('🎉 All LiDAR multi-building 3D models generated successfully!');
 }
 
 generateAll().catch(console.error);
