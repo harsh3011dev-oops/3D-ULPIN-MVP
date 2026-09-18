@@ -1,0 +1,225 @@
+/* ── Plan Parser Section Styles ── */
+.plan-parser {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Drag & Drop Zone ── */
+.dropzone-container {
+  position: relative;
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: var(--bg-secondary);
+  min-height: 160px;
+}
+
+.dropzone-container:hover {
+  border-color: rgba(13, 148, 136, 0.5);
+  background: rgba(13, 148, 136, 0.03);
+}
+
+.dropzone-container.drag-active {
+  border-color: var(--accent-teal);
+  border-style: solid;
+  background: rgba(13, 148, 136, 0.08);
+  box-shadow: 0 0 20px rgba(13, 148, 136, 0.15);
+}
+
+.dropzone-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(13, 148, 136, 0.1);
+  border: 1px solid rgba(13, 148, 136, 0.25);
+  border-radius: 50%;
+  color: var(--accent-teal);
+  transition: all var(--transition-fast);
+}
+
+.dropzone-container:hover .dropzone-icon {
+  transform: scale(1.1);
+  box-shadow: 0 0 16px rgba(13, 148, 136, 0.2);
+}
+
+.dropzone-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.dropzone-hint {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.dropzone-formats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.format-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  color: var(--text-secondary);
+}
+
+.format-badge.active {
+  background: rgba(13, 148, 136, 0.1);
+  border-color: rgba(13, 148, 136, 0.35);
+  color: var(--accent-teal);
+}
+
+/* ── Uploaded File Info Card ── */
+.file-info-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid rgba(13, 148, 136, 0.3);
+  border-radius: var(--radius-sm);
+}
+
+.file-info-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(13, 148, 136, 0.1);
+  border-radius: var(--radius-xs);
+  color: var(--accent-teal);
+  flex-shrink: 0;
+}
+
+.file-info-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-info-name {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.file-info-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.file-remove-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xs);
+  padding: 4px 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.file-remove-btn:hover {
+  border-color: #DC2626;
+  color: #DC2626;
+}
+
+/* ── Plan Metadata Form ── */
+.plan-metadata-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* ── Parse Results Preview ── */
+.parse-results-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  background: var(--bg-secondary);
+  border: 1px solid rgba(13, 148, 136, 0.3);
+  border-radius: var(--radius-sm);
+}
+
+.parse-results-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent-teal);
+}
+
+.parse-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.parse-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: rgba(17, 24, 39, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xs);
+  text-align: center;
+}
+
+.parse-stat-value {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--accent-teal);
+}
+
+.parse-stat-label {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.parse-action-row {
+  margin-top: 4px;
+}
+
+.parse-generate-btn {
+  width: 100%;
+  padding: 12px;
+}
+
+@media (max-width: 768px) {
+  .plan-metadata-form {
+    grid-template-columns: 1fr;
+  }
+  .parse-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

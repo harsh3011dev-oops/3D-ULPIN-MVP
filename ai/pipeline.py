@@ -141,22 +141,38 @@ def process_building(*args, **kwargs) -> dict:
             except Exception as e:
                 logger.warning("Gemini Vision analysis failed: %s", e)
         
-        # 5. Footprint Estimation (OSM -> CV)
+        # 5. Footprint Estimation (OSM -> Trained YOLOv8 AI -> CV Fallback)
         osm_geom = ctx.osm_data.get("footprint")
         if osm_geom:
             ctx.footprint = FootprintEstimate(geometry=osm_geom, source="osm", confidence=0.95)
         else:
-            logger.info("[STEP 5] OSM footprint not found. Using CV footprint detection.")
+            logger.info("[STEP 5] OSM footprint not found. Running custom trained YOLOv8-Seg Deep Learning Footprint Detector.")
             try:
-                footprint_result = detect_building_footprint_hybrid(ctx.aerial_image_url, ctx.parcel_boundary, osm_footprint=None)
-                ctx.footprint = FootprintEstimate(
-                    geometry=footprint_result.get("footprint", ctx.parcel_boundary),
-                    source=footprint_result.get("method_used", "hybrid"),
-                    confidence=footprint_result.get("cv_confidence", 50.0) / 100.0
-                )
+                from ai.yolo_detector import YOLOBuildingDetector
+                weights_file = "ai/models/best_building_seg.pt" if os.path.exists("ai/models/best_building_seg.pt") else None
+                yolo_detector = YOLOBuildingDetector(model_weights_path=weights_file)
+                detected = yolo_detector.detect_footprints_from_image(ctx.aerial_image_url)
+                if detected:
+                    top_detect = detected[0]
+                    ctx.footprint = FootprintEstimate(
+                        geometry=top_detect.get("polygon_2d", ctx.parcel_boundary),
+                        source=top_detect.get("source", "yolov8_seg_custom"),
+                        confidence=top_detect.get("confidence", 0.85)
+                    )
+                else:
+                    raise ValueError("YOLOv8 detector returned empty results")
             except Exception as e:
-                logger.warning("Footprint detection failed: %s", e)
-                ctx.footprint = FootprintEstimate(geometry=ctx.parcel_boundary, source="fallback", confidence=0.1)
+                logger.warning("YOLOv8 Footprint detection failed: %s. Using CV fallback.", e)
+                try:
+                    footprint_result = detect_building_footprint_hybrid(ctx.aerial_image_url, ctx.parcel_boundary, osm_footprint=None)
+                    ctx.footprint = FootprintEstimate(
+                        geometry=footprint_result.get("footprint", ctx.parcel_boundary),
+                        source=footprint_result.get("method_used", "hybrid"),
+                        confidence=footprint_result.get("cv_confidence", 50.0) / 100.0
+                    )
+                except Exception as ex:
+                    logger.warning("CV Footprint detection failed: %s", ex)
+                    ctx.footprint = FootprintEstimate(geometry=ctx.parcel_boundary, source="fallback", confidence=0.1)
 
         # 6. Floor and Height Estimation
         in_floor_count = int(input_data["floor_count"]) if input_data.get("floor_count") else None

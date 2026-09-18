@@ -1,0 +1,8 @@
+# 3D ULPIN Building Footprint Dataset Config (Roboflow Dataset 23,193 images)
+path: /home/piet/Buidling-footprint-2
+train: train/images
+val: valid/images
+test: test/images
+
+names:
+  0: building

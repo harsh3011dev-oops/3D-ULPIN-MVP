@@ -15,9 +15,48 @@ from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
+GEMINI_MODELS = [
+    "gemini-3.6-flash",
+    "gemini-3-flash-preview",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash-latest",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+]
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
 CACHE: dict[str, dict[str, Any]] = {}
 
 VERIFIED_LANDMARKS_CATALOG: list[dict[str, Any]] = [
+    {
+        "keys": ["jaypee greens", "jaypee greens noida", "jaypee greens wish town", "jaypee greens society"],
+        "data": {
+            "building_name": "Jaypee Greens Society Campus (Tower A, B & C)",
+            "city": "Noida",
+            "latitude": 28.5355,
+            "longitude": 77.3910,
+            "height_meters": 68.0,
+            "floors": 22,
+            "confidence": 100,
+            "source": "verified_cadastral_registry",
+            "osm_id": "relation/10188981",
+        }
+    },
+    {
+        "keys": ["dlf cyber city", "cyber city gurgaon", "dlf cybercity"],
+        "data": {
+            "building_name": "DLF Cyber City High-Rise Campus",
+            "city": "Gurgaon",
+            "latitude": 28.4950,
+            "longitude": 77.0890,
+            "height_meters": 78.0,
+            "floors": 25,
+            "confidence": 100,
+            "source": "verified_cadastral_registry",
+            "osm_id": "relation/981203",
+        }
+    },
     {
         "keys": ["aam khas bagh", "aam khas", "sirhind hammam", "mughal hammam"],
         "data": {

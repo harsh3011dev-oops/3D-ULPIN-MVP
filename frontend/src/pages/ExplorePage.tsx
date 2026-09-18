@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from '../components/Header/Header';
+import SocietyExplorer from '../components/SocietyExplorer/SocietyExplorer';
+import PlanParser from '../components/PlanParser/PlanParser';
 import { autoDetectBuilding, createBuilding } from '../api/api';
 import { AutoDetectBuildingResult } from '../types';
 import { resolvePlace } from '../utils/placeResolver';
@@ -31,7 +33,7 @@ interface FormState {
   floors: string;
 }
 
-type EntryMode = 'select' | 'search' | 'manual';
+type EntryMode = 'select' | 'society' | 'plan' | 'search' | 'manual';
 
 export interface LandmarkPreset {
   name: string;
@@ -732,11 +734,39 @@ export default function ExplorePage() {
                 <div className="mode-selection-rows">
                   <div
                     className="mode-row-card"
-                    onClick={() => setEntryMode('search')}
+                    onClick={() => setEntryMode('society')}
                   >
                     <div className="mode-num font-mono">01</div>
                     <div className="mode-content">
-                      <div className="mode-heading">Search Building</div>
+                      <div className="mode-heading">🏘️ Society / Campus Explorer</div>
+                      <div className="mode-sub">
+                        Scan an entire housing society or campus. Discover all buildings, generate ULPINs per tower & floor.
+                      </div>
+                    </div>
+                    <ArrowRight size={18} className="mode-arrow" />
+                  </div>
+
+                  <div
+                    className="mode-row-card"
+                    onClick={() => setEntryMode('plan')}
+                  >
+                    <div className="mode-num font-mono">02</div>
+                    <div className="mode-content">
+                      <div className="mode-heading">📐 Plan Parsing (CAD / GeoJSON)</div>
+                      <div className="mode-sub">
+                        Upload architectural floor plans (DXF, GeoJSON) to auto-extract unit boundaries & generate ULPINs.
+                      </div>
+                    </div>
+                    <ArrowRight size={18} className="mode-arrow" />
+                  </div>
+
+                  <div
+                    className="mode-row-card"
+                    onClick={() => setEntryMode('search')}
+                  >
+                    <div className="mode-num font-mono">03</div>
+                    <div className="mode-content">
+                      <div className="mode-heading">🔍 Search Building</div>
                       <div className="mode-sub">
                         Auto-fill coordinates, elevations, and floor levels via AI geospatial lookup.
                       </div>
@@ -748,9 +778,9 @@ export default function ExplorePage() {
                     className="mode-row-card"
                     onClick={() => { setEntryMode('manual'); setStep(1); }}
                   >
-                    <div className="mode-num font-mono">02</div>
+                    <div className="mode-num font-mono">04</div>
                     <div className="mode-content">
-                      <div className="mode-heading">Manual Coordinates</div>
+                      <div className="mode-heading">📍 Manual Coordinates</div>
                       <div className="mode-sub">
                         Define custom geodetic parcel boundaries, Z-elevations, and floor strata parameters.
                       </div>
@@ -758,6 +788,90 @@ export default function ExplorePage() {
                     <ArrowRight size={18} className="mode-arrow" />
                   </div>
                 </div>
+              )}
+
+              {/* ── SOCIETY EXPLORER FLOW ── */}
+              {entryMode === 'society' && (
+                <SocietyExplorer
+                  onBack={() => { setEntryMode('select'); setError(''); }}
+                  onBuildingSelect={async (bldg) => {
+                    setLoading(true);
+                    setError('');
+                    try {
+                      const parcelId = `SOC_${bldg.name.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 18)}_${Date.now().toString(36).toUpperCase()}`;
+                      const res = await createBuilding({
+                        parcel_id: parcelId,
+                        building_name: bldg.name,
+                        address: bldg.name,
+                        latitude: bldg.lat,
+                        longitude: bldg.lon,
+                        height_meters: bldg.height,
+                        floor_count: bldg.floors,
+                      });
+                      if (!res.job_id) throw new Error('Pipeline job failed to queue.');
+                      navigate(`/processing/${res.job_id}`);
+                    } catch (err: any) {
+                      setError(err?.response?.data?.detail || err?.message || 'Failed to launch building pipeline.');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  onGenerateSociety={async (buildings) => {
+                    if (!buildings || buildings.length === 0) return;
+                    setLoading(true);
+                    setError('');
+                    try {
+                      // Fire them sequentially to not overload the YOLO inference backend
+                      for (const bldg of buildings) {
+                        const parcelId = `SOC_${bldg.name.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 18)}_${Date.now().toString(36).toUpperCase()}`;
+                        await createBuilding({
+                          parcel_id: parcelId,
+                          building_name: bldg.name,
+                          address: bldg.name,
+                          latitude: bldg.lat,
+                          longitude: bldg.lon,
+                          height_meters: bldg.height,
+                          floor_count: bldg.floors,
+                        });
+                      }
+                      // Once all are queued, go directly to the map to see them pop up
+                      navigate('/map');
+                    } catch (err: any) {
+                      setError(err?.response?.data?.detail || err?.message || 'Failed to queue society processing.');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                />
+              )}
+
+              {/* ── PLAN PARSER FLOW ── */}
+              {entryMode === 'plan' && (
+                <PlanParser
+                  onBack={() => { setEntryMode('select'); setError(''); }}
+                  onParsed={async (result: any) => {
+                    setLoading(true);
+                    setError('');
+                    try {
+                      const parcelId = `PLAN_${result.buildingName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 18)}_${Date.now().toString(36).toUpperCase()}`;
+                      const res = await createBuilding({
+                        parcel_id: parcelId,
+                        building_name: result.buildingName,
+                        address: `${result.buildingName}${result.societyName ? ', ' + result.societyName : ''}`,
+                        latitude: result.lat,
+                        longitude: result.lon,
+                        height_meters: result.floors * result.floorHeight,
+                        floor_count: result.floors,
+                      });
+                      if (!res.job_id) throw new Error('Pipeline job failed to queue.');
+                      navigate(`/processing/${res.job_id}`);
+                    } catch (err: any) {
+                      setError(err?.response?.data?.detail || err?.message || 'Failed to launch plan parsing pipeline.');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                />
               )}
 
               {/* ── SEARCH BUILDING FLOW ── */}

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { AutoDetectBuildingPayload, AutoDetectBuildingResult, Building, CreateBuildingPayload, JobStatus, JobStatusResponse, SpatialValidation, ValidationResult } from '../types';
 
-const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://threed-ulpin-backend-v9ur.onrender.com/api';
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 const BASE_URL = rawBaseUrl.replace(/\/+$/, '');
 
 const apiClient = axios.create({

@@ -24,8 +24,11 @@ logger = logging.getLogger(__name__)
 
 # Valid production Gemini models in prioritized order
 GEMINI_MODELS = (
+    "gemini-3.6-flash",
+    "gemini-3-flash-preview",
     "gemini-2.5-flash",
     "gemini-2.0-flash",
+    "gemini-1.5-flash-latest",
     "gemini-1.5-flash",
 )
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"

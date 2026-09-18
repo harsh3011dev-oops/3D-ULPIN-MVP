@@ -1,0 +1,90 @@
+{
+  "type": "FeatureCollection",
+  "name": "TowerA_Floor1",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "UNIT-101",
+        "category": "residential_unit",
+        "area_sqm": 85.5,
+        "owner": "Unassigned"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 0],
+            [10, 0],
+            [10, 8.5],
+            [0, 8.5],
+            [0, 0]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "UNIT-102",
+        "category": "residential_unit",
+        "area_sqm": 92.0,
+        "owner": "Unassigned"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [10, 0],
+            [20, 0],
+            [20, 9.2],
+            [10, 9.2],
+            [10, 0]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "UNIT-103",
+        "category": "residential_unit",
+        "area_sqm": 75.0,
+        "owner": "Unassigned"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [20, 0],
+            [30, 0],
+            [30, 7.5],
+            [20, 7.5],
+            [20, 0]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "CORRIDOR-A",
+        "category": "common_area",
+        "area_sqm": 45.0,
+        "owner": "Society"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 10],
+            [30, 10],
+            [30, 11.5],
+            [0, 11.5],
+            [0, 10]
+          ]
+        ]
+      }
+    }
+  ]
+}

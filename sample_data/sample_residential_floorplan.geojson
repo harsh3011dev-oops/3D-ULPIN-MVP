@@ -1,0 +1,85 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "unit_id": "101",
+        "label": "Flat 101 (2BHK Premium)",
+        "type": "residential",
+        "owner": "Ramesh Kumar",
+        "area_sqft": 1250.0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [77.2163, 28.6313],
+          [77.2167, 28.6313],
+          [77.2167, 28.6315],
+          [77.2163, 28.6315],
+          [77.2163, 28.6313]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "unit_id": "102",
+        "label": "Flat 102 (3BHK Executive)",
+        "type": "residential",
+        "owner": "Priya Sharma",
+        "area_sqft": 1450.0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [77.2167, 28.6313],
+          [77.2171, 28.6313],
+          [77.2171, 28.6315],
+          [77.2167, 28.6315],
+          [77.2167, 28.6313]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "unit_id": "103",
+        "label": "Flat 103 (3BHK Executive)",
+        "type": "residential",
+        "owner": "Sunil Verma",
+        "area_sqft": 1450.0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [77.2163, 28.6315],
+          [77.2167, 28.6315],
+          [77.2167, 28.6317],
+          [77.2163, 28.6317],
+          [77.2163, 28.6315]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "unit_id": "104",
+        "label": "Flat 104 (2BHK Deluxe)",
+        "type": "residential",
+        "owner": "Anita Desai",
+        "area_sqft": 1180.0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [77.2167, 28.6315],
+          [77.2171, 28.6315],
+          [77.2171, 28.6317],
+          [77.2167, 28.6317],
+          [77.2167, 28.6315]
+        ]]
+      }
+    }
+  ]
+}

@@ -1,0 +1,172 @@
+{
+  "type": "FeatureCollection",
+  "name": "Lodha_World_One_Floor42",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "category": "lift_lobby",
+        "area_sqm": 40.0,
+        "name": "Main Lobby"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [15, 15],
+            [25, 15],
+            [25, 25],
+            [15, 25],
+            [15, 15]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "category": "staircase",
+        "area_sqm": 15.0,
+        "name": "Fire Stairs A"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [10, 15],
+            [15, 15],
+            [15, 20],
+            [10, 20],
+            [10, 15]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "category": "residential_unit",
+        "unit_no": "4201",
+        "type": "4 BHK",
+        "area_sqm": 250.0,
+        "facing": "North West"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 25],
+            [20, 25],
+            [20, 45],
+            [0, 45],
+            [0, 25]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "category": "residential_unit",
+        "unit_no": "4202",
+        "type": "4 BHK",
+        "area_sqm": 250.0,
+        "facing": "North East"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [20, 25],
+            [40, 25],
+            [40, 45],
+            [20, 45],
+            [20, 25]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "category": "residential_unit",
+        "unit_no": "4203",
+        "type": "3 BHK",
+        "area_sqm": 180.0,
+        "facing": "South East"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [25, 0],
+            [40, 0],
+            [40, 25],
+            [25, 25],
+            [25, 0]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "category": "residential_unit",
+        "unit_no": "4204",
+        "type": "3 BHK",
+        "area_sqm": 180.0,
+        "facing": "South West"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 0],
+            [15, 0],
+            [15, 25],
+            [0, 25],
+            [0, 0]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "category": "corridor",
+        "area_sqm": 25.0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [15, 25],
+            [25, 25],
+            [25, 28],
+            [15, 28],
+            [15, 25]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "category": "corridor",
+        "area_sqm": 25.0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [15, 12],
+            [25, 12],
+            [25, 15],
+            [15, 15],
+            [15, 12]
+          ]
+        ]
+      }
+    }
+  ]
+}
