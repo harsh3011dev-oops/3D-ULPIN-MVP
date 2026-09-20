@@ -2733,8 +2733,12 @@ export default function MapThreeJS({
       });
 
       let bMesh: THREE.Mesh;
-      if (shape) {
-        const slabGeo = new THREE.ExtrudeGeometry(shape, { depth: floorHeight * 0.95, bevelEnabled: false });
+      const bFloorData = verifiedBuilding.floors?.find(fl => (fl.floor_number ?? fl.floor) === bFloorNum);
+      const bFloorPolygon = bFloorData?.footprint || verifiedBuilding.footprint;
+      const bShape = bFloorPolygon ? footprintToShape(bFloorPolygon, centerLng, centerLat) : shape;
+
+      if (bShape) {
+        const slabGeo = new THREE.ExtrudeGeometry(bShape, { depth: floorHeight * 0.95, bevelEnabled: false });
         slabGeo.rotateX(-Math.PI / 2);
         slabGeo.computeBoundingBox();
         slabGeo.computeBoundingSphere();
@@ -2787,8 +2791,12 @@ export default function MapThreeJS({
       });
 
       let levelMesh: THREE.Mesh;
-      if (shape) {
-        const slabGeo = new THREE.ExtrudeGeometry(shape, { depth: floorHeight * 0.95, bevelEnabled: false });
+      const floorData = verifiedBuilding.floors?.find(fl => (fl.floor_number ?? fl.floor) === floorNum);
+      const floorPolygon = floorData?.footprint || verifiedBuilding.footprint;
+      const floorShape = floorPolygon ? footprintToShape(floorPolygon, centerLng, centerLat) : shape;
+
+      if (floorShape) {
+        const slabGeo = new THREE.ExtrudeGeometry(floorShape, { depth: floorHeight * 0.95, bevelEnabled: false });
         slabGeo.rotateX(-Math.PI / 2);
         slabGeo.computeBoundingBox();
         slabGeo.computeBoundingSphere();
