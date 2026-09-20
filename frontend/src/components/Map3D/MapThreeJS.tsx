@@ -2606,7 +2606,7 @@ export default function MapThreeJS({
       const isRefAssisted = tierEval.provider === 'REFERENCE_ASSISTED';
       const hasBuildingParts = Boolean(verifiedBuilding.building_parts && verifiedBuilding.building_parts.length > 0);
       const hasOsmId = Boolean(verifiedBuilding.osm_id);
-      if (!hasBuildingParts && !isRefAssisted && hasOsmId) {
+      if (!isRefAssisted && hasOsmId) {
         (async () => {
           try {
             const osmData = await fetchDetailedOSMData(centerLat, centerLng, 180, building.osm_id);
