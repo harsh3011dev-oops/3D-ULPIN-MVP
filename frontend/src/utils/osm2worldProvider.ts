@@ -195,68 +195,13 @@ export async function generate3DBuildingOSM2World(
     // Only pass filterIds when we have a real OSM element ID (e.g. 'way/12345', 'relation/67890').
     // 'osm/auto' is NOT a valid OSM ID and will crash the OSM2World Java engine.
     const rawId = options?.targetElementId ? String(options.targetElementId) : '';
-    // Removed filterIds assignment to allow OSM2World to render all building:parts
     if (rawId && rawId !== 'osm/auto' && rawId.includes('/')) {
-      // Intentionally left blank, we already filter the JSON in JS.
+      convertOptions.filterIds = [rawId];
     }
 
     try {
-      // 1. Filter out unrelated buildings to avoid massive neighborhood complexes taking over the camera
-      let filteredData = { ...osmData };
-      if (options?.targetElementId && String(options.targetElementId) !== 'osm/auto') {
-        const targetId = String(options.targetElementId);
-        // Find the target element
-        const targetEl = osmData.elements.find((el) => {
-          if (targetId.includes('/')) {
-            const [type, idStr] = targetId.split('/');
-            return el.type === type && String(el.id) === idStr;
-          }
-          return String(el.id) === targetId;
-        });
-        
-        if (targetEl) {
-          // Keep target element and its parts/members, plus any node references
-          const allowedIds = new Set<string>();
-          allowedIds.add(`${targetEl.type}/${targetEl.id}`);
-          
-          const isRelation = targetEl.type === 'relation';
-          if (isRelation && targetEl.members) {
-             targetEl.members.forEach((m: any) => allowedIds.add(`${m.type}/${m.ref}`));
-          }
-          
-          osmData.elements.forEach(el => {
-            if (el.tags && (el.tags['building:part'] || el.tags['building'] === 'part')) {
-              allowedIds.add(`${el.type}/${el.id}`);
-            }
-          });
-
-          // Build filtered elements
-          const filteredElements = osmData.elements.filter(el => {
-             // Let nodes through as they are used by ways
-             if (el.type === 'node') return true; 
-             if (allowedIds.has(`${el.type}/${el.id}`)) return true;
-             // Reject everything else (roads, other buildings, parks)
-             return false; 
-          });
-          filteredData = { ...osmData, elements: filteredElements };
-        }
-      } else {
-        // If no target ID, try to find the main building and strip other named standalone buildings
-        const filteredElements = osmData.elements.filter(el => {
-          if (el.type === 'node') return true;
-          if (el.tags && el.tags['building:part']) return true;
-          // Filter out explicitly named foreign buildings that aren't parts
-          // REMOVED: This was incorrectly stripping the main famous building since it has a name.
-          // if (el.tags && el.tags['building'] && el.tags['name']) {
-          //    return false;
-          // }
-          return true;
-        });
-        filteredData = { ...osmData, elements: filteredElements };
-      }
-
       // Ensure the OSM data has the required 'version' field (OSM2World validates this)
-      const dataToConvert = { version: 0.6, ...filteredData };
+      const dataToConvert = { version: 0.6, ...osmData };
 
       converter.convertJson(
         JSON.stringify(dataToConvert),
