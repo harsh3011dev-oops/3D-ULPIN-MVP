@@ -141,50 +141,22 @@ def process_building(*args, **kwargs) -> dict:
             except Exception as e:
                 logger.warning("Gemini Vision analysis failed: %s", e)
         
-        # 5. Footprint Estimation (OSM -> Trained YOLOv8 AI -> CV Fallback)
+        # 5. Footprint Estimation (OSM -> CV Hybrid)
         osm_geom = ctx.osm_data.get("footprint")
         if osm_geom:
             ctx.footprint = FootprintEstimate(geometry=osm_geom, source="osm", confidence=0.95)
         else:
-            logger.info("[STEP 5] OSM footprint not found. Running custom trained YOLOv8-Seg Deep Learning Footprint Detector.")
+            logger.info("[STEP 5] OSM footprint not found. Using OpenCV/Gemini Hybrid Vision engine for footprint extraction.")
             try:
-                from ai.yolo_detector import YOLOBuildingDetector
-                from ai.footprint_detection import _pixels_to_geo
-                weights_file = "ai/models/best_building_seg.pt" if os.path.exists("ai/models/best_building_seg.pt") else None
-                yolo_detector = YOLOBuildingDetector(model_weights_path=weights_file)
-                detected = yolo_detector.detect_footprints_from_image(ctx.aerial_image_url)
-                if detected:
-                    top_detect = detected[0]
-                    pixel_geom = top_detect.get("polygon_2d", ctx.parcel_boundary)
-                    
-                    # Convert pixel geometry to geographic coordinates
-                    if pixel_geom.get("type") == "Polygon" and len(pixel_geom.get("coordinates", [])) > 0:
-                        geo_coords = _pixels_to_geo(pixel_geom["coordinates"][0], ctx.aerial_image_url)
-                        pixel_geom["coordinates"] = [geo_coords]
-                    elif pixel_geom.get("type") == "MultiPolygon" and len(pixel_geom.get("coordinates", [])) > 0:
-                        for i, poly_coords in enumerate(pixel_geom["coordinates"]):
-                            if len(poly_coords) > 0:
-                                pixel_geom["coordinates"][i][0] = _pixels_to_geo(poly_coords[0], ctx.aerial_image_url)
-
-                    ctx.footprint = FootprintEstimate(
-                        geometry=pixel_geom,
-                        source=top_detect.get("source", "yolov8_seg_custom"),
-                        confidence=top_detect.get("confidence", 0.85)
-                    )
-                else:
-                    raise ValueError("YOLOv8 detector returned empty results")
-            except Exception as e:
-                logger.warning("YOLOv8 Footprint detection failed: %s. Using CV fallback.", e)
-                try:
-                    footprint_result = detect_building_footprint_hybrid(ctx.aerial_image_url, ctx.parcel_boundary, osm_footprint=None)
-                    ctx.footprint = FootprintEstimate(
-                        geometry=footprint_result.get("footprint", ctx.parcel_boundary),
-                        source=footprint_result.get("method_used", "hybrid"),
-                        confidence=footprint_result.get("cv_confidence", 50.0) / 100.0
-                    )
-                except Exception as ex:
-                    logger.warning("CV Footprint detection failed: %s", ex)
-                    ctx.footprint = FootprintEstimate(geometry=ctx.parcel_boundary, source="fallback", confidence=0.1)
+                footprint_result = detect_building_footprint_hybrid(ctx.aerial_image_url, ctx.parcel_boundary, osm_footprint=None)
+                ctx.footprint = FootprintEstimate(
+                    geometry=footprint_result.get("footprint", ctx.parcel_boundary),
+                    source=footprint_result.get("method_used", "hybrid"),
+                    confidence=footprint_result.get("cv_confidence", 50.0) / 100.0
+                )
+            except Exception as ex:
+                logger.warning("CV Footprint detection failed: %s", ex)
+                ctx.footprint = FootprintEstimate(geometry=ctx.parcel_boundary, source="fallback", confidence=0.1)
 
         # 6. Floor and Height Estimation
         in_floor_count = int(input_data["floor_count"]) if input_data.get("floor_count") else None
