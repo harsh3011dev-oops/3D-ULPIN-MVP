@@ -1,5 +1,4 @@
 from shapely.geometry import shape, mapping, box
-from shapely.ops import unary_union
 import numpy as np
 
 def divide_into_floors(
@@ -52,7 +51,10 @@ def divide_into_floors(
                     valid_parts.append(ps["poly"])
             
             if valid_parts:
-                floor_poly = unary_union(valid_parts)
+                floor_poly = valid_parts[0]
+                for p in valid_parts[1:]:
+                    floor_poly = floor_poly.union(p)
+                
                 if not floor_poly.is_valid:
                     floor_poly = floor_poly.buffer(0)
         
