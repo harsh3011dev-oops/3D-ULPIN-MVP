@@ -277,10 +277,10 @@ export default function MapDeckGL({
           isHovered,
         },
         geometry: {
-          type: poly.type || 'Polygon',
-          coordinates: polygons[0] ? polygons[0].map((ring: number[][]) =>
-            ring.map((coord: number[]) => [coord[0], coord[1], renderZBase])
-          ) : [],
+          type: poly?.type || 'Polygon',
+          coordinates: poly?.type === 'MultiPolygon' 
+            ? polygons.map((polygon: any) => polygon.map((ring: number[][]) => ring.map((coord: number[]) => [coord[0], coord[1], renderZBase])))
+            : polygons[0] ? polygons[0].map((ring: number[][]) => ring.map((coord: number[]) => [coord[0], coord[1], renderZBase])) : [],
         },
       };
     });
@@ -330,10 +330,10 @@ export default function MapDeckGL({
           isFloorIsolated,
         },
         geometry: {
-          type: 'Polygon',
-          coordinates: polygon.map((ring: number[][]) =>
-            ring.map((coord: number[]) => [coord[0], coord[1], renderZBase])
-          ),
+          type: poly?.type || 'Polygon',
+          coordinates: poly?.type === 'MultiPolygon'
+            ? polygons.map((polygon: any) => polygon.map((ring: number[][]) => ring.map((coord: number[]) => [coord[0], coord[1], renderZBase])))
+            : polygons[0] ? polygons[0].map((ring: number[][]) => ring.map((coord: number[]) => [coord[0], coord[1], renderZBase])) : [],
         },
       }));
     });
