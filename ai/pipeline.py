@@ -149,13 +149,25 @@ def process_building(*args, **kwargs) -> dict:
             logger.info("[STEP 5] OSM footprint not found. Running custom trained YOLOv8-Seg Deep Learning Footprint Detector.")
             try:
                 from ai.yolo_detector import YOLOBuildingDetector
+                from ai.footprint_detection import _pixels_to_geo
                 weights_file = "ai/models/best_building_seg.pt" if os.path.exists("ai/models/best_building_seg.pt") else None
                 yolo_detector = YOLOBuildingDetector(model_weights_path=weights_file)
                 detected = yolo_detector.detect_footprints_from_image(ctx.aerial_image_url)
                 if detected:
                     top_detect = detected[0]
+                    pixel_geom = top_detect.get("polygon_2d", ctx.parcel_boundary)
+                    
+                    # Convert pixel geometry to geographic coordinates
+                    if pixel_geom.get("type") == "Polygon" and len(pixel_geom.get("coordinates", [])) > 0:
+                        geo_coords = _pixels_to_geo(pixel_geom["coordinates"][0], ctx.aerial_image_url)
+                        pixel_geom["coordinates"] = [geo_coords]
+                    elif pixel_geom.get("type") == "MultiPolygon" and len(pixel_geom.get("coordinates", [])) > 0:
+                        for i, poly_coords in enumerate(pixel_geom["coordinates"]):
+                            if len(poly_coords) > 0:
+                                pixel_geom["coordinates"][i][0] = _pixels_to_geo(poly_coords[0], ctx.aerial_image_url)
+
                     ctx.footprint = FootprintEstimate(
-                        geometry=top_detect.get("polygon_2d", ctx.parcel_boundary),
+                        geometry=pixel_geom,
                         source=top_detect.get("source", "yolov8_seg_custom"),
                         confidence=top_detect.get("confidence", 0.85)
                     )
