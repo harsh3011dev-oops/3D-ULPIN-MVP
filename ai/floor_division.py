@@ -1,10 +1,12 @@
 from shapely.geometry import shape, mapping, box
+from shapely.ops import unary_union
 import numpy as np
 
 def divide_into_floors(
     footprint: dict,
     height_meters: float,
-    floor_count: int
+    floor_count: int,
+    building_parts: list = None
 ) -> list:
     """
     Divide a 3D building extrusion into individual floor slabs.
@@ -13,25 +15,59 @@ def divide_into_floors(
     its vertical extent. Ground floor starts at z=0.
 
     Args:
-        footprint (dict): GeoJSON Polygon of the building footprint.
+        footprint (dict): GeoJSON Polygon of the main building footprint.
         height_meters (float): Total building height in meters.
         floor_count (int): Number of floors to divide into.
+        building_parts (list, optional): List of building parts from OSM.
 
     Returns:
         list: Floor dicts — [{floor_number, label, z_min, z_max, floor_height_m, footprint}]
     """
     floor_height = height_meters / floor_count
     floors = []
+    
+    parts_shapes = []
+    if building_parts:
+        for part in building_parts:
+            part_poly = shape(part["footprint"])
+            if not part_poly.is_valid:
+                part_poly = part_poly.buffer(0)
+            parts_shapes.append({
+                "poly": part_poly,
+                "min_height": part.get("min_height", 0.0),
+                "height": part.get("height", height_meters)
+            })
 
     for i in range(floor_count):
         label = "G" if i == 0 else f"{i}F"
+        z_min = round(i * floor_height, 2)
+        z_max = round((i + 1) * floor_height, 2)
+        
+        # Determine the footprint for this specific floor
+        floor_poly = None
+        if parts_shapes:
+            valid_parts = []
+            for ps in parts_shapes:
+                if z_min < ps["height"] and z_max > ps["min_height"]:
+                    valid_parts.append(ps["poly"])
+            
+            if valid_parts:
+                floor_poly = unary_union(valid_parts)
+                if not floor_poly.is_valid:
+                    floor_poly = floor_poly.buffer(0)
+        
+        if floor_poly is not None and not floor_poly.is_empty:
+            floor_footprint = mapping(floor_poly)
+        else:
+            floor_footprint = footprint
+
         floors.append({
             "floor_number": i + 1,
             "label": label,
-            "z_min": round(i * floor_height, 2),
-            "z_max": round((i + 1) * floor_height, 2),
+            "z_min": z_min,
+            "z_max": z_max,
             "floor_height_m": round(floor_height, 2),
-            "footprint": footprint
+            "footprint": floor_footprint
         })
 
     return floors

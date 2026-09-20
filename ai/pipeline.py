@@ -190,7 +190,12 @@ def process_building(*args, **kwargs) -> dict:
         
         # 7. 3D Generation & Extrusion
         extrusion = extrude_building(ctx.footprint.geometry, ctx.height.value_meters, ctx.floor_count.value)
-        floors = divide_into_floors(ctx.footprint.geometry, ctx.height.value_meters, ctx.floor_count.value)
+        floors = divide_into_floors(
+            ctx.footprint.geometry, 
+            ctx.height.value_meters, 
+            ctx.floor_count.value,
+            building_parts=ctx.osm_data.get("building_parts", [])
+        )
         
         for f in floors:
             floor_rec = FloorRecord(

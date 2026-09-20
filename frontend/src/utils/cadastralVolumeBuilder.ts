@@ -178,10 +178,13 @@ export function buildCadastralVolumes(rawBuilding: Building): CadastralVolumesRe
       ? (verified?.floorLabels?.[f - 1] ? `${verified.floorLabels[f - 1]} (${FLOOR_NAMES[f - 1] || `Level ${f}`})` : `Level ${f}`)
       : `F${f}${FLOOR_NAMES[f - 1] ? ` ${FLOOR_NAMES[f - 1]}` : ''}`;
 
+    const floorData = building.floors?.find(fl => (fl.floor_number ?? fl.floor) === f);
+    const floorPolygon = floorData?.footprint || baseFootprint;
+
     floorVolumes.push({
       floorIndex: f,
       floorLabel: label,
-      polygon: baseFootprint,
+      polygon: floorPolygon,
       zMin,
       zMax,
       sliceHeight,
@@ -252,11 +255,14 @@ export function buildCadastralVolumes(rawBuilding: Building): CadastralVolumesRe
       const zMax = f * floorHeightM;
       const sliceHeight = zMax - zMin;
 
+      const floorData = building.floors?.find(fl => (fl.floor_number ?? fl.floor) === f);
+      const floorPolygon = floorData?.footprint || baseFootprint;
+
       unitVolumes.push({
         unitId: `strata_unit_f${f}`,
         unitNumber: `FL-${f}01`,
         floorNumber: f,
-        polygon: baseFootprint,
+        polygon: floorPolygon,
         zMin,
         zMax,
         sliceHeight,
