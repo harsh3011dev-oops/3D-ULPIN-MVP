@@ -195,8 +195,9 @@ export async function generate3DBuildingOSM2World(
     // Only pass filterIds when we have a real OSM element ID (e.g. 'way/12345', 'relation/67890').
     // 'osm/auto' is NOT a valid OSM ID and will crash the OSM2World Java engine.
     const rawId = options?.targetElementId ? String(options.targetElementId) : '';
+    // Removed filterIds assignment to allow OSM2World to render all building:parts
     if (rawId && rawId !== 'osm/auto' && rawId.includes('/')) {
-      convertOptions.filterIds = [rawId];
+      // Intentionally left blank, we already filter the JSON in JS.
     }
 
     try {
@@ -234,11 +235,8 @@ export async function generate3DBuildingOSM2World(
              // Let nodes through as they are used by ways
              if (el.type === 'node') return true; 
              if (allowedIds.has(`${el.type}/${el.id}`)) return true;
-             // Reject other buildings
-             if (el.tags && el.tags['building'] && el.tags['building'] !== 'no') {
-               return false;
-             }
-             return true; 
+             // Reject everything else (roads, other buildings, parks)
+             return false; 
           });
           filteredData = { ...osmData, elements: filteredElements };
         }
