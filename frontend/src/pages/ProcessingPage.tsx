@@ -59,7 +59,7 @@ export default function ProcessingPage() {
         if (is404) {
           consecutiveNotFound += 1;
           setNotFoundCount(consecutiveNotFound);
-          if (consecutiveNotFound >= 3) {
+          if (consecutiveNotFound >= 30) {
             // Stop polling — the job is permanently lost after restart
             setStatus('failed');
             setError('Backend restarted and the job was lost. Please go back and submit again.');
