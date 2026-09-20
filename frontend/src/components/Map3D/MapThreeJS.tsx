@@ -2796,7 +2796,25 @@ export default function MapThreeJS({
       const floorShape = floorPolygon ? footprintToShape(floorPolygon, centerLng, centerLat) : shape;
 
       if (floorShape) {
-        const slabGeo = new THREE.ExtrudeGeometry(floorShape, { depth: floorHeight * 0.95, bevelEnabled: false });
+        let finalShape = floorShape;
+        
+        // Procedural Stepped Tapering for Skyscrapers in Cadastral Mode
+        if (totalFloors > 25) {
+           const progress = floorNum / totalFloors;
+           let scale = 1.0;
+           // Create classic skyscraper "wedding cake" setbacks
+           if (progress > 0.85) scale = 0.25;
+           else if (progress > 0.70) scale = 0.40;
+           else if (progress > 0.50) scale = 0.55;
+           else if (progress > 0.30) scale = 0.75;
+           else if (progress > 0.15) scale = 0.90;
+           
+           if (scale !== 1.0) {
+               finalShape = scaleShape(floorShape, scale);
+           }
+        }
+
+        const slabGeo = new THREE.ExtrudeGeometry(finalShape, { depth: floorHeight * 0.95, bevelEnabled: false });
         slabGeo.rotateX(-Math.PI / 2);
         slabGeo.computeBoundingBox();
         slabGeo.computeBoundingSphere();
