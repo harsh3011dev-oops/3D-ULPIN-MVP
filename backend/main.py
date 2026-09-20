@@ -41,6 +41,17 @@ async def lifespan(app: FastAPI):
     # Start Render Free-Tier Keep-Alive background worker
     keep_alive_task = asyncio.create_task(start_keep_alive_loop())
 
+    # Mark dead jobs as failed on startup
+    from backend.services.supabase_service import _JOBS_CACHE, _save_jobs_cache
+    updated_jobs = False
+    for job_id, job_data in _JOBS_CACHE.items():
+        if job_data.get("status") in ("pending", "processing"):
+            job_data["status"] = "failed"
+            job_data["error_message"] = "Server was restarted (likely Out-Of-Memory). Job lost. Please try again."
+            updated_jobs = True
+    if updated_jobs:
+        _save_jobs_cache()
+
     logger.info("✅ Backend startup complete")
     yield
 

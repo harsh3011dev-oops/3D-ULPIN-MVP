@@ -7,10 +7,32 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 from backend.models import Job, Building, Unit, ValidationLog
 
+import os
+
 logger = logging.getLogger(__name__)
 
 # In-memory store fallback when PostgreSQL database is unavailable
-_JOBS_CACHE = {}
+_CACHE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../cache'))
+os.makedirs(_CACHE_DIR, exist_ok=True)
+_JOBS_FILE = os.path.join(_CACHE_DIR, 'jobs_cache.json')
+
+def _load_jobs_cache():
+    if os.path.exists(_JOBS_FILE):
+        try:
+            with open(_JOBS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load jobs cache from disk: {e}")
+    return {}
+
+def _save_jobs_cache():
+    try:
+        with open(_JOBS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(_JOBS_CACHE, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.warning(f"Failed to save jobs cache to disk: {e}")
+
+_JOBS_CACHE = _load_jobs_cache()
 _BUILDINGS_CACHE = {}
 _VALIDATIONS_CACHE = {}
 
@@ -28,6 +50,7 @@ async def create_job(db: AsyncSession, parcel_id: str) -> Job:
         "error_message": None,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
+    _save_jobs_cache()
     if db:
         try:
             db.add(job)
@@ -80,6 +103,7 @@ async def update_job_status(
             _JOBS_CACHE[job_id]["result_json"] = result_json
         if error_message:
             _JOBS_CACHE[job_id]["error_message"] = error_message
+        _save_jobs_cache()
 
     if db:
         try:
