@@ -223,25 +223,43 @@ export function getUrbanGroundTexture(): THREE.CanvasTexture {
 
 /**
  * Builds a photorealistic architectural surrounding city context with:
- * 1. PBR glass & stone building towers
- * 2. Rooftop mechanical / HVAC utility structures
- * 3. Asphalt ground plinth with soft radial fade
+ * 1. Exclusion clearance buffer around the central target asset
+ * 2. Radial amphitheater height attenuation so low-rise assets are never obscured
+ * 3. PBR glass & stone building towers
+ * 4. Rooftop mechanical / HVAC utility structures
+ * 5. Asphalt ground plinth with soft radial fade
  */
 export function buildCityContextInstancedMesh(
   buildings: SurroundingBuildingData[],
-  radiusMeters: number = 750
+  radiusMeters: number = 750,
+  targetDimensions?: { width: number; depth: number; height: number }
 ): THREE.Group {
   const group = new THREE.Group();
   group.name = 'city_context_neighborhood_skyline';
 
   if (!buildings || buildings.length === 0) return group;
 
-  const count = buildings.length;
+  // 1. Exclusion Clearance Buffer Calculation
+  const targetRadius = targetDimensions
+    ? Math.hypot(targetDimensions.width / 2, targetDimensions.depth / 2)
+    : 40;
+  const clearanceRadius = Math.max(targetRadius * 1.8, 100);
+  const targetHeight = targetDimensions?.height || 25.0;
+
+  // 2. Filter out buildings within immediate target vicinity
+  const validBuildings = buildings.filter((b) => {
+    const dist = Math.hypot(b.localX, b.localZ);
+    return dist >= clearanceRadius && dist <= radiusMeters * 1.08;
+  });
+
+  const count = validBuildings.length;
+  if (count === 0) return group;
+
   const baseBoxGeometry = new THREE.BoxGeometry(1, 1, 1);
   const facadeTexture = getArchitecturalFacadeTexture();
   const roofTexture = getRooftopTexture();
 
-  // 1. Photorealistic PBR Building Facade Material
+  // 3. Photorealistic PBR Building Facade Material
   const facadeMaterial = new THREE.MeshStandardMaterial({
     color: 0x1E293B,
     map: facadeTexture,
@@ -259,7 +277,7 @@ export function buildCityContextInstancedMesh(
   towerInstancedMesh.castShadow = true;
   towerInstancedMesh.receiveShadow = true;
 
-  // 2. Weathered Rooftop Cap Material
+  // 4. Weathered Rooftop Cap Material
   const roofMaterial = new THREE.MeshStandardMaterial({
     color: 0x0F172A,
     map: roofTexture,
@@ -267,9 +285,37 @@ export function buildCityContextInstancedMesh(
     metalness: 0.12,
   });
 
-  // 3. HVAC / Mechanical Rooftop Units (for buildings taller than 20m)
-  const hvacBuildings = buildings.filter((b) => b.height >= 18);
-  const hvacCount = hvacBuildings.length;
+  // 5. Radial Height Attenuation (Amphitheater Gradient) Metrics
+  const minHeight = 4.0; // low-rise perimeter near clearance boundary
+  const maxHeight = targetHeight > 30 ? targetHeight * 0.8 : 25.0;
+
+  const processed = validBuildings.map((b) => {
+    const dist = Math.hypot(b.localX, b.localZ);
+    // Normalize distance from clearance edge to max view radius
+    const normDist = THREE.MathUtils.clamp(
+      (dist - clearanceRadius) / (radiusMeters - clearanceRadius || 1),
+      0,
+      1
+    );
+    // Exponential / smoothstep scaling toward the outer perimeter
+    const radialScale = Math.pow(normDist, 1.6);
+    // Smoothly scale building height so foreground/midground is low-profile and outer skyline rises organically
+    const instanceHeight = THREE.MathUtils.lerp(
+      minHeight,
+      Math.max(minHeight, Math.min(b.height, maxHeight * 1.5)),
+      radialScale
+    );
+
+    return {
+      ...b,
+      dist,
+      attenuatedHeight: Math.max(3.5, instanceHeight),
+    };
+  });
+
+  // 6. HVAC / Mechanical Rooftop Units (for buildings taller than 18m)
+  const hvacItems = processed.filter((b) => b.attenuatedHeight >= 18);
+  const hvacCount = hvacItems.length;
   let hvacMesh: THREE.InstancedMesh | null = null;
 
   if (hvacCount > 0) {
@@ -288,10 +334,10 @@ export function buildCityContextInstancedMesh(
   let hvacIdx = 0;
 
   for (let i = 0; i < count; i++) {
-    const b = buildings[i];
+    const b = processed[i];
     const posX = b.localX;
     const posZ = b.localZ;
-    const h = b.height;
+    const h = b.attenuatedHeight;
     const posY = h / 2;
     const w = b.width;
     const d = b.depth;
@@ -325,7 +371,7 @@ export function buildCityContextInstancedMesh(
     group.add(hvacMesh);
   }
 
-  // 4. Ground Asphalt / Urban Plinth Plane
+  // 7. Ground Asphalt / Urban Plinth Plane
   const groundSize = radiusMeters * 2.1;
   const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize);
   const groundTex = getUrbanGroundTexture();
@@ -341,7 +387,7 @@ export function buildCityContextInstancedMesh(
   groundMesh.receiveShadow = true;
   group.add(groundMesh);
 
-  // 5. Subtle Luminous Geodetic Cadastral Boundary Perimeter
+  // 8. Subtle Luminous Geodetic Cadastral Boundary Perimeter
   const ringGeom = new THREE.RingGeometry(radiusMeters * 0.94, radiusMeters * 0.99, 64);
   ringGeom.rotateX(-Math.PI / 2);
   const ringMat = new THREE.MeshBasicMaterial({

@@ -1818,10 +1818,15 @@ export default function MapThreeJS({
 
     if (contextRadius !== 'off' && surroundingBuildings.length > 0) {
       const radiusMeters = contextRadius === '1km' ? 1000 : 500;
-      const cityGroup = buildCityContextInstancedMesh(surroundingBuildings, radiusMeters);
+      const targetDims = {
+        width: dims.width,
+        depth: dims.depth,
+        height: buildingHeight,
+      };
+      const cityGroup = buildCityContextInstancedMesh(surroundingBuildings, radiusMeters, targetDims);
       scene.add(cityGroup);
     }
-  }, [surroundingBuildings, contextRadius]);
+  }, [surroundingBuildings, contextRadius, dims.width, dims.depth, buildingHeight]);
 
   useEffect(() => {
     if (!centerLat || !centerLng) return;

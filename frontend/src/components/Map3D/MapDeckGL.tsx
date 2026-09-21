@@ -829,8 +829,25 @@ export default function MapDeckGL({
             data: surroundingCityContext.geoJSON as any,
             extruded: true,
             wireframe: true,
-            getElevation: (f: any) => f.properties.height,
+            getElevation: (f: any) => {
+              const rawH = f.properties.height || 15;
+              const dist = f.properties.distance || 0;
+              const targetRadius = Math.hypot(footprintDims.width / 2, footprintDims.depth / 2);
+              const clearanceRadius = Math.max(targetRadius * 1.8, 100);
+              if (dist < clearanceRadius) return 0;
+              const radiusMeters = contextRadius === '1km' ? 1000 : 500;
+              const targetH = cadastralVolumes.totalHeightM || 25;
+              const minHeight = 4.0;
+              const maxHeight = targetH > 30 ? targetH * 0.8 : 25.0;
+              const normDist = Math.min(Math.max((dist - clearanceRadius) / (radiusMeters - clearanceRadius || 1), 0), 1);
+              const radialScale = Math.pow(normDist, 1.6);
+              return Math.max(3.5, minHeight + (Math.min(rawH, maxHeight * 1.5) - minHeight) * radialScale);
+            },
             getFillColor: (f: any) => {
+              const dist = f.properties.distance || 0;
+              const targetRadius = Math.hypot(footprintDims.width / 2, footprintDims.depth / 2);
+              const clearanceRadius = Math.max(targetRadius * 1.8, 100);
+              if (dist < clearanceRadius) return [0, 0, 0, 0];
               const h = f.properties.height || 15;
               if (isLightStyle) {
                 if (h >= 45) return [148, 163, 184, 180];
@@ -849,7 +866,13 @@ export default function MapDeckGL({
               // Ground / low-rise: Dark steel / slate
               return [35, 42, 54, 210];
             },
-            getLineColor: isLightStyle ? [100, 116, 139, 120] : [100, 140, 180, 75],
+            getLineColor: (f: any) => {
+              const dist = f.properties.distance || 0;
+              const targetRadius = Math.hypot(footprintDims.width / 2, footprintDims.depth / 2);
+              const clearanceRadius = Math.max(targetRadius * 1.8, 100);
+              if (dist < clearanceRadius) return [0, 0, 0, 0];
+              return isLightStyle ? [100, 116, 139, 120] : [100, 140, 180, 75];
+            },
             getLineWidth: 1.0,
             lineWidthMinPixels: 1,
             lineWidthUnits: 'pixels',
@@ -863,8 +886,9 @@ export default function MapDeckGL({
             autoHighlight: true,
             highlightColor: [56, 189, 248, 110],
             updateTriggers: {
-              getFillColor: [isLightStyle, contextRadius],
-              getLineColor: [isLightStyle, contextRadius],
+              getElevation: [footprintDims.width, footprintDims.depth, cadastralVolumes.totalHeightM, contextRadius],
+              getFillColor: [isLightStyle, contextRadius, footprintDims.width, footprintDims.depth],
+              getLineColor: [isLightStyle, contextRadius, footprintDims.width, footprintDims.depth],
             },
           })
         );
