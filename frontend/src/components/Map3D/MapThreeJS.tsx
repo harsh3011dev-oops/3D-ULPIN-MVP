@@ -29,7 +29,7 @@ import {
 } from '../../utils/footprintUtils';
 import { getBuildingUtilityPipelines } from '../../utils/utilityNetworkHelper';
 import { fetchTerrainHeight } from '../../utils/reearth';
-import { fetchDetailedOSMData, OSMDataResponse } from '../../utils/osmFetcher';
+import { fetchDetailedOSMData, extractBuildingPartsFromOSM, OSMDataResponse } from '../../utils/osmFetcher';
 import { generate3DBuildingOSM2World, OSM2WorldResult } from '../../utils/osm2worldProvider';
 import { findCustomModel, CustomModelConfig } from '../../data/customModels';
 import {
@@ -2432,19 +2432,20 @@ export default function MapThreeJS({
       }
 
       // 3. Asynchronously fetch full Overpass data & convert with OSM2World
-      // STRICT RULE: Provider Isolation. If we already have OSM building:parts or reference-assisted reconstruction,
-      // do NOT run OSM2World fallback or overwrite the primary architectural geometry.
-      // Also skip for manual buildings (no osm_id) — they won't match any OSM element.
-      const tierEval = evaluateBestGeometryProvider(verifiedBuilding, false);
-      const isRefAssisted = tierEval.provider === 'REFERENCE_ASSISTED';
-      const hasBuildingParts = Boolean(verifiedBuilding.building_parts && verifiedBuilding.building_parts.length > 0);
-      const hasOsmId = Boolean(verifiedBuilding.osm_id);
-      if (hasOsmId) {
-        (async () => {
-          try {
-            const osmData = await fetchDetailedOSMData(centerLat, centerLng, 180, building.osm_id);
+      // 3. Asynchronously fetch full Overpass data & convert with OSM2World & Procedural multi-part extraction
+      (async () => {
+        try {
+          const searchRadius = Math.max((building.floor_count || 1) * 3.5, 350);
+          const osmData = await fetchDetailedOSMData(centerLat, centerLng, searchRadius, building.osm_id);
           if (reqId !== currentRequestIdRef.current || !osmData || !osmData.elements || osmData.elements.length === 0) {
             return;
+          }
+
+          // Extract real building parts from OSM vector data
+          const extractedParts = extractBuildingPartsFromOSM(osmData, buildingHeight / (building.floor_count || 1), building.floor_count || 1);
+          if (extractedParts.length > 0) {
+            verifiedBuilding.building_parts = extractedParts;
+            applyProceduralReconstruction();
           }
 
           const o2wResult = await generate3DBuildingOSM2World(osmData, {
@@ -2527,7 +2528,6 @@ export default function MapThreeJS({
           console.warn('OSM2World generation failed, keeping procedural fallback:', err);
         }
       })();
-      }
     }
 
     // Construct Cadastral ULPIN Floor Layers

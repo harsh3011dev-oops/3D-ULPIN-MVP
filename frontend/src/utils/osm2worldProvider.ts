@@ -192,12 +192,8 @@ export async function generate3DBuildingOSM2World(
 
   return new Promise((resolve) => {
     const convertOptions: any = {};
-    // Only pass filterIds when we have a real OSM element ID (e.g. 'way/12345', 'relation/67890').
-    // 'osm/auto' is NOT a valid OSM ID and will crash the OSM2World Java engine.
-    const rawId = options?.targetElementId ? String(options.targetElementId) : '';
-    if (rawId && rawId !== 'osm/auto' && rawId.includes('/')) {
-      convertOptions.filterIds = [rawId];
-    }
+    // Do NOT pass restrictive filterIds so OSM2World receives the full topological payload
+    // including all building:part ways, relations, spires, minarets, and roofs.
 
     try {
       // Ensure the OSM data has the required 'version' field (OSM2World validates this)
