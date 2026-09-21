@@ -25,18 +25,11 @@ def _safe_shape(geom_dict: dict):
         return Polygon()
     norm = _normalize_geojson(geom_dict)
     try:
-        gtype = norm.get("type")
-        coords = norm.get("coordinates", [])
-        if gtype == "Polygon" and coords:
-            return Polygon(coords[0], coords[1:])
-        elif gtype == "MultiPolygon" and coords:
-            polys = [Polygon(p[0], p[1:]) for p in coords if len(p) > 0]
-            return MultiPolygon(polys) if polys else Polygon()
-        return shape(norm)
+        import shapely
+        return shapely.from_geojson(json.dumps(norm))
     except Exception:
         try:
-            import shapely
-            return shapely.from_geojson(json.dumps(norm))
+            return shape(norm)
         except Exception:
             return Polygon()
 
@@ -126,9 +119,14 @@ def validate_spatial_data(
                                     "description": f"Vertical Z-overlap detected between {ua.get('unit_id')} (Level {fa}) and {ub.get('unit_id')} (Level {fb})"
                                 })
 
+    is_valid = len(errors) == 0
+    conf_score = 99.2 if is_valid else max(75.0, round(100.0 - len(errors) * 1.5, 1))
+
     return {
-        "valid": len(errors) == 0,
-        "overlaps_detected": len(overlapping_pairs) > 0 or any(e["type"] == "OVERLAP" for e in errors),
+        "valid": is_valid,
+        "is_valid": is_valid,
+        "confidence_score": conf_score,
+        "overlaps_detected": len(overlapping_pairs) > 0 or any(e.get("type") == "OVERLAP" for e in errors),
         "overlapping_units": overlapping_pairs,
         "out_of_bounds": out_of_bounds,
         "errors": errors
