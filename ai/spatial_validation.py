@@ -113,9 +113,9 @@ def validate_spatial_data(
                     zb_max = ub.get("z_max")
 
                     if za_min is not None and za_max is not None and zb_min is not None and zb_max is not None:
-                        # Check if Z intervals overlap by more than epsilon
+                        # Check if Z intervals overlap by more than 5cm tolerance
                         z_overlap = min(za_max, zb_max) - max(za_min, zb_min)
-                        if z_overlap > 1e-4:
+                        if z_overlap > 0.05:
                             # Also check if 2D footprints intersect
                             shape_a = _safe_shape(ua.get("polygon_2d"))
                             shape_b = _safe_shape(ub.get("polygon_2d"))

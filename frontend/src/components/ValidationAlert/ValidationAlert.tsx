@@ -12,9 +12,10 @@ export default function ValidationAlert({ validation }: ValidationAlertProps) {
 
   if (!validation) return null;
 
-  const isValid = validation.valid ?? validation.is_valid ?? false;
+  const issueCount = (validation.overlapping_units?.length || 0) + (validation.out_of_bounds?.length || 0) + (validation.errors?.length || 0);
+  const isValid = validation.valid ?? validation.is_valid ?? (issueCount === 0);
 
-  if (isValid) {
+  if (isValid || issueCount === 0) {
     return (
       <div className="validation-alert valid glass-panel" id="validation-status">
         <div className="validation-badge-icon green">
@@ -27,8 +28,6 @@ export default function ValidationAlert({ validation }: ValidationAlertProps) {
       </div>
     );
   }
-
-  const issueCount = (validation.overlapping_units?.length || 0) + (validation.out_of_bounds?.length || 0) + (validation.errors?.length || 0);
 
   return (
     <div className="validation-alert invalid glass-panel" id="validation-status">
