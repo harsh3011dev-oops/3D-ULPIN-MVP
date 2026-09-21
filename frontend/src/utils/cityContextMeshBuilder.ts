@@ -239,17 +239,16 @@ export function buildCityContextInstancedMesh(
 
   if (!buildings || buildings.length === 0) return group;
 
-  // 1. Exclusion Clearance Buffer Calculation
+  // 1. Only exclude buildings directly colliding with the central target model itself
   const targetRadius = targetDimensions
     ? Math.hypot(targetDimensions.width / 2, targetDimensions.depth / 2)
-    : 40;
-  const clearanceRadius = Math.max(targetRadius * 2.0, 90.0);
-  const targetHeight = targetDimensions?.height || 25.0;
+    : 20;
+  const minClearance = Math.max(targetRadius * 0.45, 8.0);
 
-  // 2. Filter out buildings within immediate target vicinity
+  // 2. Filter out only buildings directly overlapping the central target asset
   const validBuildings = buildings.filter((b) => {
     const dist = Math.hypot(b.localX, b.localZ);
-    return dist >= clearanceRadius && dist <= radiusMeters * 1.08;
+    return dist >= minClearance && dist <= radiusMeters * 1.05;
   });
 
   const count = validBuildings.length;
@@ -257,7 +256,6 @@ export function buildCityContextInstancedMesh(
 
   const baseBoxGeometry = new THREE.BoxGeometry(1, 1, 1);
   const facadeTexture = getArchitecturalFacadeTexture();
-  const roofTexture = getRooftopTexture();
 
   // 3. High-Contrast Architectural Slate-Blue PBR Facade Material
   const facadeMaterial = new THREE.MeshStandardMaterial({
@@ -277,40 +275,8 @@ export function buildCityContextInstancedMesh(
   towerInstancedMesh.castShadow = true;
   towerInstancedMesh.receiveShadow = true;
 
-  // 4. Weathered Rooftop Cap Material
-  const roofMaterial = new THREE.MeshStandardMaterial({
-    color: 0x1E293B,
-    map: roofTexture,
-    roughness: 0.85,
-    metalness: 0.12,
-  });
-
-  // 5. Radial Height Attenuation (Amphitheater Gradient) Metrics
-  const processed = validBuildings.map((b) => {
-    const dist = Math.hypot(b.localX, b.localZ);
-    // Normalize distance from clearance edge to max view radius
-    const normDist = THREE.MathUtils.clamp(
-      (dist - clearanceRadius) / (radiusMeters - clearanceRadius || 1),
-      0,
-      1
-    );
-    // Exponential amphitheater scaling toward the outer perimeter
-    const radialScale = Math.pow(normDist, 1.5);
-    const instanceHeight = THREE.MathUtils.lerp(
-      4.0,
-      Math.min(targetHeight * 0.8, 30.0),
-      radialScale
-    );
-
-    return {
-      ...b,
-      dist,
-      attenuatedHeight: Math.max(3.5, instanceHeight),
-    };
-  });
-
-  // 6. HVAC / Mechanical Rooftop Units (for buildings taller than 18m)
-  const hvacItems = processed.filter((b) => b.attenuatedHeight >= 18);
+  // 4. HVAC / Mechanical Rooftop Units (for buildings taller than 18m)
+  const hvacItems = validBuildings.filter((b) => b.height >= 18);
   const hvacCount = hvacItems.length;
   let hvacMesh: THREE.InstancedMesh | null = null;
 
@@ -330,15 +296,15 @@ export function buildCityContextInstancedMesh(
   let hvacIdx = 0;
 
   for (let i = 0; i < count; i++) {
-    const b = processed[i];
+    const b = validBuildings[i];
     const posX = b.localX;
     const posZ = b.localZ;
-    const h = b.attenuatedHeight;
+    const h = Math.max(3.5, b.height);
     const posY = h / 2;
-    const w = b.width;
-    const d = b.depth;
+    const w = Math.max(4, b.width);
+    const d = Math.max(4, b.depth);
 
-    // Position & scale tower
+    // Position & scale tower at exact map location
     dummy.position.set(posX, posY, posZ);
     dummy.rotation.set(0, 0, 0);
     dummy.scale.set(w, h, d);
@@ -347,8 +313,8 @@ export function buildCityContextInstancedMesh(
 
     // Add Rooftop HVAC Unit if building is tall enough
     if (h >= 18 && hvacMesh) {
-      const hvacW = Math.max(3, w * 0.32);
-      const hvacD = Math.max(3, d * 0.32);
+      const hvacW = Math.max(2.5, w * 0.32);
+      const hvacD = Math.max(2.5, d * 0.32);
       const hvacH = Math.min(3.5, Math.max(1.5, h * 0.06));
       const hvacY = h + hvacH / 2;
 

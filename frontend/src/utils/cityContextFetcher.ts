@@ -296,8 +296,8 @@ out body geom;
       const { height, levels, minHeight } = parseOSMHeight(el.tags, el.id);
       const localX = (cLon - centerLng) * metersPerDegLon;
       const localZ = -(cLat - centerLat) * metersPerDegLat;
-      const width = Math.max(8, (maxLon - minLon) * metersPerDegLon);
-      const depth = Math.max(8, (maxLat - minLat) * metersPerDegLat);
+      const width = Math.max(6, (maxLon - minLon) * metersPerDegLon);
+      const depth = Math.max(6, (maxLat - minLat) * metersPerDegLat);
 
       buildings.push({
         id: `osm-${el.type}-${el.id}`,
@@ -315,62 +315,6 @@ out body geom;
         coordinates: [polyCoords],
         distanceFromCenter: distFromCenter,
       });
-    }
-  }
-
-  // 3. Fallback / Augment with Procedural Urban Blocks if surrounding vector density is low
-  if (buildings.length < 15) {
-    const proceduralCount = Math.max(35, 80 - buildings.length);
-    const ringRadii = [60, 120, 200, 320, 480, 680, 900].filter((r) => r <= radiusMeters);
-
-    let idCounter = 1;
-    for (const ringR of ringRadii) {
-      const countInRing = Math.round((2 * Math.PI * ringR) / 55);
-      for (let i = 0; i < countInRing; i++) {
-        const angle = (i / countInRing) * 2 * Math.PI + (ringR % 3);
-        const jitterR = ringR + ((pseudoRandomSeed(`j_${ringR}_${i}`) - 0.5) * 25);
-        const bX = Math.cos(angle) * jitterR;
-        const bZ = Math.sin(angle) * jitterR;
-
-        const bLon = centerLng + bX / metersPerDegLon;
-        const bLat = centerLat - bZ / metersPerDegLat;
-        const dist = Math.sqrt(bX * bX + bZ * bZ);
-
-        if (dist < excludeCenterThresholdMeters) continue;
-
-        const seed = `proc_${idCounter}_${ringR}`;
-        const rand = pseudoRandomSeed(seed);
-        const w = 18 + Math.round(rand * 24); // 18m - 42m
-        const d = 16 + Math.round(pseudoRandomSeed(seed + '_d') * 22); // 16m - 38m
-        const { height, levels } = parseOSMHeight(undefined, seed);
-
-        // Make square polygon
-        const halfW = (w / 2) / metersPerDegLon;
-        const halfD = (d / 2) / metersPerDegLat;
-        const ring = [
-          [bLon - halfW, bLat - halfD],
-          [bLon + halfW, bLat - halfD],
-          [bLon + halfW, bLat + halfD],
-          [bLon - halfW, bLat + halfD],
-          [bLon - halfW, bLat - halfD],
-        ];
-
-        buildings.push({
-          id: `proc-block-${idCounter++}`,
-          name: `Urban Block ${idCounter}`,
-          type: 'commercial',
-          height,
-          levels,
-          minHeight: 0,
-          centroid: [bLon, bLat],
-          localX: bX,
-          localZ: bZ,
-          width: w,
-          depth: d,
-          coordinates: [ring],
-          distanceFromCenter: dist,
-        });
-      }
     }
   }
 
