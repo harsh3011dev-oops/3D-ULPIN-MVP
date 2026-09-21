@@ -1,10 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { Building, Unit, BuildingPart, ThreeMaterialMode, CampusBuilding, CampusMetadata } from '../../types';
 import CertificateModal from '../CertificateModal/CertificateModal';
 import {
@@ -1923,22 +1919,6 @@ export default function MapThreeJS({
       console.warn('PMREM environment initialization skipped:', envErr);
     }
 
-    // Post-Processing Pipeline (Bloom for emissive windows + ACES Filmic Tone Mapping)
-    const composer = new EffectComposer(renderer);
-    const renderPass = new RenderPass(scene, camera);
-    composer.addPass(renderPass);
-
-    const bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(width, height),
-      0.35, // Balanced subtle bloom for emissive badges/lights
-      0.30, // Smooth radius
-      0.85  // High threshold so diffuse surfaces do not blow out
-    );
-    composer.addPass(bloomPass);
-
-    const outputPass = new OutputPass();
-    composer.addPass(outputPass);
-
     const targetY = buildingHeight * 0.45;
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -2947,11 +2927,7 @@ export default function MapThreeJS({
         setFloorScreenPos(null);
       }
 
-      try {
-        composer.render();
-      } catch (renderErr) {
-        renderer.render(scene, camera);
-      }
+      renderer.render(scene, camera);
     };
     animate();
 
@@ -2963,12 +2939,6 @@ export default function MapThreeJS({
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
         rendererRef.current.setSize(w, h);
-        try {
-          composer.setSize(w, h);
-          bloomPass.resolution.set(w, h);
-        } catch (e) {
-          // pass
-        }
       }
     };
     window.addEventListener('resize', handleResize);
@@ -2989,11 +2959,6 @@ export default function MapThreeJS({
       try {
         if (pmremGen) pmremGen.dispose();
         if (envMap) envMap.dispose();
-      } catch (e) {
-        // ignore
-      }
-      try {
-        composer.dispose();
       } catch (e) {
         // ignore
       }
