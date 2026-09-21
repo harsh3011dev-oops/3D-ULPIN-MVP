@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import DeckGL from '@deck.gl/react';
+import { AmbientLight, DirectionalLight, LightingEffect } from '@deck.gl/core';
 import { GeoJsonLayer, TextLayer, ColumnLayer, PathLayer } from '@deck.gl/layers';
 import { Tile3DLayer } from '@deck.gl/geo-layers';
 import { Tiles3DLoader } from '@loaders.gl/3d-tiles';
@@ -116,6 +117,20 @@ export default function MapDeckGL({
     return hasGoogle3DTilesKey() ? 'loading' : 'unavailable';
   });
   const [useGoogle3D, setUseGoogle3D] = useState<boolean>(() => hasGoogle3DTilesKey());
+
+  // ── Photorealistic / Architectural Directional & Ambient Lighting Effect ──
+  const lightingEffect = useMemo(() => {
+    const ambientLight = new AmbientLight({
+      color: [255, 255, 255],
+      intensity: 1.2,
+    });
+    const dirLight = new DirectionalLight({
+      color: [255, 255, 255],
+      intensity: 1.8,
+      direction: [-1, -3, -1],
+    });
+    return new LightingEffect({ ambientLight, dirLight });
+  }, []);
 
   const isLightStyle = selectedStyleUrl.includes('positron');
 
@@ -815,14 +830,34 @@ export default function MapDeckGL({
             extruded: true,
             wireframe: true,
             getElevation: (f: any) => f.properties.height,
-            getFillColor: isLightStyle ? [226, 232, 240, 160] : [18, 26, 42, 190],
-            getLineColor: isLightStyle ? [148, 163, 184, 180] : [0, 200, 255, 90],
-            getLineWidth: 1.2,
+            getFillColor: (f: any) => {
+              const h = f.properties.height || 15;
+              if (isLightStyle) {
+                if (h >= 45) return [148, 163, 184, 180];
+                if (h >= 20) return [203, 213, 225, 170];
+                return [226, 232, 240, 160];
+              }
+              // Dark Cadastral Realistic Height-Graded Palette
+              if (h >= 45) {
+                // High-rise tops: Subtle reflective ice-cyan / obsidian slate
+                return [65, 85, 115, 225];
+              }
+              if (h >= 20) {
+                // Mid-rise: Slate gray / cool corporate navy
+                return [45, 55, 72, 215];
+              }
+              // Ground / low-rise: Dark steel / slate
+              return [35, 42, 54, 210];
+            },
+            getLineColor: isLightStyle ? [100, 116, 139, 120] : [100, 140, 180, 75],
+            getLineWidth: 1.0,
+            lineWidthMinPixels: 1,
             lineWidthUnits: 'pixels',
             material: {
-              ambient: isLightStyle ? 0.7 : 0.55,
-              diffuse: isLightStyle ? 0.8 : 0.65,
+              ambient: 0.35,
+              diffuse: 0.6,
               shininess: 32,
+              specularColor: [60, 64, 70],
             },
             pickable: true,
             autoHighlight: true,
@@ -899,6 +934,7 @@ export default function MapDeckGL({
         viewState={viewState}
         onViewStateChange={({ viewState: vs }) => setViewState(vs as any)}
         controller={true}
+        effects={[lightingEffect]}
         layers={layers}
         getCursor={({ isHovering }) => (isHovering ? 'pointer' : 'grab')}
       >
