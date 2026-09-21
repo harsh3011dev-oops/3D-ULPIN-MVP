@@ -24,6 +24,10 @@ import {
   Photorealistic3DStatus,
 } from '../../utils/google3DTilesProvider';
 import {
+  fetchSurroundingCityContext,
+  SurroundingCityContext,
+} from '../../utils/cityContextFetcher';
+import {
   RotateCw,
   Layers,
   MapPin,
@@ -97,7 +101,11 @@ export default function MapDeckGL({
   const [hoveredUnitId, setHoveredUnitId] = useState<string | null>(null);
   const [hoveredFloorNumber, setHoveredFloorNumber] = useState<number | null>(null);
   const [hoveredUnitInfo, setHoveredUnitInfo] = useState<{ unit: Unit; x: number; y: number } | null>(null);
-  const [showContextBuildings, setShowContextBuildings] = useState(true);
+  
+  // ── 3D Neighborhood City Context State (500m / 1km / Off) ──
+  const [contextRadius, setContextRadius] = useState<'500m' | '1km' | 'off'>('1km');
+  const [surroundingCityContext, setSurroundingCityContext] = useState<SurroundingCityContext | null>(null);
+
   const [terrainEnabled, setTerrainEnabled] = useState(true);
   const [showUnderground, setShowUnderground] = useState(true);
   const [selectedUnderground, setSelectedUnderground] = useState<any | null>(null);
@@ -185,6 +193,24 @@ export default function MapDeckGL({
   useEffect(() => {
     fitBoundsToBuilding();
   }, [building?.building_id, selectedFloor, fitBoundsToBuilding]);
+
+  // ── Fetch Surrounding Neighborhood City Context (500m / 1000m) ──
+  useEffect(() => {
+    if (contextRadius === 'off' || !mapLat || !mapLng) {
+      setSurroundingCityContext(null);
+      return;
+    }
+    const radius = contextRadius === '1km' ? 1000 : 500;
+    let cancelled = false;
+    fetchSurroundingCityContext(mapLat, mapLng, radius, building?.osm_id, 16)
+      .then((ctx) => {
+        if (!cancelled) setSurroundingCityContext(ctx);
+      })
+      .catch((err) => console.warn('[Deck.gl City Context] fetch error:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [mapLat, mapLng, building?.osm_id, contextRadius]);
 
   const handleMapLoad = useCallback((evt: { target: maplibregl.Map }) => {
     mapRef.current = evt.target;
@@ -779,9 +805,35 @@ export default function MapDeckGL({
       }
     }
 
-    // ── Layer 7: Surrounding Context City Tiles (Only for background context) ──
-    if (showContextBuildings) {
-      if (useGoogle3D && googleTilesUrl && google3DStatus !== 'unavailable') {
+    // ── Layer 7: Surrounding 3D Neighborhood City Context Layer (500m / 1km) ──
+    if (contextRadius !== 'off') {
+      if (surroundingCityContext && surroundingCityContext.geoJSON.features.length > 0) {
+        contextLayers.push(
+          new GeoJsonLayer({
+            id: 'surrounding-city-context-polygons-layer',
+            data: surroundingCityContext.geoJSON as any,
+            extruded: true,
+            wireframe: true,
+            getElevation: (f: any) => f.properties.height,
+            getFillColor: isLightStyle ? [226, 232, 240, 160] : [18, 26, 42, 190],
+            getLineColor: isLightStyle ? [148, 163, 184, 180] : [0, 200, 255, 90],
+            getLineWidth: 1.2,
+            lineWidthUnits: 'pixels',
+            material: {
+              ambient: isLightStyle ? 0.7 : 0.55,
+              diffuse: isLightStyle ? 0.8 : 0.65,
+              shininess: 32,
+            },
+            pickable: true,
+            autoHighlight: true,
+            highlightColor: [56, 189, 248, 110],
+            updateTriggers: {
+              getFillColor: [isLightStyle, contextRadius],
+              getLineColor: [isLightStyle, contextRadius],
+            },
+          })
+        );
+      } else if (useGoogle3D && googleTilesUrl && google3DStatus !== 'unavailable') {
         contextLayers.push(
           new Tile3DLayer({
             id: 'google-photorealistic-3d-tiles-context',
@@ -808,19 +860,6 @@ export default function MapDeckGL({
             },
           })
         );
-      } else {
-        contextLayers.push(
-          new Tile3DLayer({
-            id: 'reearth-osm-buildings-context',
-            data: REEARTH.buildingsTileset,
-            loader: Tiles3DLoader,
-            opacity: 0.55,
-            pickable: false,
-            loadOptions: {
-              '3d-tiles': { loadGLTF: true },
-            },
-          })
-        );
       }
     }
 
@@ -843,7 +882,8 @@ export default function MapDeckGL({
     undergroundPathsData,
     undergroundPipesData,
     undergroundLabelsData,
-    showContextBuildings,
+    contextRadius,
+    surroundingCityContext,
     useGoogle3D,
     googleTilesUrl,
     google3DStatus,
@@ -876,13 +916,25 @@ export default function MapDeckGL({
         <button type="button" className="map-control-btn" onClick={handleResetCamera} title="Reset Camera View">
           <Maximize2 size={15} />
         </button>
+        
+        {/* City Context (500m / 1km / Off) Toggle Button */}
         <button
           type="button"
-          className={`map-control-btn ${showContextBuildings ? 'active' : ''}`}
-          onClick={() => setShowContextBuildings((v) => !v)}
-          title="Toggle Context 3D Buildings"
+          className={`map-control-btn ${contextRadius !== 'off' ? 'active' : ''}`}
+          onClick={() => {
+            setContextRadius((prev) => (prev === '1km' ? '500m' : prev === '500m' ? 'off' : '1km'));
+          }}
+          title={`Show City Context: ${contextRadius.toUpperCase()} (Click to toggle 1km / 500m / Off)`}
+          style={{
+            borderColor: contextRadius !== 'off' ? '#00c8ff' : undefined,
+            color: contextRadius === '1km' ? '#38bdf8' : contextRadius === '500m' ? '#2dd4bf' : undefined,
+            position: 'relative',
+          }}
         >
           <Building2 size={17} />
+          <span style={{ position: 'absolute', bottom: 1, right: 2, fontSize: '8px', fontWeight: 800 }}>
+            {contextRadius === '1km' ? '1k' : contextRadius === '500m' ? '0.5' : 'off'}
+          </span>
         </button>
         {hasGoogle3DTilesKey() && (
           <button

@@ -50,6 +50,11 @@ import {
 import { applyVerifiedBuildingMetadata, getVerifiedBuildingMetadata } from '../../utils/verifiedBuildingMetadata';
 import { inferBuildingMetadata } from '../../api/api';
 import {
+  fetchSurroundingCityContext,
+  SurroundingBuildingData,
+} from '../../utils/cityContextFetcher';
+import { buildCityContextInstancedMesh } from '../../utils/cityContextMeshBuilder';
+import {
   RotateCw,
   Layers,
   MapPin,
@@ -68,6 +73,7 @@ import {
   ChevronUp,
   Landmark,
   Sliders,
+  Building2,
 } from 'lucide-react';
 import './Map3D.css';
 
@@ -1773,6 +1779,46 @@ export default function MapThreeJS({
     [verifiedBuilding?.building_id, centerLat, centerLng, verifiedBuilding?.osm_id]
   );
 
+  // ── 3D Neighborhood City Context State (500m / 1km / Off) ──
+  const [contextRadius, setContextRadius] = useState<'500m' | '1km' | 'off'>('1km');
+  const [surroundingBuildings, setSurroundingBuildings] = useState<SurroundingBuildingData[]>([]);
+
+  // ── Fetch Surrounding Neighborhood City Context (500m / 1000m) ──
+  useEffect(() => {
+    if (contextRadius === 'off' || !centerLat || !centerLng) {
+      setSurroundingBuildings([]);
+      return;
+    }
+    const radius = contextRadius === '1km' ? 1000 : 500;
+    let cancelled = false;
+    fetchSurroundingCityContext(centerLat, centerLng, radius, verifiedBuilding.osm_id, 16)
+      .then((ctx) => {
+        if (!cancelled) setSurroundingBuildings(ctx.buildings);
+      })
+      .catch((err) => console.warn('[Three.js City Context] fetch error:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [centerLat, centerLng, verifiedBuilding?.osm_id, contextRadius]);
+
+  // ── Mount / Update Surrounding City Context Instanced Mesh in Three.js Scene ──
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+
+    const existingCityGroup = scene.getObjectByName('city_context_neighborhood_skyline');
+    if (existingCityGroup) {
+      scene.remove(existingCityGroup);
+      disposeThreeGroup(existingCityGroup as THREE.Group);
+    }
+
+    if (contextRadius !== 'off' && surroundingBuildings.length > 0) {
+      const radiusMeters = contextRadius === '1km' ? 1000 : 500;
+      const cityGroup = buildCityContextInstancedMesh(surroundingBuildings, radiusMeters);
+      scene.add(cityGroup);
+    }
+  }, [surroundingBuildings, contextRadius]);
+
   useEffect(() => {
     if (!centerLat || !centerLng) return;
     let cancelled = false;
@@ -3417,6 +3463,22 @@ export default function MapThreeJS({
         >
           <Layers size={15} />
           <span>Wireframe</span>
+        </button>
+
+        {/* City Context 3-Way Mode Toggle (500m / 1km / Off) */}
+        <button
+          className={`toolbar-btn ${contextRadius !== 'off' ? 'active' : ''}`}
+          onClick={() => {
+            setContextRadius((prev) => (prev === '1km' ? '500m' : prev === '500m' ? 'off' : '1km'));
+          }}
+          title={`Show City Context: ${contextRadius.toUpperCase()} (Click to toggle 1km / 500m / Off)`}
+          style={{
+            borderColor: contextRadius !== 'off' ? '#00c8ff' : undefined,
+            color: contextRadius === '1km' ? '#38bdf8' : contextRadius === '500m' ? '#2dd4bf' : undefined,
+          }}
+        >
+          <Building2 size={15} />
+          <span>City: {contextRadius.toUpperCase()}</span>
         </button>
 
         <button
