@@ -1894,29 +1894,34 @@ export default function MapThreeJS({
     rendererRef.current = renderer;
 
     // Procedural Atmospheric & Architectural HDRI Environment Map
-    const pmremGen = new THREE.PMREMGenerator(renderer);
-    pmremGen.compileEquirectangularShader();
-    const envCanvas = document.createElement('canvas');
-    envCanvas.width = 512;
-    envCanvas.height = 256;
-    const envCtx = envCanvas.getContext('2d');
-    if (envCtx) {
-      const grad = envCtx.createLinearGradient(0, 0, 0, 256);
-      grad.addColorStop(0.0, '#0a0f1d'); // Deep twilight zenith
-      grad.addColorStop(0.35, '#1e293b'); // Dark slate sky
-      grad.addColorStop(0.65, '#38bdf8'); // Horizon atmospheric cyan glow
-      grad.addColorStop(0.75, '#fb923c'); // Dusk golden warmth
-      grad.addColorStop(0.85, '#0f172a'); // Ground horizon reflection
-      grad.addColorStop(1.0, '#030712'); // Nadir asphalt
-      envCtx.fillStyle = grad;
-      envCtx.fillRect(0, 0, 512, 256);
+    let pmremGen: THREE.PMREMGenerator | null = null;
+    let envMap: THREE.Texture | null = null;
+    try {
+      pmremGen = new THREE.PMREMGenerator(renderer);
+      pmremGen.compileEquirectangularShader();
+      const envCanvas = document.createElement('canvas');
+      envCanvas.width = 512;
+      envCanvas.height = 256;
+      const envCtx = envCanvas.getContext('2d');
+      if (envCtx) {
+        const grad = envCtx.createLinearGradient(0, 0, 0, 256);
+        grad.addColorStop(0.0, '#0a0f1d'); // Deep twilight zenith
+        grad.addColorStop(0.35, '#1e293b'); // Dark slate sky
+        grad.addColorStop(0.65, '#38bdf8'); // Horizon atmospheric cyan glow
+        grad.addColorStop(0.75, '#fb923c'); // Dusk golden warmth
+        grad.addColorStop(0.85, '#0f172a'); // Ground horizon reflection
+        grad.addColorStop(1.0, '#030712'); // Nadir asphalt
+        envCtx.fillStyle = grad;
+        envCtx.fillRect(0, 0, 512, 256);
+      }
+      const envTexture = new THREE.CanvasTexture(envCanvas);
+      envTexture.mapping = THREE.EquirectangularReflectionMapping;
+      envMap = pmremGen.fromEquirectangular(envTexture).texture;
+      scene.environment = envMap;
+      envTexture.dispose();
+    } catch (envErr) {
+      console.warn('PMREM environment initialization skipped:', envErr);
     }
-    const envTexture = new THREE.CanvasTexture(envCanvas);
-    envTexture.mapping = THREE.EquirectangularReflectionMapping;
-    const envMap = pmremGen.fromEquirectangular(envTexture).texture;
-    scene.environment = envMap;
-    pmremGen.dispose();
-    envTexture.dispose();
 
     // Post-Processing Pipeline (Bloom for emissive windows + ACES Filmic Tone Mapping)
     const composer = new EffectComposer(renderer);
@@ -2981,7 +2986,17 @@ export default function MapThreeJS({
       window.removeEventListener('resize', handleResize);
       domElem.removeEventListener('pointermove', handlePointerMove);
       domElem.removeEventListener('click', handleClick);
-      composer.dispose();
+      try {
+        if (pmremGen) pmremGen.dispose();
+        if (envMap) envMap.dispose();
+      } catch (e) {
+        // ignore
+      }
+      try {
+        composer.dispose();
+      } catch (e) {
+        // ignore
+      }
       renderer.dispose();
       clearTimeout(startRevealTimeout);
       // @ts-ignore — revealTimer may not be set if floors = 0
