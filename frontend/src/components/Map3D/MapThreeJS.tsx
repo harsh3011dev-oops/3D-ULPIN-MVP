@@ -626,27 +626,33 @@ function buildSurroundingContext(
     color: isMughalHeritage ? 0x234d20 : isStepwell ? 0x2d6a4f : 0x1e3a1e,
     roughness: 0.9,
     metalness: 0.02,
-    name: 'Surrounding_Grass_Terrain'
+    name: 'Surrounding_Grass_Terrain',
+    polygonOffset: true,
+    polygonOffsetFactor: 2.0,
+    polygonOffsetUnits: 2.0,
   });
   const groundGeo = new THREE.PlaneGeometry(groundWidth, groundDepth);
   const groundMesh = new THREE.Mesh(groundGeo, grassMat);
   groundMesh.rotation.x = -Math.PI / 2;
-  groundMesh.position.y = -0.06;
+  groundMesh.position.y = -0.02;
   groundMesh.receiveShadow = true;
   surroundingsGroup.add(groundMesh);
 
   // 2. Central Parcel Paving Plinth
   const plazaTex = generatePlazaTexture();
   plazaTex.repeat.set(Math.max(2, Math.round(dims.width / 15)), Math.max(2, Math.round(dims.depth / 15)));
-  const parcelPlazaGeo = new THREE.BoxGeometry(dims.width * 1.5, 0.1, dims.depth * 1.5);
+  const parcelPlazaGeo = new THREE.BoxGeometry(dims.width * 1.5, 0.04, dims.depth * 1.5);
   const parcelPlazaMat = new THREE.MeshStandardMaterial({
     map: plazaTex,
     roughness: 0.75,
     metalness: 0.15,
-    name: 'Parcel_Plaza_Plinth'
+    name: 'Parcel_Plaza_Plinth',
+    polygonOffset: true,
+    polygonOffsetFactor: -1.0,
+    polygonOffsetUnits: -4.0,
   });
   const parcelPlazaMesh = new THREE.Mesh(parcelPlazaGeo, parcelPlazaMat);
-  parcelPlazaMesh.position.set(0, -0.01, 0);
+  parcelPlazaMesh.position.set(0, 0.0, 0);
   parcelPlazaMesh.receiveShadow = true;
   surroundingsGroup.add(parcelPlazaMesh);
 
@@ -654,11 +660,11 @@ function buildSurroundingContext(
   const bndW = dims.width * 1.5;
   const bndD = dims.depth * 1.5;
   const bndPoints = [
-    new THREE.Vector3(-bndW / 2, 0.05, -bndD / 2),
-    new THREE.Vector3(bndW / 2, 0.05, -bndD / 2),
-    new THREE.Vector3(bndW / 2, 0.05, bndD / 2),
-    new THREE.Vector3(-bndW / 2, 0.05, bndD / 2),
-    new THREE.Vector3(-bndW / 2, 0.05, -bndD / 2),
+    new THREE.Vector3(-bndW / 2, 0.03, -bndD / 2),
+    new THREE.Vector3(bndW / 2, 0.03, -bndD / 2),
+    new THREE.Vector3(bndW / 2, 0.03, bndD / 2),
+    new THREE.Vector3(-bndW / 2, 0.03, bndD / 2),
+    new THREE.Vector3(-bndW / 2, 0.03, -bndD / 2),
   ];
   const bndGeo = new THREE.BufferGeometry().setFromPoints(bndPoints);
   const bndMat = new THREE.LineDashedMaterial({
@@ -1871,19 +1877,24 @@ export default function MapThreeJS({
     const skyDome = new THREE.Mesh(skyDomeGeo, skyDomeMat);
     scene.add(skyDome);
 
-    const camera = new THREE.PerspectiveCamera(40, width / height, 0.5, 100000);
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.5, 3000.0);
     const heightFactor = buildingHeight > 500 ? 1.6 : buildingHeight > 250 ? 1.4 : 1.1;
     const targetCamDist = Math.max(maxDim * 2.2, buildingHeight * heightFactor, 45);
     camera.position.set(targetCamDist * 0.9, buildingHeight * 0.55 + maxDim * 0.25, targetCamDist * 0.9);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+      powerPreference: 'high-performance',
+      logarithmicDepthBuffer: true,
+    });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.25;
+    renderer.toneMappingExposure = 1.0;
 
     mountRef.current.innerHTML = '';
     mountRef.current.appendChild(renderer.domElement);
@@ -1921,9 +1932,9 @@ export default function MapThreeJS({
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(width, height),
-      0.35, // subtle glow for nighttime city window lights and ULPIN badges
-      0.45, // radius
-      0.82  // threshold (only bright window highlights & emissive elements glow)
+      0.35, // Balanced subtle bloom for emissive badges/lights
+      0.40, // Smooth radius
+      0.88  // High threshold so diffuse surfaces do not blow out
     );
     composer.addPass(bloomPass);
 
@@ -1937,15 +1948,15 @@ export default function MapThreeJS({
     controls.target.set(0, targetY, 0);
     controls.maxPolarAngle = Math.PI / 2 - 0.02;
     controls.minDistance = Math.max(4, maxDim * 0.3);
-    controls.maxDistance = Math.max(25000, buildingHeight * 15);
+    controls.maxDistance = Math.min(2500, Math.max(800, buildingHeight * 10));
     controlsRef.current = controls;
     camera.lookAt(0, targetY, 0);
 
-    // Lighting Setup
-    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x334155, 1.8);
+    // Balanced Architectural Lighting Setup (prevents overexposure/white flash)
+    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x1e293b, 0.6);
     scene.add(hemiLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfffaf0, 2.9);
+    const sunLight = new THREE.DirectionalLight(0xfffaf0, 1.2);
     sunLight.position.set(sceneExtent * 0.8, buildingHeight * 1.5 + sceneExtent, sceneExtent * 0.8);
     sunLight.target.position.set(0, targetY, 0);
     scene.add(sunLight.target);
@@ -1955,7 +1966,7 @@ export default function MapThreeJS({
     sunLight.shadow.bias = -0.0002;
     sunLight.shadow.normalBias = 0.08;
     sunLight.shadow.camera.near = 1;
-    sunLight.shadow.camera.far = Math.max(sceneExtent * 4, buildingHeight * 3.5);
+    sunLight.shadow.camera.far = Math.min(2500, Math.max(sceneExtent * 3.5, buildingHeight * 2.5));
     const d = Math.max(sceneExtent * 1.2, buildingHeight * 0.7);
     sunLight.shadow.camera.left = -d;
     sunLight.shadow.camera.right = d;
@@ -1963,12 +1974,12 @@ export default function MapThreeJS({
     sunLight.shadow.camera.bottom = -d;
     scene.add(sunLight);
     
-    // Fill light to bring out architectural detail on shadowed sides of tall models
-    const fillLight = new THREE.DirectionalLight(0x94a3b8, 1.4);
+    // Fill light to bring out architectural detail on shadowed sides
+    const fillLight = new THREE.DirectionalLight(0x94a3b8, 0.5);
     fillLight.position.set(-sceneExtent * 0.8, buildingHeight * 0.6, -sceneExtent * 0.8);
     scene.add(fillLight);
 
-    const rimLight = new THREE.PointLight(0x818cf8, 3.5, sceneExtent * 2.5);
+    const rimLight = new THREE.PointLight(0x818cf8, 0.8, sceneExtent * 2.5);
     rimLight.position.set(-maxDim * 1.5, buildingHeight * 0.8, -maxDim * 1.5);
     scene.add(rimLight);
 

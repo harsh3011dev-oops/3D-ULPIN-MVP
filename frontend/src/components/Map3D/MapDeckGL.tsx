@@ -850,41 +850,41 @@ export default function MapDeckGL({
               if (dist < clearanceRadius) return [0, 0, 0, 0];
               const h = f.properties.height || 15;
               if (isLightStyle) {
-                if (h >= 45) return [148, 163, 184, 180];
-                if (h >= 20) return [203, 213, 225, 170];
-                return [226, 232, 240, 160];
+                if (h >= 45) return [148, 163, 184, 195];
+                if (h >= 20) return [175, 190, 205, 185];
+                return [203, 213, 225, 175];
               }
-              // Dark Cadastral Realistic Height-Graded Palette
+              // Dark Cadastral Elevated Slate-Navy Palette
               if (h >= 45) {
-                // High-rise tops: Subtle reflective ice-cyan / obsidian slate
-                return [65, 85, 115, 225];
+                // High-rise tops: Luminous cool slate
+                return [58, 76, 102, 225];
               }
               if (h >= 20) {
-                // Mid-rise: Slate gray / cool corporate navy
-                return [45, 55, 72, 215];
+                // Mid-rise: Crisp corporate slate-navy
+                return [48, 64, 86, 215];
               }
-              // Ground / low-rise: Dark steel / slate
-              return [35, 42, 54, 210];
+              // Ground / low-rise: Defined dark steel-slate
+              return [38, 52, 70, 210];
             },
             getLineColor: (f: any) => {
               const dist = f.properties.distance || 0;
               const targetRadius = Math.hypot(footprintDims.width / 2, footprintDims.depth / 2);
               const clearanceRadius = Math.max(targetRadius * 1.8, 100);
               if (dist < clearanceRadius) return [0, 0, 0, 0];
-              return isLightStyle ? [100, 116, 139, 120] : [100, 140, 180, 75];
+              return isLightStyle ? [70, 95, 125, 170] : [0, 195, 255, 140];
             },
-            getLineWidth: 1.0,
-            lineWidthMinPixels: 1,
+            getLineWidth: 1.2,
+            lineWidthMinPixels: 1.2,
             lineWidthUnits: 'pixels',
             material: {
-              ambient: 0.35,
-              diffuse: 0.6,
-              shininess: 32,
-              specularColor: [60, 64, 70],
+              ambient: 0.4,
+              diffuse: 0.7,
+              shininess: 30,
+              specularColor: [80, 100, 120],
             },
             pickable: true,
             autoHighlight: true,
-            highlightColor: [56, 189, 248, 110],
+            highlightColor: [0, 195, 255, 130],
             updateTriggers: {
               getElevation: [footprintDims.width, footprintDims.depth, cadastralVolumes.totalHeightM, contextRadius],
               getFillColor: [isLightStyle, contextRadius, footprintDims.width, footprintDims.depth],

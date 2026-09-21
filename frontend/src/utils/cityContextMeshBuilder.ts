@@ -263,11 +263,11 @@ export function buildCityContextInstancedMesh(
   const facadeMaterial = new THREE.MeshStandardMaterial({
     color: 0x1E293B,
     map: facadeTexture,
-    roughness: 0.32,
-    metalness: 0.42,
-    emissive: 0x1E3A8A,
+    roughness: 0.35,
+    metalness: 0.35,
+    emissive: 0x081326,
     emissiveMap: facadeTexture,
-    emissiveIntensity: 0.38,
+    emissiveIntensity: 0.22,
     transparent: false,
     shadowSide: THREE.FrontSide,
   });
@@ -380,6 +380,9 @@ export function buildCityContextInstancedMesh(
     map: groundTex,
     roughness: 0.88,
     metalness: 0.15,
+    polygonOffset: true,
+    polygonOffsetFactor: 3.0,
+    polygonOffsetUnits: 3.0,
   });
   const groundMesh = new THREE.Mesh(groundGeo, groundMat);
   groundMesh.rotation.x = -Math.PI / 2;
