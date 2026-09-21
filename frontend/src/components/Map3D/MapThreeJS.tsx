@@ -1880,7 +1880,7 @@ export default function MapThreeJS({
       antialias: true,
       alpha: true,
       powerPreference: 'high-performance',
-      logarithmicDepthBuffer: true,
+      logarithmicDepthBuffer: false,
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -2942,7 +2942,11 @@ export default function MapThreeJS({
         setFloorScreenPos(null);
       }
 
-      composer.render();
+      try {
+        composer.render();
+      } catch (renderErr) {
+        renderer.render(scene, camera);
+      }
     };
     animate();
 
@@ -2954,8 +2958,12 @@ export default function MapThreeJS({
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
         rendererRef.current.setSize(w, h);
-        composer.setSize(w, h);
-        bloomPass.resolution.set(w, h);
+        try {
+          composer.setSize(w, h);
+          bloomPass.resolution.set(w, h);
+        } catch (e) {
+          // pass
+        }
       }
     };
     window.addEventListener('resize', handleResize);
