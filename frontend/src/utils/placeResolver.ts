@@ -73,40 +73,7 @@ export async function resolvePlace(query: string, hintCity?: string): Promise<Re
     return openCageResult;
   }
 
-  // 5. Progressive sub-query fallback (try stripping house/gali numbers, or search hintCity)
-  const parts = fullQuery.split(',').map((s) => s.trim()).filter(Boolean);
-  if (parts.length > 1) {
-    for (let i = 1; i < parts.length; i++) {
-      const subQuery = parts.slice(i).join(', ');
-      const subRes = await queryNominatim(subQuery);
-      if (subRes) {
-        subRes.canonicalName = cleanQuery;
-        _RESOLVER_CACHE.set(cacheKey, subRes);
-        return subRes;
-      }
-    }
-  }
-
-  if (hintCity && hintCity.toLowerCase() !== fullQuery.toLowerCase()) {
-    const cityRes = await queryNominatim(hintCity);
-    if (cityRes) {
-      cityRes.canonicalName = cleanQuery;
-      _RESOLVER_CACHE.set(cacheKey, cityRes);
-      return cityRes;
-    }
-  }
-
-  // 6. Safe default location fallback (Delhi/Central India) so it NEVER returns null
-  const defaultPlace: ResolvedPlace = {
-    canonicalName: cleanQuery,
-    latitude: 28.6139,
-    longitude: 77.2090,
-    boundingBox: [77.2070, 28.6119, 77.2110, 28.6159],
-    placeType: 'residential',
-    address: `${cleanQuery}, ${hintCity || 'Delhi'}`,
-  };
-  _RESOLVER_CACHE.set(cacheKey, defaultPlace);
-  return defaultPlace;
+  return null;
 }
 
 /**

@@ -59,18 +59,7 @@ async def auto_detect_building(request: dict):
 
     result = await call_gemini_api(building_name, city)
     if not result:
-        # Fallback default so 404 is never thrown when building name is local/unmapped
-        result = {
-            "building_name": building_name,
-            "city": city or "Delhi",
-            "latitude": 28.6139,
-            "longitude": 77.2090,
-            "height_meters": 24.0,
-            "floors": 6,
-            "confidence": 75,
-            "source": "smart_default_fallback",
-            "osm_id": None,
-        }
+        raise HTTPException(status_code=404, detail="Building not found")
 
     _AUTODETECT_CACHE[_key] = result
     return result
