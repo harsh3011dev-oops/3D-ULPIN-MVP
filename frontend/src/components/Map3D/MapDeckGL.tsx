@@ -16,7 +16,10 @@ import {
   getFootprintDimensions,
   getPresentationClassification,
 } from '../../utils/footprintUtils';
-import { getBuildingUtilityPipelines } from '../../utils/utilityNetworkHelper';
+import {
+  getBuildingUtilityPipelines,
+  getNeighborhoodUtilityPipelines,
+} from '../../utils/utilityNetworkHelper';
 import { REEARTH, setupReearthTerrain } from '../../utils/reearth';
 import { buildCadastralVolumes, CadastralVolumesResult } from '../../utils/cadastralVolumeBuilder';
 import {
@@ -26,6 +29,7 @@ import {
 } from '../../utils/google3DTilesProvider';
 import {
   fetchSurroundingCityContext,
+  generateSurroundingFloorsGeoJSON,
   SurroundingCityContext,
 } from '../../utils/cityContextFetcher';
 import {
@@ -523,6 +527,15 @@ export default function MapDeckGL({
 
   const googleTilesUrl = useMemo(() => getGoogle3DTilesUrl(), []);
 
+  // ── Surrounding Multi-Floor GeoJSON & Subterranean Neighborhood Network ──
+  const surroundingFloorsGeoJSON = useMemo(() => {
+    return generateSurroundingFloorsGeoJSON(surroundingCityContext?.buildings || []);
+  }, [surroundingCityContext?.buildings]);
+
+  const neighborhoodUtilityNetwork = useMemo(() => {
+    return getNeighborhoodUtilityPipelines(building, surroundingCityContext?.buildings || []);
+  }, [building, surroundingCityContext?.buildings]);
+
   // ─────────────────────────────────────────────────────────────
   // DECK.GL LAYER STACK:
   // Strictly Cadastral Volumes + Strata Slices + Subsurface Assets.
@@ -755,6 +768,63 @@ export default function MapDeckGL({
         );
       }
 
+      // Interconnected Neighborhood Subterranean Utility Pipeline Network
+      if (neighborhoodUtilityNetwork.pathLayerData.length > 0) {
+        undergroundLayers.push(
+          new PathLayer({
+            id: 'neighborhood-utility-paths-layer',
+            data: neighborhoodUtilityNetwork.pathLayerData,
+            getPath: (d: any) => d.path,
+            getColor: (d: any) => d.color,
+            getWidth: (d: any) => d.width,
+            widthUnits: 'pixels',
+            capRounded: true,
+            jointRounded: true,
+            opacity: 0.92,
+            pickable: true,
+            autoHighlight: true,
+            highlightColor: [255, 255, 255, 220],
+            onClick: (info: any) => {
+              if (info.object) {
+                setSelectedUnderground(info.object);
+              }
+            },
+          })
+        );
+      }
+
+      if (neighborhoodUtilityNetwork.serviceNodes.length > 0) {
+        undergroundLayers.push(
+          new ColumnLayer({
+            id: 'neighborhood-utility-nodes-layer',
+            data: neighborhoodUtilityNetwork.serviceNodes,
+            getPosition: (d: any) => d.position,
+            getFillColor: (d: any) => d.color,
+            getLineColor: [255, 255, 255, 200],
+            getLineWidth: 1.5,
+            lineWidthUnits: 'pixels',
+            radius: 1.4,
+            diskResolution: 12,
+            elevationScale: 1.0,
+            getElevation: 0.8,
+            opacity: 0.95,
+            pickable: true,
+            autoHighlight: true,
+            highlightColor: [255, 255, 255, 200],
+            onClick: (info: any) => {
+              if (info.object) {
+                setSelectedUnderground({
+                  title: `${info.object.buildingName} Service Node`,
+                  type: info.object.type,
+                  ulpin: `ULPIN-NODE-${info.object.type.toUpperCase()}`,
+                  depth_m: Math.abs(info.object.position[2] || 2.5),
+                });
+              }
+            },
+          })
+        );
+      }
+
       if (undergroundPipesData.length > 0) {
         undergroundLayers.push(
           new ColumnLayer({
@@ -820,63 +890,57 @@ export default function MapDeckGL({
       }
     }
 
-    // ── Layer 7: Surrounding 3D Neighborhood City Context Layer (500m / 1km) ──
+    // ── Layer 7: Surrounding 3D Neighborhood Floors Strata Layer (500m / 1km) ──
     if (contextRadius !== 'off') {
-      if (surroundingCityContext && surroundingCityContext.geoJSON.features.length > 0) {
+      if (surroundingFloorsGeoJSON && surroundingFloorsGeoJSON.features.length > 0) {
         contextLayers.push(
           new GeoJsonLayer({
-            id: 'surrounding-city-context-polygons-layer',
-            data: surroundingCityContext.geoJSON as any,
+            id: 'surrounding-city-floors-cadastre-layer',
+            data: surroundingFloorsGeoJSON as any,
             extruded: true,
             wireframe: true,
-            getElevation: (f: any) => {
-              const rawH = f.properties.height || 14;
-              const dist = f.properties.distance || 0;
-              const targetRadius = Math.hypot(footprintDims.width / 2, footprintDims.depth / 2);
-              const clearanceRadius = Math.max(targetRadius * 2.0, 90.0);
-              if (dist < clearanceRadius) return 0;
-              const radiusMeters = contextRadius === '1km' ? 1000 : 500;
-              const targetH = cadastralVolumes.totalHeightM || 25;
-              const minHeight = 4.0;
-              const maxHeight = Math.min(targetH * 0.8, 30.0);
-              const normDist = Math.min(Math.max((dist - clearanceRadius) / (radiusMeters - clearanceRadius || 1), 0), 1);
-              const radialScale = Math.pow(normDist, 1.5);
-              return Math.max(3.5, minHeight + (Math.min(rawH, maxHeight * 1.5) - minHeight) * radialScale);
-            },
+            getElevation: (f: any) => f.properties.height || 3.5,
             getFillColor: (f: any) => {
-              const dist = f.properties.distance || 0;
-              const targetRadius = Math.hypot(footprintDims.width / 2, footprintDims.depth / 2);
-              const clearanceRadius = Math.max(targetRadius * 2.0, 90.0);
-              if (dist < clearanceRadius) return [0, 0, 0, 0];
-              if (isLightStyle) {
-                return [175, 190, 205, 200];
+              const p = f.properties;
+              if (p.isBasement) {
+                return isLightStyle ? [129, 140, 248, 150] : [99, 102, 241, 160]; // Distinct violet basement
               }
-              // Distinct high-contrast slate-blue
-              return [64, 82, 108, 230];
+              return isLightStyle ? [175, 190, 205, 195] : [64, 82, 108, 220]; // Distinct high-contrast architectural slate
             },
             getLineColor: (f: any) => {
-              const dist = f.properties.distance || 0;
-              const targetRadius = Math.hypot(footprintDims.width / 2, footprintDims.depth / 2);
-              const clearanceRadius = Math.max(targetRadius * 2.0, 90.0);
-              if (dist < clearanceRadius) return [0, 0, 0, 0];
-              return isLightStyle ? [70, 95, 125, 180] : [56, 189, 248, 180]; // Sky-blue edge wireframe
+              const p = f.properties;
+              if (p.isBasement) {
+                return isLightStyle ? [99, 102, 241, 220] : [165, 180, 252, 220];
+              }
+              return isLightStyle ? [70, 95, 125, 200] : [56, 189, 248, 190]; // Sky-blue floor wireframe
             },
-            getLineWidth: 1.2,
+            getLineWidth: 1.4,
             lineWidthMinPixels: 1.2,
             lineWidthUnits: 'pixels',
             material: {
-              ambient: 0.5,
+              ambient: 0.55,
               diffuse: 0.7,
               shininess: 32,
               specularColor: [100, 130, 160],
             },
             pickable: true,
             autoHighlight: true,
-            highlightColor: [56, 189, 248, 140],
+            highlightColor: [56, 189, 248, 160],
+            onClick: (info: any) => {
+              if (info.object?.properties) {
+                const p = info.object.properties;
+                setSelectedUnderground({
+                  title: `${p.buildingName} (${p.floorLabel})`,
+                  type: p.isBasement ? 'basement' : 'parking',
+                  ulpin: `ULPIN-SURROUND-${p.buildingId}-${p.floorLabel}`,
+                  subsurface_zone: p.isBasement ? 'SUBTERRANEAN STRATA' : 'ABOVE-GROUND STRATA',
+                  depth_m: p.isBasement ? 3.5 : 0,
+                });
+              }
+            },
             updateTriggers: {
-              getElevation: [footprintDims.width, footprintDims.depth, cadastralVolumes.totalHeightM, contextRadius],
-              getFillColor: [isLightStyle, contextRadius, footprintDims.width, footprintDims.depth],
-              getLineColor: [isLightStyle, contextRadius, footprintDims.width, footprintDims.depth],
+              getFillColor: [isLightStyle, contextRadius],
+              getLineColor: [isLightStyle, contextRadius],
             },
           })
         );
@@ -929,8 +993,9 @@ export default function MapDeckGL({
     undergroundPathsData,
     undergroundPipesData,
     undergroundLabelsData,
+    neighborhoodUtilityNetwork,
     contextRadius,
-    surroundingCityContext,
+    surroundingFloorsGeoJSON,
     useGoogle3D,
     googleTilesUrl,
     google3DStatus,

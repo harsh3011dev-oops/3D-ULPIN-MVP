@@ -351,3 +351,91 @@ out body geom;
   _CITY_CONTEXT_CACHE.set(cacheKey, result);
   return result;
 }
+
+export interface SurroundingFloorFeature {
+  type: 'Feature';
+  properties: {
+    id: string;
+    buildingId: string | number;
+    buildingName: string;
+    floorNumber: number;
+    floorLabel: string;
+    elevation: number;
+    height: number;
+    isBasement: boolean;
+    distance: number;
+  };
+  geometry: {
+    type: 'Polygon';
+    coordinates: number[][][];
+  };
+}
+
+/**
+ * Transforms surrounding building polygons into individual volumetric floor strata
+ * (Above-ground levels + Subterranean Basement stratum) for Deck.gl 3D Cadastral inspection.
+ */
+export function generateSurroundingFloorsGeoJSON(
+  buildings: SurroundingBuildingData[],
+  floorHeightM: number = 3.5
+): {
+  type: 'FeatureCollection';
+  features: SurroundingFloorFeature[];
+} {
+  const features: SurroundingFloorFeature[] = [];
+
+  for (const b of buildings) {
+    const levels = Math.max(1, b.levels || Math.round(b.height / floorHeightM));
+    const coords = b.coordinates;
+    if (!coords || !coords.length) continue;
+
+    // 1. Subterranean Basement Stratum (B1 at -3.5m to 0m)
+    features.push({
+      type: 'Feature',
+      properties: {
+        id: `${b.id}-floor-B1`,
+        buildingId: b.id,
+        buildingName: b.name || `Building ${b.osmId || b.id}`,
+        floorNumber: -1,
+        floorLabel: 'B1',
+        elevation: -floorHeightM,
+        height: floorHeightM,
+        isBasement: true,
+        distance: Math.round(b.distanceFromCenter),
+      },
+      geometry: {
+        type: 'Polygon',
+        coordinates: coords,
+      },
+    });
+
+    // 2. Above-Ground Slices (F1..Fn)
+    for (let f = 1; f <= levels; f++) {
+      const elevation = (f - 1) * floorHeightM;
+      features.push({
+        type: 'Feature',
+        properties: {
+          id: `${b.id}-floor-F${f}`,
+          buildingId: b.id,
+          buildingName: b.name || `Building ${b.osmId || b.id}`,
+          floorNumber: f,
+          floorLabel: `F${f}`,
+          elevation,
+          height: floorHeightM * 0.94,
+          isBasement: false,
+          distance: Math.round(b.distanceFromCenter),
+        },
+        geometry: {
+          type: 'Polygon',
+          coordinates: coords,
+        },
+      });
+    }
+  }
+
+  return {
+    type: 'FeatureCollection',
+    features,
+  };
+}
+

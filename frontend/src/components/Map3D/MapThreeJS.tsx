@@ -1825,10 +1825,10 @@ export default function MapThreeJS({
         depth: dims.depth,
         height: buildingHeight,
       };
-      const cityGroup = buildCityContextInstancedMesh(surroundingBuildings, radiusMeters, targetDims);
+      const cityGroup = buildCityContextInstancedMesh(surroundingBuildings, radiusMeters, targetDims, verifiedBuilding);
       scene.add(cityGroup);
     }
-  }, [surroundingBuildings, contextRadius, dims.width, dims.depth, buildingHeight]);
+  }, [surroundingBuildings, contextRadius, dims.width, dims.depth, buildingHeight, verifiedBuilding]);
 
   useEffect(() => {
     if (!centerLat || !centerLng) return;
