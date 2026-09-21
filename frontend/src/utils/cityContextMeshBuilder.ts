@@ -243,7 +243,7 @@ export function buildCityContextInstancedMesh(
   const targetRadius = targetDimensions
     ? Math.hypot(targetDimensions.width / 2, targetDimensions.depth / 2)
     : 40;
-  const clearanceRadius = Math.max(targetRadius * 1.8, 100);
+  const clearanceRadius = Math.max(targetRadius * 2.0, 90.0);
   const targetHeight = targetDimensions?.height || 25.0;
 
   // 2. Filter out buildings within immediate target vicinity
@@ -259,15 +259,15 @@ export function buildCityContextInstancedMesh(
   const facadeTexture = getArchitecturalFacadeTexture();
   const roofTexture = getRooftopTexture();
 
-  // 3. Photorealistic PBR Building Facade Material
+  // 3. High-Contrast Architectural Slate-Blue PBR Facade Material
   const facadeMaterial = new THREE.MeshStandardMaterial({
-    color: 0x1E293B,
+    color: 0x3b4c68,
     map: facadeTexture,
-    roughness: 0.35,
-    metalness: 0.35,
-    emissive: 0x081326,
+    roughness: 0.45,
+    metalness: 0.25,
+    emissive: 0x0c1929,
     emissiveMap: facadeTexture,
-    emissiveIntensity: 0.22,
+    emissiveIntensity: 0.3,
     transparent: false,
     shadowSide: THREE.FrontSide,
   });
@@ -279,16 +279,13 @@ export function buildCityContextInstancedMesh(
 
   // 4. Weathered Rooftop Cap Material
   const roofMaterial = new THREE.MeshStandardMaterial({
-    color: 0x0F172A,
+    color: 0x1E293B,
     map: roofTexture,
     roughness: 0.85,
     metalness: 0.12,
   });
 
   // 5. Radial Height Attenuation (Amphitheater Gradient) Metrics
-  const minHeight = 4.0; // low-rise perimeter near clearance boundary
-  const maxHeight = targetHeight > 30 ? targetHeight * 0.8 : 25.0;
-
   const processed = validBuildings.map((b) => {
     const dist = Math.hypot(b.localX, b.localZ);
     // Normalize distance from clearance edge to max view radius
@@ -297,12 +294,11 @@ export function buildCityContextInstancedMesh(
       0,
       1
     );
-    // Exponential / smoothstep scaling toward the outer perimeter
-    const radialScale = Math.pow(normDist, 1.6);
-    // Smoothly scale building height so foreground/midground is low-profile and outer skyline rises organically
+    // Exponential amphitheater scaling toward the outer perimeter
+    const radialScale = Math.pow(normDist, 1.5);
     const instanceHeight = THREE.MathUtils.lerp(
-      minHeight,
-      Math.max(minHeight, Math.min(b.height, maxHeight * 1.5)),
+      4.0,
+      Math.min(targetHeight * 0.8, 30.0),
       radialScale
     );
 
@@ -371,15 +367,15 @@ export function buildCityContextInstancedMesh(
     group.add(hvacMesh);
   }
 
-  // 7. Ground Asphalt / Urban Plinth Plane
+  // 7. Base Terrain Disc Ground Plane
   const groundSize = radiusMeters * 2.1;
   const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize);
   const groundTex = getUrbanGroundTexture();
   const groundMat = new THREE.MeshStandardMaterial({
-    color: 0x0A0F1D,
+    color: 0x1e2638,
     map: groundTex,
-    roughness: 0.88,
-    metalness: 0.15,
+    roughness: 0.85,
+    metalness: 0.1,
     polygonOffset: true,
     polygonOffsetFactor: 3.0,
     polygonOffsetUnits: 3.0,
@@ -390,7 +386,16 @@ export function buildCityContextInstancedMesh(
   groundMesh.receiveShadow = true;
   group.add(groundMesh);
 
-  // 8. Subtle Luminous Geodetic Cadastral Boundary Perimeter
+  // 8. Spatial Polar Grid Helper
+  const polarGrid = new THREE.PolarGridHelper(radiusMeters * 0.95, 16, 0x38bdf8, 0x334155);
+  polarGrid.position.set(0, 0.02, 0);
+  if (polarGrid.material) {
+    (polarGrid.material as THREE.Material).transparent = true;
+    (polarGrid.material as THREE.Material).opacity = 0.25;
+  }
+  group.add(polarGrid);
+
+  // 9. Subtle Luminous Geodetic Cadastral Boundary Perimeter Ring
   const ringGeom = new THREE.RingGeometry(radiusMeters * 0.94, radiusMeters * 0.99, 64);
   ringGeom.rotateX(-Math.PI / 2);
   const ringMat = new THREE.MeshBasicMaterial({
@@ -400,7 +405,7 @@ export function buildCityContextInstancedMesh(
     side: THREE.DoubleSide,
   });
   const ringMesh = new THREE.Mesh(ringGeom, ringMat);
-  ringMesh.position.y = 0.1;
+  ringMesh.position.y = 0.04;
   group.add(ringMesh);
 
   return group;

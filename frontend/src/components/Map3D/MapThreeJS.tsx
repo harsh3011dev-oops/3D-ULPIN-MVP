@@ -1866,18 +1866,11 @@ export default function MapThreeJS({
     const sceneExtent = Math.max(maxDim * 4, buildingHeight * 0.8, 80);
 
     const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0f172a); // Tailwind Slate-900
+    scene.fog = new THREE.FogExp2(0x0f172a, 0.0012);
     sceneRef.current = scene;
 
-    // Atmospheric Sky Dome Background
-    const skyDomeGeo = new THREE.SphereGeometry(Math.max(sceneExtent * 5, 600), 32, 32);
-    const skyDomeMat = new THREE.MeshBasicMaterial({
-      color: 0x080e1a,
-      side: THREE.BackSide,
-    });
-    const skyDome = new THREE.Mesh(skyDomeGeo, skyDomeMat);
-    scene.add(skyDome);
-
-    const camera = new THREE.PerspectiveCamera(40, width / height, 0.5, 3000.0);
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.5, 4000.0);
     const heightFactor = buildingHeight > 500 ? 1.6 : buildingHeight > 250 ? 1.4 : 1.1;
     const targetCamDist = Math.max(maxDim * 2.2, buildingHeight * heightFactor, 45);
     camera.position.set(targetCamDist * 0.9, buildingHeight * 0.55 + maxDim * 0.25, targetCamDist * 0.9);
@@ -1933,8 +1926,8 @@ export default function MapThreeJS({
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(width, height),
       0.35, // Balanced subtle bloom for emissive badges/lights
-      0.40, // Smooth radius
-      0.88  // High threshold so diffuse surfaces do not blow out
+      0.30, // Smooth radius
+      0.85  // High threshold so diffuse surfaces do not blow out
     );
     composer.addPass(bloomPass);
 
@@ -1948,16 +1941,16 @@ export default function MapThreeJS({
     controls.target.set(0, targetY, 0);
     controls.maxPolarAngle = Math.PI / 2 - 0.02;
     controls.minDistance = Math.max(4, maxDim * 0.3);
-    controls.maxDistance = Math.min(2500, Math.max(800, buildingHeight * 10));
+    controls.maxDistance = Math.min(3000, Math.max(800, buildingHeight * 10));
     controlsRef.current = controls;
     camera.lookAt(0, targetY, 0);
 
-    // Balanced Architectural Lighting Setup (prevents overexposure/white flash)
-    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x1e293b, 0.6);
+    // Three-point Architectural Lighting Setup (prevents overexposure/white flash)
+    const hemiLight = new THREE.HemisphereLight(0x94a3b8, 0x1e293b, 1.2);
     scene.add(hemiLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfffaf0, 1.2);
-    sunLight.position.set(sceneExtent * 0.8, buildingHeight * 1.5 + sceneExtent, sceneExtent * 0.8);
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    sunLight.position.set(300, 500, 200);
     sunLight.target.position.set(0, targetY, 0);
     scene.add(sunLight.target);
     sunLight.castShadow = true;
@@ -1966,22 +1959,17 @@ export default function MapThreeJS({
     sunLight.shadow.bias = -0.0002;
     sunLight.shadow.normalBias = 0.08;
     sunLight.shadow.camera.near = 1;
-    sunLight.shadow.camera.far = Math.min(2500, Math.max(sceneExtent * 3.5, buildingHeight * 2.5));
-    const d = Math.max(sceneExtent * 1.2, buildingHeight * 0.7);
+    sunLight.shadow.camera.far = 4000;
+    const d = Math.max(sceneExtent * 1.5, buildingHeight * 0.8, 150);
     sunLight.shadow.camera.left = -d;
     sunLight.shadow.camera.right = d;
     sunLight.shadow.camera.top = d;
     sunLight.shadow.camera.bottom = -d;
     scene.add(sunLight);
     
-    // Fill light to bring out architectural detail on shadowed sides
-    const fillLight = new THREE.DirectionalLight(0x94a3b8, 0.5);
-    fillLight.position.set(-sceneExtent * 0.8, buildingHeight * 0.6, -sceneExtent * 0.8);
+    const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.5);
+    fillLight.position.set(-300, 200, -200);
     scene.add(fillLight);
-
-    const rimLight = new THREE.PointLight(0x818cf8, 0.8, sceneExtent * 2.5);
-    rimLight.position.set(-maxDim * 1.5, buildingHeight * 0.8, -maxDim * 1.5);
-    scene.add(rimLight);
 
     // Surrounding Site Plaza & Landscaping (Broader ground area for proper site context)
     buildSurroundingContext(scene, dims, sceneExtent, building, findCustomModel(building));

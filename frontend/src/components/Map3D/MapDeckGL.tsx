@@ -122,12 +122,12 @@ export default function MapDeckGL({
   const lightingEffect = useMemo(() => {
     const ambientLight = new AmbientLight({
       color: [255, 255, 255],
-      intensity: 1.2,
+      intensity: 1.4,
     });
     const dirLight = new DirectionalLight({
       color: [255, 255, 255],
       intensity: 1.8,
-      direction: [-1, -3, -1],
+      direction: [-2, -4, -3],
     });
     return new LightingEffect({ ambientLight, dirLight });
   }, []);
@@ -830,61 +830,49 @@ export default function MapDeckGL({
             extruded: true,
             wireframe: true,
             getElevation: (f: any) => {
-              const rawH = f.properties.height || 15;
+              const rawH = f.properties.height || 14;
               const dist = f.properties.distance || 0;
               const targetRadius = Math.hypot(footprintDims.width / 2, footprintDims.depth / 2);
-              const clearanceRadius = Math.max(targetRadius * 1.8, 100);
+              const clearanceRadius = Math.max(targetRadius * 2.0, 90.0);
               if (dist < clearanceRadius) return 0;
               const radiusMeters = contextRadius === '1km' ? 1000 : 500;
               const targetH = cadastralVolumes.totalHeightM || 25;
               const minHeight = 4.0;
-              const maxHeight = targetH > 30 ? targetH * 0.8 : 25.0;
+              const maxHeight = Math.min(targetH * 0.8, 30.0);
               const normDist = Math.min(Math.max((dist - clearanceRadius) / (radiusMeters - clearanceRadius || 1), 0), 1);
-              const radialScale = Math.pow(normDist, 1.6);
+              const radialScale = Math.pow(normDist, 1.5);
               return Math.max(3.5, minHeight + (Math.min(rawH, maxHeight * 1.5) - minHeight) * radialScale);
             },
             getFillColor: (f: any) => {
               const dist = f.properties.distance || 0;
               const targetRadius = Math.hypot(footprintDims.width / 2, footprintDims.depth / 2);
-              const clearanceRadius = Math.max(targetRadius * 1.8, 100);
+              const clearanceRadius = Math.max(targetRadius * 2.0, 90.0);
               if (dist < clearanceRadius) return [0, 0, 0, 0];
-              const h = f.properties.height || 15;
               if (isLightStyle) {
-                if (h >= 45) return [148, 163, 184, 195];
-                if (h >= 20) return [175, 190, 205, 185];
-                return [203, 213, 225, 175];
+                return [175, 190, 205, 200];
               }
-              // Dark Cadastral Elevated Slate-Navy Palette
-              if (h >= 45) {
-                // High-rise tops: Luminous cool slate
-                return [58, 76, 102, 225];
-              }
-              if (h >= 20) {
-                // Mid-rise: Crisp corporate slate-navy
-                return [48, 64, 86, 215];
-              }
-              // Ground / low-rise: Defined dark steel-slate
-              return [38, 52, 70, 210];
+              // Distinct high-contrast slate-blue
+              return [64, 82, 108, 230];
             },
             getLineColor: (f: any) => {
               const dist = f.properties.distance || 0;
               const targetRadius = Math.hypot(footprintDims.width / 2, footprintDims.depth / 2);
-              const clearanceRadius = Math.max(targetRadius * 1.8, 100);
+              const clearanceRadius = Math.max(targetRadius * 2.0, 90.0);
               if (dist < clearanceRadius) return [0, 0, 0, 0];
-              return isLightStyle ? [70, 95, 125, 170] : [0, 195, 255, 140];
+              return isLightStyle ? [70, 95, 125, 180] : [56, 189, 248, 180]; // Sky-blue edge wireframe
             },
             getLineWidth: 1.2,
             lineWidthMinPixels: 1.2,
             lineWidthUnits: 'pixels',
             material: {
-              ambient: 0.4,
+              ambient: 0.5,
               diffuse: 0.7,
-              shininess: 30,
-              specularColor: [80, 100, 120],
+              shininess: 32,
+              specularColor: [100, 130, 160],
             },
             pickable: true,
             autoHighlight: true,
-            highlightColor: [0, 195, 255, 130],
+            highlightColor: [56, 189, 248, 140],
             updateTriggers: {
               getElevation: [footprintDims.width, footprintDims.depth, cadastralVolumes.totalHeightM, contextRadius],
               getFillColor: [isLightStyle, contextRadius, footprintDims.width, footprintDims.depth],
