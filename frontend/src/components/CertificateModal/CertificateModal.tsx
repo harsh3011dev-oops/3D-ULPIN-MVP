@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import ReactDOM from 'react-dom';
 import {
   ShieldCheck, Printer, Download, X, Building2,
   CheckCircle, FileText, Compass, Layers, Globe
@@ -60,7 +61,7 @@ export default function CertificateModal({ unit, building, onClose }: Certificat
     URL.revokeObjectURL(url);
   };
 
-  return (
+  return ReactDOM.createPortal(
     <div className="cert-modal-backdrop" onClick={onClose}>
       <div className="cert-modal-container" onClick={(e) => e.stopPropagation()}>
         
@@ -299,6 +300,7 @@ export default function CertificateModal({ unit, building, onClose }: Certificat
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
