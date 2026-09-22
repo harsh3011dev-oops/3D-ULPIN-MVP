@@ -646,25 +646,34 @@ function buildSurroundingContext(
   const isStepwell = (building?.building_name && /stepwell|vav|patan/i.test(building.building_name)) ||
                      (customModelConfig?.id === 'rani-ki-vav-lidar');
 
-  const groundWidth = Math.max(dims.width * 4.5, sceneExtent * 3.0, 130);
-  const groundDepth = Math.max(dims.depth * 4.5, sceneExtent * 3.0, 130);
+  const groundWidth = Math.max(dims.width * 25, sceneExtent * 12.0, 2400);
+  const groundDepth = Math.max(dims.depth * 25, sceneExtent * 12.0, 2400);
 
-  // 1. Broad Ground Base (Lawn / Terrain)
+  // 1. Broad Continuous Ground Base (Terrain / Urban Grid)
   const grassMat = new THREE.MeshStandardMaterial({
-    color: isMughalHeritage ? 0x234d20 : isStepwell ? 0x2d6a4f : 0x1e3a1e,
-    roughness: 0.9,
+    color: isMughalHeritage ? 0x1f3b1e : isStepwell ? 0x224a38 : 0x182c23,
+    roughness: 0.95,
     metalness: 0.02,
     name: 'Surrounding_Grass_Terrain',
     polygonOffset: true,
     polygonOffsetFactor: 2.0,
     polygonOffsetUnits: 2.0,
   });
-  const groundGeo = new THREE.PlaneGeometry(groundWidth, groundDepth);
+  const groundGeo = new THREE.PlaneGeometry(groundWidth, groundDepth, 32, 32);
   const groundMesh = new THREE.Mesh(groundGeo, grassMat);
   groundMesh.rotation.x = -Math.PI / 2;
-  groundMesh.position.y = -0.02;
+  groundMesh.position.y = -0.04;
   groundMesh.receiveShadow = true;
   surroundingsGroup.add(groundMesh);
+
+  // 1b. Broad Cadastral Street & Neighborhood Grid Overlay
+  const gridHelper = new THREE.GridHelper(groundWidth, 48, 0x0d9488, 0x1e293b);
+  gridHelper.position.y = -0.02;
+  if (gridHelper.material instanceof THREE.Material) {
+    gridHelper.material.transparent = true;
+    gridHelper.material.opacity = 0.35;
+  }
+  surroundingsGroup.add(gridHelper);
 
   // 2. Central Parcel Paving Plinth
   const plazaTex = generatePlazaTexture();
