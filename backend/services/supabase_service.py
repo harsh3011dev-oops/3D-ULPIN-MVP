@@ -61,25 +61,33 @@ async def create_job(db: AsyncSession, parcel_id: str) -> Job:
     return job
 
 async def get_job(db: AsyncSession, job_id: str) -> Job | dict | None:
-    """Fetch a job by job_id with in-memory fallback."""
+    """Fetch a job by job_id with in-memory fallback. Prefers completed cached state."""
+    cached = _JOBS_CACHE.get(job_id)
+    
+    db_job = None
     if db:
         try:
-            result = await db.execute(select(Job).filter(Job.job_id == job_id))
-            db_job = result.scalars().first()
-            if db_job:
-                return db_job
+            import asyncio
+            async def _fetch():
+                result = await db.execute(select(Job).filter(Job.job_id == job_id))
+                return result.scalars().first()
+            db_job = await asyncio.wait_for(_fetch(), timeout=3.0)
         except Exception as e:
             logger.warning(f"Database lookup failed for job {job_id}, checking cache: {e}")
     
-    cached = _JOBS_CACHE.get(job_id)
     if cached:
-        # Create dummy Job object for attribute compatibility
         class CachedJob:
             def __init__(self, data):
                 for k, v in data.items():
                     setattr(self, k, v)
+        # If DB is still 'processing' or missing building_id but cache has completed or building_id
+        if db_job:
+            if (getattr(db_job, 'status', None) == 'processing' and cached.get('status') == 'completed') or \
+               (not getattr(db_job, 'building_id', None) and cached.get('building_id')):
+                return CachedJob(cached)
+            return db_job
         return CachedJob(cached)
-    return None
+    return db_job
 
 async def update_job_status(
     db: AsyncSession, 
@@ -89,46 +97,69 @@ async def update_job_status(
     progress_step: str = None, 
     result_json: dict = None,
     error_message: str = None,
+    building_id: str = None,
     started_at = None,
     completed_at = None
 ):
     """Update an existing job's status and progress in DB & in-memory fallback."""
-    if job_id in _JOBS_CACHE:
-        _JOBS_CACHE[job_id]["status"] = status
-        if progress_pct is not None:
-            _JOBS_CACHE[job_id]["progress_pct"] = progress_pct
-        if progress_step:
-            _JOBS_CACHE[job_id]["progress_step"] = progress_step
-        if result_json is not None:
-            _JOBS_CACHE[job_id]["result_json"] = result_json
-        if error_message:
-            _JOBS_CACHE[job_id]["error_message"] = error_message
-        _save_jobs_cache()
+    if result_json and not building_id:
+        building_id = result_json.get("building_id")
 
+    if job_id not in _JOBS_CACHE:
+        _JOBS_CACHE[job_id] = {"job_id": job_id}
+
+    _JOBS_CACHE[job_id]["status"] = status
+    if progress_pct is not None:
+        _JOBS_CACHE[job_id]["progress_pct"] = progress_pct
+    if progress_step:
+        _JOBS_CACHE[job_id]["progress_step"] = progress_step
+    if building_id:
+        _JOBS_CACHE[job_id]["building_id"] = building_id
+    if result_json is not None:
+        _JOBS_CACHE[job_id]["result_json"] = result_json
+    if error_message:
+        _JOBS_CACHE[job_id]["error_message"] = error_message
+    _save_jobs_cache()
+
+    values_dict = {"status": status}
+    if progress_pct is not None:
+        values_dict["progress_pct"] = progress_pct
+    if progress_step:
+        values_dict["progress_step"] = progress_step
+    if building_id:
+        values_dict["building_id"] = building_id
+    if result_json is not None:
+        values_dict["result_json"] = result_json
+    if error_message:
+        values_dict["error_message"] = error_message
+    if started_at:
+        values_dict["started_at"] = started_at
+    if completed_at:
+        values_dict["completed_at"] = completed_at
+
+    import asyncio
+    stmt = update(Job).where(Job.job_id == job_id).values(**values_dict)
+
+    updated = False
     if db:
         try:
-            import asyncio
-            stmt = update(Job).where(Job.job_id == job_id).values(status=status)
-            if progress_pct is not None:
-                stmt = stmt.values(progress_pct=progress_pct)
-            if progress_step:
-                stmt = stmt.values(progress_step=progress_step)
-            if result_json is not None:
-                stmt = stmt.values(result_json=result_json)
-            if error_message:
-                stmt = stmt.values(error_message=error_message)
-            if started_at:
-                stmt = stmt.values(started_at=started_at)
-            if completed_at:
-                stmt = stmt.values(completed_at=completed_at)
-                
             async def _execute_db():
                 await db.execute(stmt)
                 await db.commit()
 
             await asyncio.wait_for(_execute_db(), timeout=4.0)
+            updated = True
         except Exception as e:
-            logger.warning(f"DB update failed or timed out for job {job_id}: {e}")
+            logger.warning(f"DB update failed with current session for job {job_id}: {e}")
+
+    if not updated:
+        try:
+            from backend.database import AsyncSessionLocal
+            async with AsyncSessionLocal() as fresh_db:
+                await asyncio.wait_for(fresh_db.execute(stmt), timeout=4.0)
+                await asyncio.wait_for(fresh_db.commit(), timeout=4.0)
+        except Exception as e2:
+            logger.warning(f"DB update with fresh session failed for job {job_id}: {e2}")
 
 async def get_building_with_units(db: AsyncSession, building_id: str):
     """Fetch a building by its string ID, including all its units. Supports memory fallback."""
