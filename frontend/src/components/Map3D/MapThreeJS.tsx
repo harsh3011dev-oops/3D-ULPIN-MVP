@@ -3749,6 +3749,17 @@ export default function MapThreeJS({
           </div>
         </div>
       )}
+      {/* 3D Title Deed Certificate Modal */}
+      {showCertificateModal && inspectingUnit && (
+        <CertificateModal
+          unit={inspectingUnit}
+          building={building}
+          onClose={() => {
+            setShowCertificateModal(false);
+            setInspectingUnit(null);
+          }}
+        />
+      )}
     </div>
   );
 }
