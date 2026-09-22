@@ -399,12 +399,7 @@ export default function MapPage() {
                 </div>
                 <div style={{ fontFamily: 'var(--font-sans)', fontSize: '1.5rem',
                   fontWeight: 800, color: 'var(--text-primary)' }}>
-                  {((building?.validation?.confidence_score && building.validation.confidence_score > 0)
-                    ? building.validation.confidence_score
-                    : ((building as any)?.confidence_score && (building as any).confidence_score > 0)
-                      ? (building as any).confidence_score
-                      : 98.5
-                  ).toFixed(1)}<span style={{ fontSize: '0.85rem', fontWeight: 400,
+                  {(building?.validation?.confidence_score ?? 0).toFixed(1)}<span style={{ fontSize: '0.85rem', fontWeight: 400,
                     color: 'var(--text-muted)' }}>%</span>
                 </div>
               </div>
@@ -413,7 +408,7 @@ export default function MapPage() {
                   stroke="var(--bg-secondary)" />
                 <circle cx="20" cy="20" r="16" strokeWidth="4" fill="none"
                   stroke="var(--accent-teal)" strokeDasharray="100.53"
-                  strokeDashoffset={100.53 - (((building?.validation?.confidence_score && building.validation.confidence_score > 0) ? building.validation.confidence_score : 98.5) / 100) * 100.53} strokeLinecap="round"
+                  strokeDashoffset={100.53 - ((building?.validation?.confidence_score ?? 0) / 100) * 100.53} strokeLinecap="round"
                   style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }} />
               </svg>
             </div>
