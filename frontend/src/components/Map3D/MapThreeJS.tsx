@@ -338,6 +338,32 @@ function applyMaterialModeToGroup(
 }
 
 /**
+ * Calculates progressive stepped setback scale for megatall skyscrapers and Burj Khalifa
+ */
+function getSkyscraperTierScale(progress: number, isBurj: boolean): number {
+  if (isBurj) {
+    if (progress > 0.96) return 0.08;
+    if (progress > 0.90) return 0.16;
+    if (progress > 0.82) return 0.25;
+    if (progress > 0.73) return 0.35;
+    if (progress > 0.63) return 0.45;
+    if (progress > 0.52) return 0.55;
+    if (progress > 0.40) return 0.66;
+    if (progress > 0.28) return 0.78;
+    if (progress > 0.15) return 0.89;
+    return 1.0;
+  }
+  // Generic skyscraper setbacks
+  if (progress > 0.90) return 0.20;
+  if (progress > 0.75) return 0.35;
+  if (progress > 0.60) return 0.50;
+  if (progress > 0.45) return 0.65;
+  if (progress > 0.30) return 0.78;
+  if (progress > 0.15) return 0.90;
+  return 1.0;
+}
+
+/**
  * Procedural Source Materials Generator:
  * Uses available genuine OSM tags (building:colour, roof:colour, building:material, roof:material).
  * If tags are unavailable, falls back to neutral cool grey (never invents landmark colors).
@@ -353,7 +379,13 @@ function createArchitecturalMaterials(building: Building, wireframe: boolean) {
   let roughness = 0.70;
   let metalness = 0.05;
 
-  if (colorTag.startsWith('#')) {
+  const isBurj = (building.building_name || '').toLowerCase().includes('burj') || 
+                 (building.ulpin || '').toLowerCase().includes('burj');
+  if (isBurj) {
+    wallColor = 0xd0e3ff; // Bright reflective silver/ice-blue glass curtain
+    roughness = 0.18;
+    metalness = 0.60;
+  } else if (colorTag.startsWith('#')) {
     const parsed = parseInt(colorTag.replace('#', ''), 16);
     if (!isNaN(parsed)) wallColor = parsed;
   } else if (colorTag === 'white' || colorTag.includes('marble')) {
@@ -1389,138 +1421,215 @@ function constructMultiMassBuilding(
         visualGroup.add(capMesh);
       });
 
+      const parapetH = 1.1;
       let currentElev = podiumH;
       const wallBodyH = Math.max(totalHeight - podiumH - floorHeight * 0.6, floorHeight * 2);
 
-      // 2. ── Main Wall Body (full glass/concrete facade) ──
-      shapes.forEach((shape) => {
-        const bodyGeo = new THREE.ExtrudeGeometry(shape, { depth: wallBodyH, bevelEnabled: false });
-        bodyGeo.rotateX(-Math.PI / 2);
-        const bodyMesh = new THREE.Mesh(bodyGeo, materials.wallMaterial);
-        bodyMesh.position.y = currentElev;
-        bodyMesh.castShadow = true;
-        bodyMesh.receiveShadow = true;
-        visualGroup.add(bodyMesh);
-        exteriorMeshes.push(bodyMesh);
-      });
+      const isBurj = (building.building_name || '').toLowerCase().includes('burj') || 
+                     (building.ulpin || '').toLowerCase().includes('burj') ||
+                     ((building as any).address || '').toLowerCase().includes('burj');
+      const isSkyscraper = isBurj || floors > 25 || totalHeight > 100;
 
-      // Add detailed 3D instanced windows to make the local building look premium
-      buildCloseDetailFacade(facadeDetailsGroup, shapes, currentElev, wallBodyH, floorHeight);
+      if (isSkyscraper) {
+        // Multi-tier stepped setback reconstruction for skyscrapers & Burj Khalifa
+        const tiers = isBurj ? [
+          { start: 0.00, end: 0.15, scale: 1.00 },
+          { start: 0.15, end: 0.28, scale: 0.89 },
+          { start: 0.28, end: 0.40, scale: 0.78 },
+          { start: 0.40, end: 0.52, scale: 0.66 },
+          { start: 0.52, end: 0.63, scale: 0.55 },
+          { start: 0.63, end: 0.73, scale: 0.45 },
+          { start: 0.73, end: 0.82, scale: 0.35 },
+          { start: 0.82, end: 0.90, scale: 0.25 },
+          { start: 0.90, end: 0.96, scale: 0.16 },
+        ] : [
+          { start: 0.00, end: 0.20, scale: 1.00 },
+          { start: 0.20, end: 0.45, scale: 0.88 },
+          { start: 0.45, end: 0.70, scale: 0.70 },
+          { start: 0.70, end: 0.88, scale: 0.50 },
+          { start: 0.88, end: 0.96, scale: 0.30 },
+        ];
 
+        tiers.forEach((tier, tIdx) => {
+          const tierH = wallBodyH * (tier.end - tier.start);
+          const tierElev = currentElev + wallBodyH * tier.start;
+          shapes.forEach((shape) => {
+            const tierShape = scaleShape(shape, tier.scale);
+            const tierGeo = new THREE.ExtrudeGeometry(tierShape, { depth: tierH, bevelEnabled: false });
+            tierGeo.rotateX(-Math.PI / 2);
+            const tierMesh = new THREE.Mesh(tierGeo, materials.wallMaterial);
+            tierMesh.position.y = tierElev;
+            tierMesh.castShadow = true;
+            tierMesh.receiveShadow = true;
+            visualGroup.add(tierMesh);
+            exteriorMeshes.push(tierMesh);
 
-      // 3. ── Per-Floor Spandrel Band Lines (horizontal separation between every floor) ──
-      // These give the building the critical "multi-story" look — visible horizontal floor bands
-      const spandrelH = 0.28;
-      const spandrelMat = new THREE.MeshStandardMaterial({
-        color: materials.isHistoric ? 0x7c2d12 : 0x1e293b,
-        roughness: 0.5,
-        metalness: 0.6,
-      });
-      shapes.forEach((shape) => {
-        const bandShape = scaleShape(shape, 1.008);
-        const bandGeo = new THREE.ExtrudeGeometry(bandShape, { depth: spandrelH, bevelEnabled: false });
-        bandGeo.rotateX(-Math.PI / 2);
-        
-        const instanceCount = floors - 1;
-        if (instanceCount > 0) {
-          const instancedMesh = new THREE.InstancedMesh(bandGeo, spandrelMat, instanceCount);
-          const dummy = new THREE.Object3D();
-          for (let f = 1; f < floors; f++) {
-            const bandY = currentElev + (f / floors) * wallBodyH - spandrelH / 2;
-            dummy.position.set(0, bandY, 0);
-            dummy.updateMatrix();
-            instancedMesh.setMatrixAt(f - 1, dummy.matrix);
+            const tierEdges = new THREE.LineSegments(new THREE.EdgesGeometry(tierGeo, 25), materials.edgeMaterial);
+            tierEdges.position.y = tierElev;
+            visualGroup.add(tierEdges);
+
+            if (tIdx < tiers.length - 1) {
+              const ledgeShape = scaleShape(shape, tier.scale * 1.015);
+              const ledgeGeo = new THREE.ExtrudeGeometry(ledgeShape, { depth: 0.45, bevelEnabled: false });
+              ledgeGeo.rotateX(-Math.PI / 2);
+              const ledgeMesh = new THREE.Mesh(ledgeGeo, materials.trimMaterial);
+              ledgeMesh.position.y = tierElev + tierH - 0.1;
+              visualGroup.add(ledgeMesh);
+            }
+          });
+
+          // Facade windows for this tier
+          const tierFloors = Math.max(Math.round(floors * (tier.end - tier.start)), 1);
+          const tierShapes = shapes.map(s => scaleShape(s, tier.scale));
+          buildCloseDetailFacade(facadeDetailsGroup, tierShapes, tierElev, tierH, tierH / tierFloors);
+        });
+
+        // Telescopic architectural needle spire at the pinnacle
+        const spireBaseY = currentElev + wallBodyH * 0.96;
+        const spireH = Math.max(wallBodyH * (isBurj ? 0.08 : 0.05), 24);
+        const spireMat = new THREE.MeshStandardMaterial({
+          color: 0xf1f5f9,
+          roughness: 0.15,
+          metalness: 0.85,
+        });
+        const spireGeo = new THREE.CylinderGeometry(0.35, Math.max(dims.width * 0.035, 1.8), spireH, 16);
+        const spireMesh = new THREE.Mesh(spireGeo, spireMat);
+        spireMesh.position.set(0, spireBaseY + spireH / 2, 0);
+        visualGroup.add(spireMesh);
+        exteriorMeshes.push(spireMesh);
+
+        // Aviation red warning beacon at apex
+        const beaconGeo = new THREE.SphereGeometry(0.9, 12, 12);
+        const beaconMat = new THREE.MeshBasicMaterial({ color: 0xff0040 });
+        const beacon = new THREE.Mesh(beaconGeo, beaconMat);
+        beacon.position.set(0, spireBaseY + spireH, 0);
+        visualGroup.add(beacon);
+
+      } else {
+        // Standard low/mid-rise wall body
+        shapes.forEach((shape) => {
+          const bodyGeo = new THREE.ExtrudeGeometry(shape, { depth: wallBodyH, bevelEnabled: false });
+          bodyGeo.rotateX(-Math.PI / 2);
+          const bodyMesh = new THREE.Mesh(bodyGeo, materials.wallMaterial);
+          bodyMesh.position.y = currentElev;
+          bodyMesh.castShadow = true;
+          bodyMesh.receiveShadow = true;
+          visualGroup.add(bodyMesh);
+          exteriorMeshes.push(bodyMesh);
+        });
+
+        // Add detailed 3D instanced windows to make the local building look premium
+        buildCloseDetailFacade(facadeDetailsGroup, shapes, currentElev, wallBodyH, floorHeight);
+
+        // 3. ── Per-Floor Spandrel Band Lines ──
+        const spandrelH = 0.28;
+        const spandrelMat = new THREE.MeshStandardMaterial({
+          color: materials.isHistoric ? 0x7c2d12 : 0x1e293b,
+          roughness: 0.5,
+          metalness: 0.6,
+        });
+        shapes.forEach((shape) => {
+          const bandShape = scaleShape(shape, 1.008);
+          const bandGeo = new THREE.ExtrudeGeometry(bandShape, { depth: spandrelH, bevelEnabled: false });
+          bandGeo.rotateX(-Math.PI / 2);
+          
+          const instanceCount = floors - 1;
+          if (instanceCount > 0) {
+            const instancedMesh = new THREE.InstancedMesh(bandGeo, spandrelMat, instanceCount);
+            const dummy = new THREE.Object3D();
+            for (let f = 1; f < floors; f++) {
+              const bandY = currentElev + (f / floors) * wallBodyH - spandrelH / 2;
+              dummy.position.set(0, bandY, 0);
+              dummy.updateMatrix();
+              instancedMesh.setMatrixAt(f - 1, dummy.matrix);
+            }
+            instancedMesh.instanceMatrix.needsUpdate = true;
+            instancedMesh.castShadow = false;
+            visualGroup.add(instancedMesh);
           }
-          instancedMesh.instanceMatrix.needsUpdate = true;
-          instancedMesh.castShadow = false;
-          visualGroup.add(instancedMesh);
-        }
-      });
+        });
 
-      currentElev += wallBodyH;
+        currentElev += wallBodyH;
 
-      // 4. ── Setback Crown / Mechanical Penthouse Floor ──
-      const penthouseH = Math.max(floorHeight * 0.7, 2.2);
-      shapes.forEach((shape) => {
-        const pentShape = scaleShape(shape, 0.88); // Setback inward
-        const pentGeo = new THREE.ExtrudeGeometry(pentShape, { depth: penthouseH, bevelEnabled: false });
-        pentGeo.rotateX(-Math.PI / 2);
-        const pentMesh = new THREE.Mesh(pentGeo, materials.roofMaterial);
-        pentMesh.position.y = currentElev;
-        pentMesh.castShadow = true;
-        visualGroup.add(pentMesh);
-        exteriorMeshes.push(pentMesh);
-        const pentEdges = new THREE.LineSegments(new THREE.EdgesGeometry(pentGeo, 25), materials.edgeMaterial);
-        pentEdges.position.y = currentElev;
-        visualGroup.add(pentEdges);
-      });
+        // 4. ── Setback Crown / Mechanical Penthouse Floor ──
+        const penthouseH = Math.max(floorHeight * 0.7, 2.2);
+        shapes.forEach((shape) => {
+          const pentShape = scaleShape(shape, 0.88);
+          const pentGeo = new THREE.ExtrudeGeometry(pentShape, { depth: penthouseH, bevelEnabled: false });
+          pentGeo.rotateX(-Math.PI / 2);
+          const pentMesh = new THREE.Mesh(pentGeo, materials.roofMaterial);
+          pentMesh.position.y = currentElev;
+          pentMesh.castShadow = true;
+          visualGroup.add(pentMesh);
+          exteriorMeshes.push(pentMesh);
+          const pentEdges = new THREE.LineSegments(new THREE.EdgesGeometry(pentGeo, 25), materials.edgeMaterial);
+          pentEdges.position.y = currentElev;
+          visualGroup.add(pentEdges);
+        });
 
-      // Penthouse step-in cornice line
-      shapes.forEach((shape) => {
-        const stepShape = scaleShape(shape, 1.01);
-        const stepGeo = new THREE.ExtrudeGeometry(stepShape, { depth: 0.4, bevelEnabled: false });
-        stepGeo.rotateX(-Math.PI / 2);
-        const stepMesh = new THREE.Mesh(stepGeo, materials.trimMaterial);
-        stepMesh.position.y = currentElev - 0.05;
-        visualGroup.add(stepMesh);
-      });
+        // Penthouse step-in cornice line
+        shapes.forEach((shape) => {
+          const stepShape = scaleShape(shape, 1.01);
+          const stepGeo = new THREE.ExtrudeGeometry(stepShape, { depth: 0.4, bevelEnabled: false });
+          stepGeo.rotateX(-Math.PI / 2);
+          const stepMesh = new THREE.Mesh(stepGeo, materials.trimMaterial);
+          stepMesh.position.y = currentElev - 0.05;
+          visualGroup.add(stepMesh);
+        });
 
-      currentElev += penthouseH;
+        currentElev += penthouseH;
 
-      // 5. ── Flat Roof Parapet + HVAC Core + Mast ──
-      const cx = 0;
-      const cz = 0;
-      const parapetH = 1.1;
-      shapes.forEach((shape) => {
-        const paraGeo = new THREE.ExtrudeGeometry(shape, { depth: parapetH, bevelEnabled: false });
-        paraGeo.rotateX(-Math.PI / 2);
-        const paraMesh = new THREE.Mesh(paraGeo, materials.trimMaterial);
-        paraMesh.position.y = currentElev;
-        visualGroup.add(paraMesh);
-        const paraEdges = new THREE.LineSegments(new THREE.EdgesGeometry(paraGeo, 30), materials.edgeMaterial);
-        paraEdges.position.y = currentElev;
-        visualGroup.add(paraEdges);
-      });
+        // 5. ── Flat Roof Parapet + HVAC Core + Mast ──
+        const cx = 0;
+        const cz = 0;
+        shapes.forEach((shape) => {
+          const paraGeo = new THREE.ExtrudeGeometry(shape, { depth: parapetH, bevelEnabled: false });
+          paraGeo.rotateX(-Math.PI / 2);
+          const paraMesh = new THREE.Mesh(paraGeo, materials.trimMaterial);
+          paraMesh.position.y = currentElev;
+          visualGroup.add(paraMesh);
+          const paraEdges = new THREE.LineSegments(new THREE.EdgesGeometry(paraGeo, 30), materials.edgeMaterial);
+          paraEdges.position.y = currentElev;
+          visualGroup.add(paraEdges);
+        });
 
-      // Rooftop HVAC / mechanical core box
-      const coreW = Math.max(dims.width * 0.32, 4);
-      const coreD = Math.max(dims.depth * 0.32, 4);
-      const coreH = Math.max(2.8, floorHeight * 0.5);
-      const coreMesh = new THREE.Mesh(new THREE.BoxGeometry(coreW, coreH, coreD), materials.roofMaterial);
-      coreMesh.position.set(cx, currentElev + parapetH + coreH / 2, cz);
-      coreMesh.castShadow = true;
-      visualGroup.add(coreMesh);
+        // Rooftop HVAC / mechanical core box
+        const coreW = Math.max(dims.width * 0.32, 4);
+        const coreD = Math.max(dims.depth * 0.32, 4);
+        const coreH = Math.max(2.8, floorHeight * 0.5);
+        const coreMesh = new THREE.Mesh(new THREE.BoxGeometry(coreW, coreH, coreD), materials.roofMaterial);
+        coreMesh.position.set(cx, currentElev + parapetH + coreH / 2, cz);
+        coreMesh.castShadow = true;
+        visualGroup.add(coreMesh);
 
-      // HVAC unit on top of core
-      const hvacMesh = new THREE.Mesh(new THREE.BoxGeometry(coreW * 0.8, 1.2, coreD * 0.8), materials.trimMaterial);
-      hvacMesh.position.set(cx, currentElev + parapetH + coreH + 0.6, cz);
-      visualGroup.add(hvacMesh);
+        // HVAC unit on top of core
+        const hvacMesh = new THREE.Mesh(new THREE.BoxGeometry(coreW * 0.8, 1.2, coreD * 0.8), materials.trimMaterial);
+        hvacMesh.position.set(cx, currentElev + parapetH + coreH + 0.6, cz);
+        visualGroup.add(hvacMesh);
 
-      // Communication mast
-      const mastH = Math.max(4.5, totalHeight * 0.12);
-      const mastMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.2, mastH, 8), materials.trimMaterial);
-      mastMesh.position.set(cx, currentElev + parapetH + coreH + 1.2 + mastH / 2, cz);
-      visualGroup.add(mastMesh);
+        // Communication mast
+        const mastH = Math.max(4.5, totalHeight * 0.12);
+        const mastMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.2, mastH, 8), materials.trimMaterial);
+        mastMesh.position.set(cx, currentElev + parapetH + coreH + 1.2 + mastH / 2, cz);
+        visualGroup.add(mastMesh);
 
-      // Beacon light at mast tip
-      const beaconMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.32, 8, 8),
-        new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 2.8 }),
-      );
-      beaconMesh.position.set(cx, currentElev + parapetH + coreH + 1.2 + mastH, cz);
-      visualGroup.add(beaconMesh);
+        // Beacon light at mast tip
+        const beaconMesh = new THREE.Mesh(
+          new THREE.SphereGeometry(0.32, 8, 8),
+          new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 2.8 }),
+        );
+        beaconMesh.position.set(cx, currentElev + parapetH + coreH + 1.2 + mastH, cz);
+        visualGroup.add(beaconMesh);
+      }
 
       // If non-flat roof shape specified, add on top
-      if (roofType && roofType !== 'flat') {
+      if (roofType && roofType !== 'flat' && !isSkyscraper) {
         generatePolygonalRoof(
           visualGroup, shapes, roofType, currentElev + parapetH,
           Math.max(zoning.roofHeight, 4), dims,
           materials.roofMaterial, materials.goldAccentMat, materials.edgeMaterial,
         );
       }
-
-      // 6. ── Close LOD Facade Details (Instanced windows) ──
-      buildCloseDetailFacade(facadeDetailsGroup, shapes, podiumH, wallBodyH, floorHeight);
     }
   } else {
     // Universal fallback for buildings with a footprint but no parts
@@ -2714,14 +2823,9 @@ export default function MapThreeJS({
         // Procedural Stepped Tapering for Skyscrapers in Cadastral Mode
         if (totalFloors > 25) {
            const progress = floorNum / totalFloors;
-           let scale = 1.0;
-           // Create classic skyscraper "wedding cake" setbacks
-           if (progress > 0.85) scale = 0.25;
-           else if (progress > 0.70) scale = 0.40;
-           else if (progress > 0.50) scale = 0.55;
-           else if (progress > 0.30) scale = 0.75;
-           else if (progress > 0.15) scale = 0.90;
-           
+           const isBurj = (verifiedBuilding.building_name || '').toLowerCase().includes('burj') || 
+                          (verifiedBuilding.ulpin || '').toLowerCase().includes('burj');
+           const scale = getSkyscraperTierScale(progress, isBurj);
            if (scale !== 1.0) {
                finalShape = scaleShape(floorShape, scale);
            }
@@ -3019,20 +3123,21 @@ export default function MapThreeJS({
             : true;
 
           const isDimmed = !belongsToSelected || selectedFloor !== null;
-          const targetOpacity = isDimmed ? 0.22 : 1.0;
-          const isTransp = isDimmed;
+          // High opacity (0.82) keeps the architectural envelope bright and clearly visible even during floor isolation
+          const targetOpacity = isDimmed ? 0.82 : 1.0;
+          const isTransp = isDimmed && targetOpacity < 1.0;
 
           if (Array.isArray(m.material)) {
             m.material.forEach((mat) => {
               mat.transparent = isTransp;
               mat.opacity = targetOpacity;
-              mat.depthWrite = !isDimmed;
+              mat.depthWrite = true;
               mat.needsUpdate = true;
             });
           } else if (m.material) {
             m.material.transparent = isTransp;
             m.material.opacity = targetOpacity;
-            m.material.depthWrite = !isDimmed;
+            m.material.depthWrite = true;
             m.material.needsUpdate = true;
           }
         }
@@ -3054,8 +3159,14 @@ export default function MapThreeJS({
       const zMax = selectedFloor < 0 ? (selectedFloor + 1) * h : selectedFloor * h;
       const sliceCenterY = (zMin + zMax) / 2;
       const sliceH = h;
-      const sliceW = Math.max(dims.width * 1.08, 22);
-      const sliceD = Math.max(dims.depth * 1.08, 22);
+      const bldgFloors = verifiedRecord?.aboveGroundFloors ?? verifiedBuilding.floor_count ?? Math.max(verifiedBuilding.units?.length || 0, 3);
+      const progress = selectedFloor > 0 && bldgFloors > 0 ? selectedFloor / bldgFloors : 0;
+      const isBurj = (verifiedBuilding.building_name || '').toLowerCase().includes('burj') || 
+                     (verifiedBuilding.ulpin || '').toLowerCase().includes('burj') ||
+                     ((verifiedBuilding as any).address || '').toLowerCase().includes('burj');
+      const tierScale = bldgFloors > 25 ? getSkyscraperTierScale(progress, isBurj) : 1.0;
+      const sliceW = Math.max(dims.width * tierScale * 1.06, 14);
+      const sliceD = Math.max(dims.depth * tierScale * 1.06, 14);
 
       const sliceGroup = new THREE.Group();
       sliceGroup.name = 'Cadastral_3D_Floor_Slice';
