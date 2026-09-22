@@ -12,6 +12,7 @@
 
 import * as THREE from 'three';
 import { SurroundingBuildingData } from './cityContextFetcher';
+import { Building } from '../types';
 
 let _cachedFacadeTexture: THREE.CanvasTexture | null = null;
 let _cachedRoofTexture: THREE.CanvasTexture | null = null;
@@ -233,282 +234,229 @@ export function buildCityContextInstancedMesh(
   buildings: SurroundingBuildingData[],
   radiusMeters: number = 750,
   targetDimensions?: { width: number; depth: number; height: number },
-  targetBuilding?: any
+  targetBuilding?: Building
 ): THREE.Group {
   const group = new THREE.Group();
   group.name = 'city_context_neighborhood_skyline';
 
-  if (!buildings || buildings.length === 0) return group;
+  if (!buildings || !Array.isArray(buildings) || buildings.length === 0) return group;
 
-  // 1. Only exclude buildings directly colliding with the central target model itself
-  const targetRadius = targetDimensions
-    ? Math.hypot(targetDimensions.width / 2, targetDimensions.depth / 2)
-    : 20;
-  const minClearance = Math.max(targetRadius * 0.45, 8.0);
+  try {
+    // 1. Only exclude buildings directly colliding with the central target model itself
+    const targetRadius = targetDimensions
+      ? Math.hypot(targetDimensions.width / 2, targetDimensions.depth / 2)
+      : 20;
+    const minClearance = Math.max(targetRadius * 0.45, 8.0);
 
-  // 2. Filter out only buildings directly overlapping the central target asset
-  const validBuildings = buildings.filter((b) => {
-    const dist = Math.hypot(b.localX, b.localZ);
-    return dist >= minClearance && dist <= radiusMeters * 1.05;
-  });
+    // 2. Filter out only buildings directly overlapping the central target asset
+    const validBuildings = buildings.filter((b) => {
+      if (!b || typeof b.localX !== 'number' || typeof b.localZ !== 'number') return false;
+      const dist = Math.hypot(b.localX, b.localZ);
+      return !isNaN(dist) && dist >= minClearance && dist <= radiusMeters * 1.15;
+    });
 
-  const count = validBuildings.length;
-  if (count === 0) return group;
+    const count = validBuildings.length;
+    if (count === 0) return group;
 
-  const baseBoxGeometry = new THREE.BoxGeometry(1, 1, 1);
-  const floorHeightM = 3.5;
+    const baseBoxGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const floorHeightM = 3.5;
 
-  // Count total above-ground and basement floors across all surrounding buildings
-  let totalFloorsCount = 0;
-  validBuildings.forEach((b) => {
-    const levels = Math.max(1, b.levels || Math.round(b.height / floorHeightM));
-    totalFloorsCount += levels;
-  });
+    // Count total above-ground floors across all surrounding buildings
+    let totalFloorsCount = 0;
+    validBuildings.forEach((b) => {
+      const h = typeof b.height === 'number' && !isNaN(b.height) ? b.height : 8;
+      const levels = Math.max(1, Math.min(60, b.levels || Math.round(h / floorHeightM)));
+      totalFloorsCount += levels;
+    });
 
-  const facadeTexture = getArchitecturalFacadeTexture();
+    totalFloorsCount = Math.max(1, totalFloorsCount);
+    const safeCount = Math.max(1, count);
 
-  // 3. Multi-Floor Strata Slab Material (Clear individual floor plates)
-  const floorSlabMaterial = new THREE.MeshStandardMaterial({
-    color: 0x3b4c68,
-    map: facadeTexture,
-    roughness: 0.45,
-    metalness: 0.25,
-    emissive: 0x0c1929,
-    emissiveMap: facadeTexture,
-    emissiveIntensity: 0.35,
-    transparent: false,
-    shadowSide: THREE.FrontSide,
-  });
+    const facadeTexture = getArchitecturalFacadeTexture();
 
-  // Floor Separator / Spandrel Band Material (Crisp glowing cyan/slate line between floors)
-  const spandrelMaterial = new THREE.MeshStandardMaterial({
-    color: 0x1e293b,
-    roughness: 0.3,
-    metalness: 0.8,
-    emissive: 0x0284c7,
-    emissiveIntensity: 0.25,
-  });
+    // 3. Multi-Floor Strata Slab Material (Clear individual floor plates)
+    const floorSlabMaterial = new THREE.MeshStandardMaterial({
+      color: 0x3b4c68,
+      map: facadeTexture,
+      roughness: 0.45,
+      metalness: 0.25,
+      emissive: 0x0c1929,
+      emissiveMap: facadeTexture,
+      emissiveIntensity: 0.35,
+      transparent: false,
+    });
 
-  // Subterranean Basement Material (B1 at Y = -3.5m to 0m)
-  const basementMaterial = new THREE.MeshStandardMaterial({
-    color: 0x6366f1,
-    roughness: 0.7,
-    metalness: 0.3,
-    transparent: true,
-    opacity: 0.45,
-    side: THREE.DoubleSide,
-  });
+    // Floor Separator / Spandrel Band Material
+    const spandrelMaterial = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.3,
+      metalness: 0.8,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.25,
+    });
 
-  const floorSlabsMesh = new THREE.InstancedMesh(baseBoxGeometry, floorSlabMaterial, totalFloorsCount);
-  floorSlabsMesh.name = 'city_context_floors_strata';
-  floorSlabsMesh.castShadow = true;
-  floorSlabsMesh.receiveShadow = true;
+    // Subterranean Basement Material
+    const basementMaterial = new THREE.MeshStandardMaterial({
+      color: 0x6366f1,
+      roughness: 0.7,
+      metalness: 0.3,
+      transparent: true,
+      opacity: 0.45,
+      side: THREE.DoubleSide,
+    });
 
-  const spandrelMesh = new THREE.InstancedMesh(baseBoxGeometry, spandrelMaterial, totalFloorsCount);
-  spandrelMesh.name = 'city_context_floor_dividers';
+    const floorSlabsMesh = new THREE.InstancedMesh(baseBoxGeometry, floorSlabMaterial, totalFloorsCount);
+    floorSlabsMesh.name = 'city_context_floors_strata';
+    floorSlabsMesh.castShadow = true;
+    floorSlabsMesh.receiveShadow = true;
 
-  const basementMesh = new THREE.InstancedMesh(baseBoxGeometry, basementMaterial, count);
-  basementMesh.name = 'city_context_basements';
+    const spandrelMesh = new THREE.InstancedMesh(baseBoxGeometry, spandrelMaterial, totalFloorsCount);
+    spandrelMesh.name = 'city_context_floor_dividers';
 
-  // 4. HVAC / Mechanical Rooftop Units (for buildings taller than 18m)
-  const hvacItems = validBuildings.filter((b) => b.height >= 18);
-  const hvacCount = hvacItems.length;
-  let hvacMesh: THREE.InstancedMesh | null = null;
+    const basementMesh = new THREE.InstancedMesh(baseBoxGeometry, basementMaterial, safeCount);
+    basementMesh.name = 'city_context_basements';
 
-  if (hvacCount > 0) {
+    // 4. HVAC / Mechanical Rooftop Units
+    const hvacItems = validBuildings.filter((b) => (b.height || 0) >= 18);
+    const hvacCount = Math.max(1, hvacItems.length);
     const hvacMaterial = new THREE.MeshStandardMaterial({
       color: 0x334155,
       roughness: 0.75,
       metalness: 0.35,
     });
-    hvacMesh = new THREE.InstancedMesh(baseBoxGeometry, hvacMaterial, hvacCount);
+    const hvacMesh = new THREE.InstancedMesh(baseBoxGeometry, hvacMaterial, hvacCount);
     hvacMesh.name = 'city_context_hvac_units';
-    hvacMesh.castShadow = true;
-    hvacMesh.receiveShadow = true;
-  }
 
-  const dummy = new THREE.Object3D();
-  let floorInstanceIdx = 0;
-  let hvacIdx = 0;
+    const dummy = new THREE.Object3D();
+    let floorInstanceIdx = 0;
+    let hvacIdx = 0;
 
-  for (let i = 0; i < count; i++) {
-    const b = validBuildings[i];
-    const posX = b.localX;
-    const posZ = b.localZ;
-    const w = Math.max(4, b.width);
-    const d = Math.max(4, b.depth);
-    const levels = Math.max(1, b.levels || Math.round(b.height / floorHeightM));
+    for (let i = 0; i < count; i++) {
+      const b = validBuildings[i];
+      const posX = b.localX || 0;
+      const posZ = b.localZ || 0;
+      const w = Math.max(4, Math.min(80, b.width || 12));
+      const d = Math.max(4, Math.min(80, b.depth || 14));
+      const h = typeof b.height === 'number' && !isNaN(b.height) ? b.height : 8;
+      const levels = Math.max(1, Math.min(60, b.levels || Math.round(h / floorHeightM)));
 
-    // A. Subterranean Basement Stratum (B1) for connectivity
-    dummy.position.set(posX, -floorHeightM / 2, posZ);
-    dummy.rotation.set(0, 0, 0);
-    dummy.scale.set(w * 0.98, floorHeightM * 0.95, d * 0.98);
-    dummy.updateMatrix();
-    basementMesh.setMatrixAt(i, dummy.matrix);
-
-    // B. Floor-by-Floor Strata (F1..Fn)
-    for (let f = 0; f < levels; f++) {
-      const sliceH = floorHeightM * 0.92;
-      const posY = f * floorHeightM + sliceH / 2;
-
-      // Floor volume body
-      dummy.position.set(posX, posY, posZ);
-      dummy.scale.set(w, sliceH, d);
+      // A. Subterranean Basement Stratum (B1)
+      dummy.position.set(posX, -floorHeightM / 2, posZ);
+      dummy.rotation.set(0, 0, 0);
+      dummy.scale.set(w * 0.98, floorHeightM * 0.95, d * 0.98);
       dummy.updateMatrix();
-      floorSlabsMesh.setMatrixAt(floorInstanceIdx, dummy.matrix);
+      if (i < safeCount) {
+        basementMesh.setMatrixAt(i, dummy.matrix);
+      }
 
-      // Horizontal floor plate separator rim
-      dummy.position.set(posX, (f + 1) * floorHeightM - 0.08, posZ);
-      dummy.scale.set(w * 1.02, 0.16, d * 1.02);
-      dummy.updateMatrix();
-      spandrelMesh.setMatrixAt(floorInstanceIdx, dummy.matrix);
+      // B. Floor-by-Floor Strata (F1..Fn)
+      for (let f = 0; f < levels; f++) {
+        if (floorInstanceIdx >= totalFloorsCount) break;
 
-      floorInstanceIdx++;
+        const sliceH = floorHeightM * 0.92;
+        const posY = f * floorHeightM + sliceH / 2;
+
+        dummy.position.set(posX, posY, posZ);
+        dummy.scale.set(w, sliceH, d);
+        dummy.updateMatrix();
+        floorSlabsMesh.setMatrixAt(floorInstanceIdx, dummy.matrix);
+
+        // Horizontal floor plate separator rim
+        dummy.position.set(posX, (f + 1) * floorHeightM - 0.08, posZ);
+        dummy.scale.set(w * 1.02, 0.16, d * 1.02);
+        dummy.updateMatrix();
+        spandrelMesh.setMatrixAt(floorInstanceIdx, dummy.matrix);
+
+        floorInstanceIdx++;
+      }
+
+      // C. Rooftop HVAC Unit
+      const totalH = levels * floorHeightM;
+      if (totalH >= 18 && hvacIdx < hvacCount) {
+        const hvacW = Math.max(2.5, w * 0.32);
+        const hvacD = Math.max(2.5, d * 0.32);
+        const hvacH = Math.min(3.5, Math.max(1.5, totalH * 0.06));
+        const hvacY = totalH + hvacH / 2;
+
+        dummy.position.set(posX, hvacY, posZ);
+        dummy.scale.set(hvacW, hvacH, hvacD);
+        dummy.updateMatrix();
+        hvacMesh.setMatrixAt(hvacIdx++, dummy.matrix);
+      }
     }
 
-    // C. Add Rooftop HVAC Unit if building is tall enough
-    const totalH = levels * floorHeightM;
-    if (totalH >= 18 && hvacMesh) {
-      const hvacW = Math.max(2.5, w * 0.32);
-      const hvacD = Math.max(2.5, d * 0.32);
-      const hvacH = Math.min(3.5, Math.max(1.5, totalH * 0.06));
-      const hvacY = totalH + hvacH / 2;
+    floorSlabsMesh.instanceMatrix.needsUpdate = true;
+    spandrelMesh.instanceMatrix.needsUpdate = true;
+    basementMesh.instanceMatrix.needsUpdate = true;
 
-      dummy.position.set(posX, hvacY, posZ);
-      dummy.scale.set(hvacW, hvacH, hvacD);
-      dummy.updateMatrix();
-      hvacMesh.setMatrixAt(hvacIdx++, dummy.matrix);
+    group.add(floorSlabsMesh);
+    group.add(spandrelMesh);
+    group.add(basementMesh);
+
+    if (hvacIdx > 0) {
+      hvacMesh.instanceMatrix.needsUpdate = true;
+      group.add(hvacMesh);
     }
-  }
 
-  floorSlabsMesh.instanceMatrix.needsUpdate = true;
-  spandrelMesh.instanceMatrix.needsUpdate = true;
-  basementMesh.instanceMatrix.needsUpdate = true;
+    // 5. Interconnected 3D Subterranean Utility Pipeline Network
+    if (targetBuilding && validBuildings.length > 0) {
+      const pipelinesGroup = new THREE.Group();
+      pipelinesGroup.name = 'city_context_utility_network';
 
-  group.add(floorSlabsMesh);
-  group.add(spandrelMesh);
-  group.add(basementMesh);
+      const UTILITY_DOMAIN_SPECS = [
+        { type: 'water', colorHex: 0x38bdf8, depth: 2.8, radius: 0.28 },
+        { type: 'sewage', colorHex: 0xa3e635, depth: 4.6, radius: 0.35 },
+        { type: 'gas', colorHex: 0xfb923c, depth: 3.4, radius: 0.22 },
+        { type: 'power', colorHex: 0xfacc15, depth: 1.9, radius: 0.25 },
+        { type: 'telecom', colorHex: 0xc084fc, depth: 1.4, radius: 0.18 },
+      ];
 
-  if (hvacMesh) {
-    hvacMesh.instanceMatrix.needsUpdate = true;
-    group.add(hvacMesh);
-  }
+      UTILITY_DOMAIN_SPECS.forEach((domain, dIdx) => {
+        const pipeMat = new THREE.MeshStandardMaterial({
+          color: domain.colorHex,
+          emissive: domain.colorHex,
+          emissiveIntensity: 0.65,
+          roughness: 0.3,
+          metalness: 0.7,
+        });
 
-  // 5. Interconnected 3D Subterranean Utility Pipeline Network
-  if (targetBuilding) {
-    const pipelinesGroup = new THREE.Group();
-    pipelinesGroup.name = 'city_context_utility_network';
+        const hubAngleOffset = (dIdx / UTILITY_DOMAIN_SPECS.length) * Math.PI * 2;
+        const hubDist = 18;
+        const hubX = Math.cos(hubAngleOffset) * hubDist;
+        const hubZ = Math.sin(hubAngleOffset) * hubDist;
 
-    const UTILITY_DOMAIN_SPECS: Array<{
-      type: string;
-      colorHex: number;
-      depth: number;
-      radius: number;
-    }> = [
-      { type: 'water', colorHex: 0x38bdf8, depth: 2.8, radius: 0.28 },
-      { type: 'sewage', colorHex: 0xa3e635, depth: 4.6, radius: 0.35 },
-      { type: 'gas', colorHex: 0xfb923c, depth: 3.4, radius: 0.22 },
-      { type: 'power', colorHex: 0xfacc15, depth: 1.9, radius: 0.25 },
-      { type: 'telecom', colorHex: 0xc084fc, depth: 1.4, radius: 0.18 },
-    ];
+        // Sample up to 12 surrounding buildings for performance & clarity
+        const targetSubset = validBuildings.slice(0, 16).filter((_, i) => i % UTILITY_DOMAIN_SPECS.length === dIdx);
 
-    UTILITY_DOMAIN_SPECS.forEach((domain, dIdx) => {
-      const tubeMat = new THREE.MeshStandardMaterial({
-        color: domain.colorHex,
-        emissive: domain.colorHex,
-        emissiveIntensity: 0.65,
-        roughness: 0.25,
-        metalness: 0.8,
-        transparent: true,
-        opacity: 0.92,
+        targetSubset.forEach((bld) => {
+          const bX = bld.localX;
+          const bZ = bld.localZ;
+          const deltaX = bX - hubX;
+          const deltaZ = bZ - hubZ;
+          const len = Math.hypot(deltaX, deltaZ);
+          if (len < 2) return;
+
+          // Horizontal Pipeline Cylinder
+          const pipeGeo = new THREE.CylinderGeometry(domain.radius, domain.radius, len, 8);
+          pipeGeo.rotateZ(Math.PI / 2);
+          const pipeMesh = new THREE.Mesh(pipeGeo, pipeMat);
+          pipeMesh.position.set(hubX + deltaX / 2, -domain.depth, hubZ + deltaZ / 2);
+          pipeMesh.rotation.y = -Math.atan2(deltaZ, deltaX);
+          pipelinesGroup.add(pipeMesh);
+
+          // Subterranean Connection Riser Node
+          const riserGeo = new THREE.CylinderGeometry(domain.radius * 1.1, domain.radius * 1.1, domain.depth, 8);
+          const riserMesh = new THREE.Mesh(riserGeo, pipeMat);
+          riserMesh.position.set(bX, -domain.depth / 2, bZ);
+          pipelinesGroup.add(riserMesh);
+        });
       });
 
-      const hubAngleOffset = (dIdx / UTILITY_DOMAIN_SPECS.length) * Math.PI * 2;
-      const hubDist = 18;
-      const hubX = Math.cos(hubAngleOffset) * hubDist;
-      const hubZ = Math.sin(hubAngleOffset) * hubDist;
-
-      // Connect branch lines from hub to surrounding buildings
-      const targetSubset = validBuildings.filter((_, i) => i % UTILITY_DOMAIN_SPECS.length === dIdx || i % 2 === 0);
-
-      targetSubset.forEach((bld) => {
-        const bX = bld.localX;
-        const bZ = bld.localZ;
-        const midX = hubX + (bX - hubX) * 0.55;
-        const midZ = hubZ + (bZ - hubZ) * 0.15;
-
-        const pathPoints: THREE.Vector3[] = [
-          new THREE.Vector3(hubX, -domain.depth, hubZ),
-          new THREE.Vector3(midX, -domain.depth, midZ),
-          new THREE.Vector3(bX * 0.85, -domain.depth, bZ * 0.85),
-          new THREE.Vector3(bX, -domain.depth, bZ),
-        ];
-
-        const curve = new THREE.CatmullRomCurve3(pathPoints);
-        const tubeGeo = new THREE.TubeGeometry(curve, 20, domain.radius, 8, false);
-        const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
-        pipelinesGroup.add(tubeMesh);
-
-        // Building Terminus Service Node Box
-        const nodeGeo = new THREE.BoxGeometry(domain.radius * 3.5, domain.radius * 3.5, domain.radius * 3.5);
-        const nodeMesh = new THREE.Mesh(nodeGeo, tubeMat);
-        nodeMesh.position.set(bX, -domain.depth, bZ);
-        pipelinesGroup.add(nodeMesh);
-
-        // Subterranean Riser to building basement
-        const riserCurve = new THREE.LineCurve3(
-          new THREE.Vector3(bX, -domain.depth, bZ),
-          new THREE.Vector3(bX, -0.2, bZ)
-        );
-        const riserGeo = new THREE.TubeGeometry(riserCurve, 4, domain.radius * 0.7, 8, false);
-        const riserMesh = new THREE.Mesh(riserGeo, tubeMat);
-        pipelinesGroup.add(riserMesh);
-      });
-    });
-
-    group.add(pipelinesGroup);
+      group.add(pipelinesGroup);
+    }
+  } catch (err) {
+    console.warn('buildCityContextInstancedMesh error caught gracefully:', err);
   }
-
-  // 7. Base Terrain Disc Ground Plane
-  const groundSize = radiusMeters * 2.1;
-  const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize);
-  const groundTex = getUrbanGroundTexture();
-  const groundMat = new THREE.MeshStandardMaterial({
-    color: 0x1e2638,
-    map: groundTex,
-    roughness: 0.85,
-    metalness: 0.1,
-    polygonOffset: true,
-    polygonOffsetFactor: 3.0,
-    polygonOffsetUnits: 3.0,
-  });
-  const groundMesh = new THREE.Mesh(groundGeo, groundMat);
-  groundMesh.rotation.x = -Math.PI / 2;
-  groundMesh.position.y = -0.05;
-  groundMesh.receiveShadow = true;
-  group.add(groundMesh);
-
-  // 8. Spatial Polar Grid Helper
-  const polarGrid = new THREE.PolarGridHelper(radiusMeters * 0.95, 16, 0x38bdf8, 0x334155);
-  polarGrid.position.set(0, 0.02, 0);
-  if (polarGrid.material) {
-    (polarGrid.material as THREE.Material).transparent = true;
-    (polarGrid.material as THREE.Material).opacity = 0.25;
-  }
-  group.add(polarGrid);
-
-  // 9. Subtle Luminous Geodetic Cadastral Boundary Perimeter Ring
-  const ringGeom = new THREE.RingGeometry(radiusMeters * 0.94, radiusMeters * 0.99, 64);
-  ringGeom.rotateX(-Math.PI / 2);
-  const ringMat = new THREE.MeshBasicMaterial({
-    color: 0x00c8ff,
-    transparent: true,
-    opacity: 0.28,
-    side: THREE.DoubleSide,
-  });
-  const ringMesh = new THREE.Mesh(ringGeom, ringMat);
-  ringMesh.position.y = 0.04;
-  group.add(ringMesh);
 
   return group;
 }
