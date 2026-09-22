@@ -1,5 +1,6 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
+import QRCode from 'qrcode';
 import {
   ShieldCheck, Printer, Download, X, Building2,
   CheckCircle, FileText, Compass, Layers, Globe
@@ -15,6 +16,7 @@ interface CertificateModalProps {
 
 export default function CertificateModal({ unit, building, onClose }: CertificateModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
 
   const floorNum = unit.floor_number ?? unit.floor ?? 1;
   const floorHtM = unit.floor_height_m ?? 3.5;
@@ -25,6 +27,26 @@ export default function CertificateModal({ unit, building, onClose }: Certificat
 
   const lat = unit.centroid?.[0] ?? building?.latitude ?? 28.6139;
   const lon = unit.centroid?.[1] ?? building?.longitude ?? 77.2090;
+
+  useEffect(() => {
+    // Generate real, scannable QR code linking to the verification details
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://frontend-six-rose-swbx44xlv9.vercel.app';
+    const verifyUrl = `${origin}/?ulpin=${encodeURIComponent(unit.ulpin || '')}&unit=${encodeURIComponent(unit.unit_id || '')}#verify`;
+    
+    QRCode.toDataURL(verifyUrl, {
+      width: 200,
+      margin: 1,
+      color: {
+        dark: '#0f172a',
+        light: '#ffffff'
+      },
+      errorCorrectionLevel: 'M'
+    }).then(url => {
+      setQrDataUrl(url);
+    }).catch(err => {
+      console.error('Failed to generate QR code:', err);
+    });
+  }, [unit.ulpin, unit.unit_id]);
 
   const handlePrint = () => {
     window.print();
@@ -149,28 +171,17 @@ export default function CertificateModal({ unit, building, onClose }: Certificat
               {/* Dynamic QR & Verification Code */}
               <div className="cert-qr-col">
                 <div className="qr-box">
-                  <svg className="qr-svg" viewBox="0 0 100 100" width="100" height="100">
-                    <rect width="100" height="100" fill="#ffffff" />
-                    <rect x="10" y="10" width="24" height="24" fill="#0f172a" />
-                    <rect x="14" y="14" width="16" height="16" fill="#ffffff" />
-                    <rect x="18" y="18" width="8" height="8" fill="#0f172a" />
-                    <rect x="66" y="10" width="24" height="24" fill="#0f172a" />
-                    <rect x="70" y="14" width="16" height="16" fill="#ffffff" />
-                    <rect x="74" y="18" width="8" height="8" fill="#0f172a" />
-                    <rect x="10" y="66" width="24" height="24" fill="#0f172a" />
-                    <rect x="14" y="70" width="16" height="16" fill="#ffffff" />
-                    <rect x="18" y="74" width="8" height="8" fill="#0f172a" />
-                    <rect x="42" y="15" width="6" height="6" fill="#0f172a" />
-                    <rect x="52" y="25" width="6" height="6" fill="#0f172a" />
-                    <rect x="40" y="42" width="18" height="18" fill="#0D9488" />
-                    <rect x="44" y="46" width="10" height="10" fill="#ffffff" />
-                    <rect x="15" y="42" width="6" height="6" fill="#0f172a" />
-                    <rect x="25" y="52" width="6" height="6" fill="#0f172a" />
-                    <rect x="70" y="42" width="6" height="6" fill="#0f172a" />
-                    <rect x="80" y="52" width="6" height="6" fill="#0f172a" />
-                    <rect x="66" y="75" width="6" height="6" fill="#0f172a" />
-                    <rect x="78" y="75" width="6" height="6" fill="#0f172a" />
-                  </svg>
+                  {qrDataUrl ? (
+                    <img
+                      src={qrDataUrl}
+                      alt="ULPIN 3D Cadastre QR Code"
+                      width={104}
+                      height={104}
+                      className="qr-image"
+                    />
+                  ) : (
+                    <div className="qr-placeholder" style={{ width: 104, height: 104, background: '#f1f5f9' }} />
+                  )}
                   <span className="qr-caption font-mono">SCAN TO VERIFY 3D CADASTRE</span>
                 </div>
                 <div className="security-hash font-mono">
