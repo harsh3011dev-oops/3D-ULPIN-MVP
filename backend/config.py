@@ -5,6 +5,7 @@ Central settings loader using pydantic-settings.
 All config comes from .env file — never hardcoded.
 """
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from pathlib import Path
@@ -23,6 +24,11 @@ class Settings(BaseSettings):
 
     # ── Database ──────────────────────────────
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/postgres"
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def strip_database_url(cls, v: str) -> str:
+        return v.strip() if isinstance(v, str) else v
 
     # ── App ───────────────────────────────────
     secret_key: str = "change-me"

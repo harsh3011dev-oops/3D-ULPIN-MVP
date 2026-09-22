@@ -18,7 +18,7 @@ from backend.models import Base
 config = context.config
 
 # Replace asyncpg with psycopg2 for migrations to bypass pgbouncer issues
-sync_db_url = settings.database_url.replace("postgresql+asyncpg://", "postgresql://").replace("%", "%%")
+sync_db_url = settings.database_url.strip().replace("postgresql+asyncpg://", "postgresql://").replace("%", "%%")
 config.set_main_option("sqlalchemy.url", sync_db_url)
 
 # Interpret the config file for Python logging.
