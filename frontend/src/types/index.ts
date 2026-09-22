@@ -257,6 +257,7 @@ export interface Building {
   floor_count: number;
   total_units?: number;
   extrusion_3d?: Extrusion3D;
+  floors?: any[];
   units: Unit[];
   validation?: SpatialValidation;
   created_at?: string;
