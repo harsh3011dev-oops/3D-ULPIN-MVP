@@ -123,7 +123,7 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
             if not building_id:
                 raise RuntimeError("AI pipeline completed without a building ID.")
             
-            try:
+            async def _persist_to_db():
                 from sqlalchemy import select
                 from backend.models import Parcel
 
@@ -179,11 +179,14 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
                 )
                 db.add(val_log)
                 await db.commit()
+
+            try:
+                await asyncio.wait_for(_persist_to_db(), timeout=6.0)
             except Exception as e:
-                logger.warning(f"Database unavailable for pipeline flush, saving result to memory cache: {e}")
+                logger.warning(f"Database unavailable or timed out for pipeline flush, saving result to memory cache: {e}")
                 if db:
                     try:
-                        await db.rollback()
+                        await asyncio.wait_for(db.rollback(), timeout=2.0)
                     except:
                         pass
             # Save result to disk for persistence across restarts

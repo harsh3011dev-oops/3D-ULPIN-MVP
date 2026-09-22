@@ -41,9 +41,9 @@ export default function CertificateModal({ unit, building, onClose }: Certificat
         light: '#ffffff'
       },
       errorCorrectionLevel: 'M'
-    }).then(url => {
+    }).then((url: string) => {
       setQrDataUrl(url);
-    }).catch(err => {
+    }).catch((err: unknown) => {
       console.error('Failed to generate QR code:', err);
     });
   }, [unit.ulpin, unit.unit_id]);

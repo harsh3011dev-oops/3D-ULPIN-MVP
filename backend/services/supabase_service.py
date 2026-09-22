@@ -107,6 +107,7 @@ async def update_job_status(
 
     if db:
         try:
+            import asyncio
             stmt = update(Job).where(Job.job_id == job_id).values(status=status)
             if progress_pct is not None:
                 stmt = stmt.values(progress_pct=progress_pct)
@@ -121,10 +122,13 @@ async def update_job_status(
             if completed_at:
                 stmt = stmt.values(completed_at=completed_at)
                 
-            await db.execute(stmt)
-            await db.commit()
+            async def _execute_db():
+                await db.execute(stmt)
+                await db.commit()
+
+            await asyncio.wait_for(_execute_db(), timeout=4.0)
         except Exception as e:
-            logger.warning(f"DB update failed for job {job_id}: {e}")
+            logger.warning(f"DB update failed or timed out for job {job_id}: {e}")
 
 async def get_building_with_units(db: AsyncSession, building_id: str):
     """Fetch a building by its string ID, including all its units. Supports memory fallback."""
