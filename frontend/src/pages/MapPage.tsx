@@ -15,7 +15,8 @@ import { getBuildingCenter } from '../utils/footprintUtils';
 import { applyVerifiedBuildingMetadata, getVerifiedBuildingMetadata } from '../utils/verifiedBuildingMetadata';
 import {
   Building2, MapPin, Layers,
-  ShieldCheck, Activity, Loader2, AlertTriangle
+  ShieldCheck, Activity, Loader2, AlertTriangle,
+  Compass, Box, PanelRight
 } from 'lucide-react';
 import './MapPage.css';
 
@@ -23,6 +24,7 @@ export default function MapPage() {
   const { buildingId: building_id } = useParams<{ buildingId: string }>();
 
   const [building, setBuilding]           = useState<Building | null>(null);
+  const [viewMode, setViewMode]           = useState<'deck' | 'three'>('deck');
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
   const [selectedUnit, setSelectedUnit]   = useState<Unit | null>(null);
   const [isLoading, setIsLoading]         = useState(true);
@@ -64,12 +66,12 @@ export default function MapPage() {
     loadData();
   }, [building_id]);
 
-  const [isRightOpen, setIsRightOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 900);
+  const [isRightOpen, setIsRightOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 768);
 
   // Auto handle window resize for desktop site toggle on mobile
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth > 900) {
+      if (window.innerWidth > 768) {
         setIsRightOpen(true);
       }
     };
@@ -112,8 +114,23 @@ export default function MapPage() {
 
         {/* ── 3D Viewport (Full Width) ── */}
         <div className="map-viewport">
+          {/* Persistent Floating Tab to Re-open Sidebar whenever it's closed */}
+          {!isRightOpen && (
+            <button
+              type="button"
+              className="sidebar-open-floating-tab"
+              onClick={() => setIsRightOpen(true)}
+              title="Open 3D Cadastral Record & Floor Isolator Panel"
+            >
+              <PanelRight size={15} />
+              <span>3D Cadastral Record & Floors</span>
+            </button>
+          )}
+
           <Map3D
             building={building}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
             selectedFloor={selectedFloor}
             onFloorSelect={setSelectedFloor}
             selectedUnit={selectedUnit}
@@ -166,6 +183,26 @@ export default function MapPage() {
                 aria-label="Close Record"
               >✕</button>
             </div>
+          </div>
+
+          {/* Sidebar 3D Engine Mode Switcher Bar */}
+          <div className="sidebar-engine-mode-switcher">
+            <button
+              type="button"
+              className={`sidebar-mode-btn ${viewMode === 'deck' ? 'active' : ''}`}
+              onClick={() => setViewMode('deck')}
+            >
+              <Compass size={13} />
+              <span>deck.gl Geospatial</span>
+            </button>
+            <button
+              type="button"
+              className={`sidebar-mode-btn ${viewMode === 'three' ? 'active' : ''}`}
+              onClick={() => setViewMode('three')}
+            >
+              <Box size={13} />
+              <span>Three.js 3D Studio</span>
+            </button>
           </div>
 
           {/* Building Overview Card */}

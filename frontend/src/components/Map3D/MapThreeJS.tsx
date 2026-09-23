@@ -3691,7 +3691,7 @@ export default function MapThreeJS({
       </div>
 
       {/* Location Banner with Geometry Source Telemetry */}
-      <div className="location-banner-header absolute top-4 left-4 p-2.5 z-10 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur rounded-lg border border-indigo-500/40 shadow-xl">
+      <div className="location-banner-header absolute top-[60px] left-4 p-2.5 z-10 flex items-center gap-2.5 bg-slate-900/90 backdrop-blur rounded-lg border border-indigo-500/40 shadow-xl">
         <div className="w-7 h-7 rounded-md bg-indigo-500/20 text-indigo-400 border border-indigo-500/40 flex items-center justify-center">
           <MapPin size={16} />
         </div>
