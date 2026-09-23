@@ -125,6 +125,80 @@
   color: #cbd5e1;
 }
 
+/* ── Subterranean Utility Domain Filter Pill Bar ── */
+.utility-domain-filter-bar {
+  position: absolute;
+  top: 104px;
+  left: 14px;
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(10, 15, 30, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  border-radius: 24px;
+  padding: 3px 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 16px rgba(124, 111, 224, 0.2);
+  animation: slideUpFade 0.2s ease-out;
+}
+
+.utility-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  padding: 4px 9px;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+}
+
+.utility-filter-btn:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.utility-filter-btn.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.utility-filter-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Underground Pipeline & Node Hover Tooltip ── */
+.underground-hover-tooltip {
+  position: absolute;
+  pointer-events: none;
+  z-index: 40;
+  transform: translate(12px, -50%);
+  background: rgba(10, 15, 30, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(167, 139, 250, 0.45);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #f1f5f9;
+  font-family: 'Inter', sans-serif;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), 0 0 16px rgba(124, 111, 224, 0.2);
+  min-width: 220px;
+  max-width: 320px;
+}
+
 .basemap-select-input {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);

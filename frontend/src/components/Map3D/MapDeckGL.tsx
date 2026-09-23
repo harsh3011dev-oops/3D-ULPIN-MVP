@@ -113,6 +113,8 @@ export default function MapDeckGL({
 
   const [terrainEnabled, setTerrainEnabled] = useState(true);
   const [showUnderground, setShowUnderground] = useState(true);
+  const [activeUtilityFilter, setActiveUtilityFilter] = useState<'all' | 'water' | 'power' | 'telecom' | 'gas' | 'sewage'>('all');
+  const [hoveredUnderground, setHoveredUnderground] = useState<{ item: any; x: number; y: number } | null>(null);
   const [selectedUnderground, setSelectedUnderground] = useState<any | null>(null);
   const [showDebugTelemetry, setShowDebugTelemetry] = useState(false);
 
@@ -447,37 +449,43 @@ export default function MapDeckGL({
     return getBuildingUtilityPipelines(building);
   }, [building]);
 
-  const undergroundPipesData = useMemo(() => {
-    const columns: any[] = [];
-    utilityPipelines.forEach((util) => {
-      const r = Math.max((util.diameter_mm / 1000) * 4.5, 2.0);
-      const path = util.pathGeodetic;
-      for (let i = 0; i < path.length; i++) {
-        const [lon, lat, depth] = path[i];
-        columns.push({
-          position: [lon, lat, -depth],
-          radius: r,
-          color: util.color,
-          ulpin: util.ulpin,
-          title: util.title,
-          type: util.type,
-          depth_m: depth,
-          diameter_mm: util.diameter_mm,
-          capacity: util.capacity,
-        });
-      }
-    });
-    return columns;
-  }, [utilityPipelines]);
+  const neighborhoodUtilityNetwork = useMemo(() => {
+    return getNeighborhoodUtilityPipelines(building, surroundingCityContext?.buildings || []);
+  }, [building, surroundingCityContext?.buildings]);
 
-  const undergroundPathsData = useMemo(() => {
-    return utilityPipelines.map((u) => ({
-      path: u.pathGeodetic.map(([lng, lat, depth]) => [lng, lat, -depth]),
-      color: u.color,
-      width: Math.max(u.diameter_mm / 35, 3.5),
-      util: u,
-    }));
-  }, [utilityPipelines]);
+  const filteredBuildingPathsData = useMemo(() => {
+    return utilityPipelines
+      .filter((u) => activeUtilityFilter === 'all' || u.type === activeUtilityFilter)
+      .map((u) => {
+        const isFocus = activeUtilityFilter === u.type;
+        return {
+          path: u.pathGeodetic.map(([lng, lat, depth]) => [lng, lat, -depth]),
+          color: (isFocus ? [u.color[0], u.color[1], u.color[2], 255] : u.color) as [number, number, number, number],
+          width: isFocus ? Math.max(u.diameter_mm / 28, 4.5) : Math.max(u.diameter_mm / 36, 3.2),
+          util: u,
+        };
+      });
+  }, [utilityPipelines, activeUtilityFilter]);
+
+  const filteredNeighborhoodPathsData = useMemo(() => {
+    return neighborhoodUtilityNetwork.pathLayerData
+      .filter((p) => activeUtilityFilter === 'all' || p.type === activeUtilityFilter)
+      .map((p) => {
+        const isFocus = activeUtilityFilter === p.type;
+        const alpha = isFocus ? 255 : p.isTrunk ? 240 : 210;
+        return {
+          ...p,
+          color: [p.color[0], p.color[1], p.color[2], alpha] as [number, number, number, number],
+          width: isFocus ? p.width * 1.35 : p.width,
+        };
+      });
+  }, [neighborhoodUtilityNetwork.pathLayerData, activeUtilityFilter]);
+
+  const filteredServiceNodes = useMemo(() => {
+    return neighborhoodUtilityNetwork.serviceNodes.filter(
+      (n) => activeUtilityFilter === 'all' || n.type === activeUtilityFilter
+    );
+  }, [neighborhoodUtilityNetwork.serviceNodes, activeUtilityFilter]);
 
   const undergroundLabelsData = useMemo(() => {
     if (!undergroundUnitsGeoJSON?.features?.length) return [];
@@ -527,14 +535,10 @@ export default function MapDeckGL({
 
   const googleTilesUrl = useMemo(() => getGoogle3DTilesUrl(), []);
 
-  // ── Surrounding Multi-Floor GeoJSON & Subterranean Neighborhood Network ──
+  // ── Surrounding Multi-Floor GeoJSON ──
   const surroundingFloorsGeoJSON = useMemo(() => {
     return generateSurroundingFloorsGeoJSON(surroundingCityContext?.buildings || []);
   }, [surroundingCityContext?.buildings]);
-
-  const neighborhoodUtilityNetwork = useMemo(() => {
-    return getNeighborhoodUtilityPipelines(building, surroundingCityContext?.buildings || []);
-  }, [building, surroundingCityContext?.buildings]);
 
   // ─────────────────────────────────────────────────────────────
   // DECK.GL LAYER STACK:
@@ -744,11 +748,11 @@ export default function MapDeckGL({
         );
       }
 
-      if (undergroundPathsData.length > 0) {
+      if (filteredBuildingPathsData.length > 0) {
         undergroundLayers.push(
           new PathLayer({
             id: 'underground-pipes-tubes-layer',
-            data: undergroundPathsData,
+            data: filteredBuildingPathsData,
             getPath: (d: any) => d.path,
             getColor: (d: any) => d.color,
             getWidth: (d: any) => d.width,
@@ -758,22 +762,33 @@ export default function MapDeckGL({
             opacity: 0.95,
             pickable: true,
             autoHighlight: true,
-            highlightColor: [255, 255, 255, 200],
+            highlightColor: [255, 255, 255, 220],
+            onHover: (info: any) => {
+              if (info.object?.util) {
+                setHoveredUnderground({ item: info.object.util, x: info.x, y: info.y });
+              } else {
+                setHoveredUnderground(null);
+              }
+            },
             onClick: (info: any) => {
               if (info.object?.util) {
                 setSelectedUnderground(info.object.util);
               }
             },
+            updateTriggers: {
+              getColor: [activeUtilityFilter],
+              getWidth: [activeUtilityFilter],
+            },
           })
         );
       }
 
-      // Interconnected Neighborhood Subterranean Utility Pipeline Network
-      if (neighborhoodUtilityNetwork.pathLayerData.length > 0) {
+      // Interconnected Municipal Corridor Trunk & Neighborhood Subterranean Utility Pipeline Network
+      if (filteredNeighborhoodPathsData.length > 0) {
         undergroundLayers.push(
           new PathLayer({
             id: 'neighborhood-utility-paths-layer',
-            data: neighborhoodUtilityNetwork.pathLayerData,
+            data: filteredNeighborhoodPathsData,
             getPath: (d: any) => d.path,
             getColor: (d: any) => d.color,
             getWidth: (d: any) => d.width,
@@ -784,69 +799,66 @@ export default function MapDeckGL({
             pickable: true,
             autoHighlight: true,
             highlightColor: [255, 255, 255, 220],
+            onHover: (info: any) => {
+              if (info.object) {
+                setHoveredUnderground({ item: info.object, x: info.x, y: info.y });
+              } else {
+                setHoveredUnderground(null);
+              }
+            },
             onClick: (info: any) => {
               if (info.object) {
                 setSelectedUnderground(info.object);
               }
             },
+            updateTriggers: {
+              getColor: [activeUtilityFilter],
+              getWidth: [activeUtilityFilter],
+            },
           })
         );
       }
 
-      if (neighborhoodUtilityNetwork.serviceNodes.length > 0) {
+      if (filteredServiceNodes.length > 0) {
         undergroundLayers.push(
           new ColumnLayer({
             id: 'neighborhood-utility-nodes-layer',
-            data: neighborhoodUtilityNetwork.serviceNodes,
+            data: filteredServiceNodes,
             getPosition: (d: any) => d.position,
             getFillColor: (d: any) => d.color,
-            getLineColor: [255, 255, 255, 200],
+            getLineColor: [255, 255, 255, 220],
             getLineWidth: 1.5,
             lineWidthUnits: 'pixels',
-            radius: 1.4,
-            diskResolution: 12,
+            radius: 1.8,
+            diskResolution: 16,
             elevationScale: 1.0,
-            getElevation: 0.8,
+            getElevation: (d: any) => (d.nodeType === 'corridor_junction' ? 1.4 : 0.8),
             opacity: 0.95,
             pickable: true,
             autoHighlight: true,
-            highlightColor: [255, 255, 255, 200],
+            highlightColor: [255, 255, 255, 220],
+            onHover: (info: any) => {
+              if (info.object) {
+                setHoveredUnderground({ item: info.object, x: info.x, y: info.y });
+              } else {
+                setHoveredUnderground(null);
+              }
+            },
             onClick: (info: any) => {
               if (info.object) {
                 setSelectedUnderground({
-                  title: `${info.object.buildingName} Service Node`,
+                  title: info.object.title || `${info.object.buildingName} Service Node`,
                   type: info.object.type,
-                  ulpin: `ULPIN-NODE-${info.object.type.toUpperCase()}`,
-                  depth_m: Math.abs(info.object.position[2] || 2.5),
+                  ulpin: info.object.ulpin || `ULPIN-NODE-${info.object.type.toUpperCase()}`,
+                  depth_m: Math.abs(info.object.position?.[2] || info.object.depth_m || 2.5),
+                  diameter_mm: info.object.diameter_mm,
+                  nodeType: info.object.nodeType,
+                  buildingName: info.object.buildingName,
                 });
               }
             },
-          })
-        );
-      }
-
-      if (undergroundPipesData.length > 0) {
-        undergroundLayers.push(
-          new ColumnLayer({
-            id: 'underground-pipes-columns-layer',
-            data: undergroundPipesData,
-            getPosition: (d: any) => d.position,
-            getFillColor: (d: any) => d.color,
-            getLineColor: [255, 255, 255, 180],
-            getLineWidth: 1.2,
-            lineWidthUnits: 'pixels',
-            radius: 1.2,
-            diskResolution: 12,
-            elevationScale: 1.0,
-            getElevation: 0.6,
-            opacity: 0.92,
-            pickable: true,
-            autoHighlight: true,
-            highlightColor: [255, 255, 255, 180],
-            onClick: (info: any) => {
-              if (info.object) {
-                setSelectedUnderground(info.object);
-              }
+            updateTriggers: {
+              getFillColor: [activeUtilityFilter],
             },
           })
         );
@@ -989,11 +1001,12 @@ export default function MapDeckGL({
     mapLat,
     isLightStyle,
     showUnderground,
+    activeUtilityFilter,
     undergroundUnitsGeoJSON,
-    undergroundPathsData,
-    undergroundPipesData,
+    filteredBuildingPathsData,
+    filteredNeighborhoodPathsData,
+    filteredServiceNodes,
     undergroundLabelsData,
-    neighborhoodUtilityNetwork,
     contextRadius,
     surroundingFloorsGeoJSON,
     useGoogle3D,
@@ -1125,6 +1138,70 @@ export default function MapDeckGL({
         </label>
       </div>
 
+      {/* Subterranean Utility Domain Selector Pill Bar */}
+      {showUnderground && (
+        <div className="utility-domain-filter-bar">
+          <button
+            type="button"
+            className={`utility-filter-btn ${activeUtilityFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setActiveUtilityFilter('all')}
+            title="Show All Underground Utility Systems"
+          >
+            <span>All Networks (5)</span>
+          </button>
+          <button
+            type="button"
+            className={`utility-filter-btn ${activeUtilityFilter === 'water' ? 'active' : ''}`}
+            onClick={() => setActiveUtilityFilter('water')}
+            title="Filter Potable Water Distribution System"
+            style={{ color: activeUtilityFilter === 'water' ? '#38bdf8' : undefined }}
+          >
+            <span className="utility-filter-dot" style={{ background: '#38bdf8' }} />
+            <span>Water</span>
+          </button>
+          <button
+            type="button"
+            className={`utility-filter-btn ${activeUtilityFilter === 'power' ? 'active' : ''}`}
+            onClick={() => setActiveUtilityFilter('power')}
+            title="Filter 11kV Subterranean Electrical Grid"
+            style={{ color: activeUtilityFilter === 'power' ? '#facc15' : undefined }}
+          >
+            <span className="utility-filter-dot" style={{ background: '#facc15' }} />
+            <span>Power</span>
+          </button>
+          <button
+            type="button"
+            className={`utility-filter-btn ${activeUtilityFilter === 'telecom' ? 'active' : ''}`}
+            onClick={() => setActiveUtilityFilter('telecom')}
+            title="Filter Optical Fiber Telecom Conduits"
+            style={{ color: activeUtilityFilter === 'telecom' ? '#c084fc' : undefined }}
+          >
+            <span className="utility-filter-dot" style={{ background: '#c084fc' }} />
+            <span>Telecom</span>
+          </button>
+          <button
+            type="button"
+            className={`utility-filter-btn ${activeUtilityFilter === 'gas' ? 'active' : ''}`}
+            onClick={() => setActiveUtilityFilter('gas')}
+            title="Filter Pressurized Natural Gas Network"
+            style={{ color: activeUtilityFilter === 'gas' ? '#fb923c' : undefined }}
+          >
+            <span className="utility-filter-dot" style={{ background: '#fb923c' }} />
+            <span>Gas</span>
+          </button>
+          <button
+            type="button"
+            className={`utility-filter-btn ${activeUtilityFilter === 'sewage' ? 'active' : ''}`}
+            onClick={() => setActiveUtilityFilter('sewage')}
+            title="Filter Gravity Drainage & Wastewater Network"
+            style={{ color: activeUtilityFilter === 'sewage' ? '#a3e635' : undefined }}
+          >
+            <span className="utility-filter-dot" style={{ background: '#a3e635' }} />
+            <span>Drainage</span>
+          </button>
+        </div>
+      )}
+
       {/* Location Banner with Cadastral Volume Status */}
       <div className="location-overlay-banner">
         <div className="location-icon-pin">
@@ -1185,7 +1262,7 @@ export default function MapDeckGL({
         </div>
       )}
 
-      {/* Hover Tooltip */}
+      {/* Hover Tooltip for Cadastral Units */}
       {hoveredUnitInfo && (
         <div
           style={{
@@ -1231,6 +1308,59 @@ export default function MapDeckGL({
         </div>
       )}
 
+      {/* Floating Hover Tooltip for Subterranean Utility Infrastructure */}
+      {hoveredUnderground && !selectedUnderground && (
+        <div
+          className="underground-hover-tooltip"
+          style={{
+            left: hoveredUnderground.x,
+            top: hoveredUnderground.y,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                display: 'inline-block',
+                background:
+                  hoveredUnderground.item.type === 'water'
+                    ? '#38bdf8'
+                    : hoveredUnderground.item.type === 'power'
+                    ? '#facc15'
+                    : hoveredUnderground.item.type === 'telecom'
+                    ? '#c084fc'
+                    : hoveredUnderground.item.type === 'gas'
+                    ? '#fb923c'
+                    : '#a3e635',
+              }}
+            />
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.05em', color: '#cbd5e1', textTransform: 'uppercase' }}>
+              {hoveredUnderground.item.type?.toUpperCase()}{' '}
+              {hoveredUnderground.item.isTrunk ? '· MUNICIPAL TRUNK' : hoveredUnderground.item.nodeType ? `· ${hoveredUnderground.item.nodeType.toUpperCase()}` : '· SERVICE LATERAL'}
+            </span>
+          </div>
+          <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#ffffff', lineHeight: 1.25 }}>
+            {hoveredUnderground.item.title || hoveredUnderground.item.name || 'Subterranean Infrastructure'}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px', fontSize: '0.68rem', color: '#94a3b8', fontFamily: 'monospace' }}>
+            <span>Depth: -{hoveredUnderground.item.depth_m || 2.5}m</span>
+            {hoveredUnderground.item.diameter_mm && (
+              <span>DN {hoveredUnderground.item.diameter_mm}mm</span>
+            )}
+            {hoveredUnderground.item.capacity && (
+              <span>{hoveredUnderground.item.capacity} {hoveredUnderground.item.capacityUnit || ''}</span>
+            )}
+          </div>
+          {hoveredUnderground.item.ulpin && (
+            <div style={{ marginTop: '4px', fontSize: '0.65rem', color: '#38bdf8', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+              {hoveredUnderground.item.ulpin}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Sleek Underground Subsurface Spatial Record Panel */}
       {selectedUnderground && (
         <div className="underground-info-panel">
@@ -1254,9 +1384,10 @@ export default function MapDeckGL({
                 <div className="ug-subtitle-text">
                   Type:{' '}
                   <span className="ug-badge">
-                    {selectedUnderground.subsurface_zone || selectedUnderground.type?.toUpperCase()}
+                    {selectedUnderground.subsurface_zone || selectedUnderground.nodeType?.toUpperCase() || selectedUnderground.type?.toUpperCase()}
                   </span>
                   {selectedUnderground.level && ` · Level ${selectedUnderground.level}`}
+                  {selectedUnderground.isTrunk && ' · Municipal Trunk Main'}
                 </div>
               </div>
             </div>
@@ -1295,6 +1426,20 @@ export default function MapDeckGL({
                 <div className="ug-stat-card">
                   <span className="ug-stat-label">Pipe Diameter</span>
                   <span className="ug-stat-val">DN {selectedUnderground.diameter_mm} mm</span>
+                </div>
+              ) : null}
+
+              {selectedUnderground.capacity ? (
+                <div className="ug-stat-card">
+                  <span className="ug-stat-label">Design Capacity</span>
+                  <span className="ug-stat-val">{selectedUnderground.capacity} {selectedUnderground.capacityUnit || ''}</span>
+                </div>
+              ) : null}
+
+              {selectedUnderground.buildingName ? (
+                <div className="ug-stat-card">
+                  <span className="ug-stat-label">Service Corridor</span>
+                  <span className="ug-stat-val" style={{ fontSize: '0.72rem' }}>{selectedUnderground.buildingName}</span>
                 </div>
               ) : null}
             </div>
