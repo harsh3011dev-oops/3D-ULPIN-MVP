@@ -68,6 +68,13 @@ export default function MapPage() {
 
   const [isRightOpen, setIsRightOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 768);
 
+  // Ensure page is always scrolled to top on mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    if (document.documentElement) document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
+  }, []);
+
   // Auto handle window resize for desktop site toggle on mobile
   useEffect(() => {
     const handleResize = () => {

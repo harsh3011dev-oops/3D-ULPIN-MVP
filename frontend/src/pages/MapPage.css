@@ -2,9 +2,14 @@
 .map-page {
   display: flex;
   flex-direction: column;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
   height: 100vh;
+  max-height: 100vh;
   background: var(--bg-primary);
   overflow: hidden;
+  z-index: 1;
 }
 
 .map-content-area {
@@ -13,6 +18,7 @@
   grid-template-columns: 1fr 340px;
   overflow: hidden;
   min-height: 0;
+  height: calc(100vh - 56px);
   position: relative;
   transition: all var(--transition-fast);
 }
