@@ -274,34 +274,34 @@ export function buildCityContextInstancedMesh(
 
     const facadeTexture = getArchitecturalFacadeTexture();
 
-    // 3. Multi-Floor Strata Slab Material (Clear individual floor plates)
+    // 3. Multi-Floor Strata Slab Material (Clear, luminous individual floor plates)
     const floorSlabMaterial = new THREE.MeshStandardMaterial({
-      color: 0x3b4c68,
+      color: 0x475569,
       map: facadeTexture,
-      roughness: 0.45,
+      roughness: 0.35,
       metalness: 0.25,
-      emissive: 0x0c1929,
+      emissive: 0x1e293b,
       emissiveMap: facadeTexture,
-      emissiveIntensity: 0.35,
+      emissiveIntensity: 0.55,
       transparent: false,
     });
 
-    // Floor Separator / Spandrel Band Material
+    // Floor Separator / Spandrel Band Material (Crisp glowing cyan/slate rim)
     const spandrelMaterial = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.3,
+      color: 0x334155,
+      roughness: 0.25,
       metalness: 0.8,
       emissive: 0x0284c7,
-      emissiveIntensity: 0.25,
+      emissiveIntensity: 0.45,
     });
 
     // Subterranean Basement Material
     const basementMaterial = new THREE.MeshStandardMaterial({
       color: 0x6366f1,
-      roughness: 0.7,
+      roughness: 0.6,
       metalness: 0.3,
       transparent: true,
-      opacity: 0.45,
+      opacity: 0.55,
       side: THREE.DoubleSide,
     });
 
@@ -320,9 +320,9 @@ export function buildCityContextInstancedMesh(
     const hvacItems = validBuildings.filter((b) => (b.height || 0) >= 18);
     const hvacCount = Math.max(1, hvacItems.length);
     const hvacMaterial = new THREE.MeshStandardMaterial({
-      color: 0x334155,
-      roughness: 0.75,
-      metalness: 0.35,
+      color: 0x475569,
+      roughness: 0.65,
+      metalness: 0.45,
     });
     const hvacMesh = new THREE.InstancedMesh(baseBoxGeometry, hvacMaterial, hvacCount);
     hvacMesh.name = 'city_context_hvac_units';
@@ -396,63 +396,6 @@ export function buildCityContextInstancedMesh(
     if (hvacIdx > 0) {
       hvacMesh.instanceMatrix.needsUpdate = true;
       group.add(hvacMesh);
-    }
-
-    // 5. Interconnected 3D Subterranean Utility Pipeline Network
-    if (targetBuilding && validBuildings.length > 0) {
-      const pipelinesGroup = new THREE.Group();
-      pipelinesGroup.name = 'city_context_utility_network';
-
-      const UTILITY_DOMAIN_SPECS = [
-        { type: 'water', colorHex: 0x38bdf8, depth: 2.8, radius: 0.28 },
-        { type: 'sewage', colorHex: 0xa3e635, depth: 4.6, radius: 0.35 },
-        { type: 'gas', colorHex: 0xfb923c, depth: 3.4, radius: 0.22 },
-        { type: 'power', colorHex: 0xfacc15, depth: 1.9, radius: 0.25 },
-        { type: 'telecom', colorHex: 0xc084fc, depth: 1.4, radius: 0.18 },
-      ];
-
-      UTILITY_DOMAIN_SPECS.forEach((domain, dIdx) => {
-        const pipeMat = new THREE.MeshStandardMaterial({
-          color: domain.colorHex,
-          emissive: domain.colorHex,
-          emissiveIntensity: 0.65,
-          roughness: 0.3,
-          metalness: 0.7,
-        });
-
-        const hubAngleOffset = (dIdx / UTILITY_DOMAIN_SPECS.length) * Math.PI * 2;
-        const hubDist = 18;
-        const hubX = Math.cos(hubAngleOffset) * hubDist;
-        const hubZ = Math.sin(hubAngleOffset) * hubDist;
-
-        // Sample up to 12 surrounding buildings for performance & clarity
-        const targetSubset = validBuildings.slice(0, 16).filter((_, i) => i % UTILITY_DOMAIN_SPECS.length === dIdx);
-
-        targetSubset.forEach((bld) => {
-          const bX = bld.localX;
-          const bZ = bld.localZ;
-          const deltaX = bX - hubX;
-          const deltaZ = bZ - hubZ;
-          const len = Math.hypot(deltaX, deltaZ);
-          if (len < 2) return;
-
-          // Horizontal Pipeline Cylinder
-          const pipeGeo = new THREE.CylinderGeometry(domain.radius, domain.radius, len, 8);
-          pipeGeo.rotateZ(Math.PI / 2);
-          const pipeMesh = new THREE.Mesh(pipeGeo, pipeMat);
-          pipeMesh.position.set(hubX + deltaX / 2, -domain.depth, hubZ + deltaZ / 2);
-          pipeMesh.rotation.y = -Math.atan2(deltaZ, deltaX);
-          pipelinesGroup.add(pipeMesh);
-
-          // Subterranean Connection Riser Node
-          const riserGeo = new THREE.CylinderGeometry(domain.radius * 1.1, domain.radius * 1.1, domain.depth, 8);
-          const riserMesh = new THREE.Mesh(riserGeo, pipeMat);
-          riserMesh.position.set(bX, -domain.depth / 2, bZ);
-          pipelinesGroup.add(riserMesh);
-        });
-      });
-
-      group.add(pipelinesGroup);
     }
   } catch (err) {
     console.warn('buildCityContextInstancedMesh error caught gracefully:', err);

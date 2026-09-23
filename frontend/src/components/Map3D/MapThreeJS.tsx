@@ -646,12 +646,12 @@ function buildSurroundingContext(
   const isStepwell = (building?.building_name && /stepwell|vav|patan/i.test(building.building_name)) ||
                      (customModelConfig?.id === 'rani-ki-vav-lidar');
 
-  const groundWidth = Math.max(dims.width * 25, sceneExtent * 12.0, 2400);
-  const groundDepth = Math.max(dims.depth * 25, sceneExtent * 12.0, 2400);
+  const groundWidth = Math.max(dims.width * 50, sceneExtent * 25.0, 50000);
+  const groundDepth = Math.max(dims.depth * 50, sceneExtent * 25.0, 50000);
 
   // 1. Broad Continuous Ground Base (Terrain / Urban Grid)
   const grassMat = new THREE.MeshStandardMaterial({
-    color: isMughalHeritage ? 0x1f3b1e : isStepwell ? 0x224a38 : 0x182c23,
+    color: isMughalHeritage ? 0x1f3b1e : isStepwell ? 0x224a38 : 0x0f172a,
     roughness: 0.95,
     metalness: 0.02,
     name: 'Surrounding_Grass_Terrain',
@@ -667,11 +667,11 @@ function buildSurroundingContext(
   surroundingsGroup.add(groundMesh);
 
   // 1b. Broad Cadastral Street & Neighborhood Grid Overlay
-  const gridHelper = new THREE.GridHelper(groundWidth, 48, 0x0d9488, 0x1e293b);
+  const gridHelper = new THREE.GridHelper(groundWidth, 96, 0x0ea5e9, 0x1e293b);
   gridHelper.position.y = -0.02;
   if (gridHelper.material instanceof THREE.Material) {
     gridHelper.material.transparent = true;
-    gridHelper.material.opacity = 0.35;
+    gridHelper.material.opacity = 0.45;
   }
   surroundingsGroup.add(gridHelper);
 
@@ -1980,11 +1980,12 @@ export default function MapThreeJS({
     const sceneExtent = Math.max(maxDim * 4, buildingHeight * 0.8, 80);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0f172a); // Tailwind Slate-900
-    scene.fog = new THREE.FogExp2(0x0f172a, 0.0012);
+    scene.background = new THREE.Color(0x0b1120); // Sleek modern high-contrast dark slate (#0B1120)
+    // Distant atmospheric horizon fog (starts at 15km, ends at 80km, never dims buildings at normal zoom)
+    scene.fog = new THREE.Fog(0x0b1120, 15000, 80000);
     sceneRef.current = scene;
 
-    const camera = new THREE.PerspectiveCamera(40, width / height, 0.5, 4000.0);
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.5, 100000.0);
     const heightFactor = buildingHeight > 500 ? 1.6 : buildingHeight > 250 ? 1.4 : 1.1;
     const targetCamDist = Math.max(maxDim * 2.2, buildingHeight * heightFactor, 45);
     camera.position.set(targetCamDist * 0.9, buildingHeight * 0.55 + maxDim * 0.25, targetCamDist * 0.9);
@@ -1994,14 +1995,14 @@ export default function MapThreeJS({
       antialias: true,
       alpha: true,
       powerPreference: 'high-performance',
-      logarithmicDepthBuffer: false,
+      logarithmicDepthBuffer: true,
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
+    renderer.toneMappingExposure = 1.35; // Luminous, vibrant architectural exposure
 
     mountRef.current.innerHTML = '';
     mountRef.current.appendChild(renderer.domElement);
@@ -2019,12 +2020,12 @@ export default function MapThreeJS({
       const envCtx = envCanvas.getContext('2d');
       if (envCtx) {
         const grad = envCtx.createLinearGradient(0, 0, 0, 256);
-        grad.addColorStop(0.0, '#0a0f1d'); // Deep twilight zenith
-        grad.addColorStop(0.35, '#1e293b'); // Dark slate sky
-        grad.addColorStop(0.65, '#38bdf8'); // Horizon atmospheric cyan glow
-        grad.addColorStop(0.75, '#fb923c'); // Dusk golden warmth
-        grad.addColorStop(0.85, '#0f172a'); // Ground horizon reflection
-        grad.addColorStop(1.0, '#030712'); // Nadir asphalt
+        grad.addColorStop(0.0, '#1e293b'); // Bright sky zenith
+        grad.addColorStop(0.35, '#334155'); // Soft slate sky
+        grad.addColorStop(0.60, '#38bdf8'); // Horizon atmospheric cyan glow
+        grad.addColorStop(0.72, '#f59e0b'); // Warm sunset horizon accent
+        grad.addColorStop(0.85, '#1e293b'); // Urban plinth reflection
+        grad.addColorStop(1.0, '#0f172a'); // Ground
         envCtx.fillStyle = grad;
         envCtx.fillRect(0, 0, 512, 256);
       }
@@ -2044,16 +2045,22 @@ export default function MapThreeJS({
     controls.target.set(0, targetY, 0);
     controls.maxPolarAngle = Math.PI / 2 - 0.02;
     controls.minDistance = Math.max(4, maxDim * 0.3);
-    controls.maxDistance = Math.min(3000, Math.max(800, buildingHeight * 10));
+    controls.maxDistance = Math.max(35000, buildingHeight * 20);
     controlsRef.current = controls;
     camera.lookAt(0, targetY, 0);
 
-    // Three-point Architectural Lighting Setup (prevents overexposure/white flash)
-    const hemiLight = new THREE.HemisphereLight(0x94a3b8, 0x1e293b, 1.2);
+    // Multi-Point Studio & Architectural Lighting (Bright, crisp visibility at all distances)
+    // 1. Base Ambient Light (ensures shadow sides never go pitch black)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    scene.add(ambientLight);
+
+    // 2. Hemisphere Sky/Ground Light
+    const hemiLight = new THREE.HemisphereLight(0xf8fafc, 0x334155, 1.4);
     scene.add(hemiLight);
 
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1.4);
-    sunLight.position.set(300, 500, 200);
+    // 3. Primary Directional Sunlight
+    const sunLight = new THREE.DirectionalLight(0xffffff, 2.2);
+    sunLight.position.set(400, 800, 300);
     sunLight.target.position.set(0, targetY, 0);
     scene.add(sunLight.target);
     sunLight.castShadow = true;
@@ -2062,17 +2069,23 @@ export default function MapThreeJS({
     sunLight.shadow.bias = -0.0002;
     sunLight.shadow.normalBias = 0.08;
     sunLight.shadow.camera.near = 1;
-    sunLight.shadow.camera.far = 4000;
-    const d = Math.max(sceneExtent * 1.5, buildingHeight * 0.8, 150);
+    sunLight.shadow.camera.far = 40000;
+    const d = Math.max(sceneExtent * 2.5, buildingHeight * 1.5, 300);
     sunLight.shadow.camera.left = -d;
     sunLight.shadow.camera.right = d;
     sunLight.shadow.camera.top = d;
     sunLight.shadow.camera.bottom = -d;
     scene.add(sunLight);
     
-    const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.5);
-    fillLight.position.set(-300, 200, -200);
+    // 4. Secondary Fill Directional Light (Atmospheric cyan fill)
+    const fillLight = new THREE.DirectionalLight(0x38bdf8, 1.1);
+    fillLight.position.set(-400, 400, -300);
     scene.add(fillLight);
+
+    // 5. Tertiary Rim Light (Enhances silhouette and building edges when zoomed out)
+    const rimLight = new THREE.DirectionalLight(0xa5b4fc, 0.9);
+    rimLight.position.set(0, 600, -600);
+    scene.add(rimLight);
 
     // Surrounding Site Plaza & Landscaping (Broader ground area for proper site context)
     buildSurroundingContext(scene, dims, sceneExtent, building, findCustomModel(building));
