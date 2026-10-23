@@ -33,11 +33,11 @@ def _make_engine():
         from urllib.parse import urlparse, unquote
 
         # Parse the DATABASE_URL to extract components
-        url = settings.database_url
+        url = settings.database_url.strip()
         # Convert asyncpg URL format for direct asyncpg connection
         # SQLAlchemy URL: postgresql+asyncpg://user:pass@host:port/db
         # asyncpg URL:    postgresql://user:pass@host:port/db
-        raw_url = url.replace("postgresql+asyncpg://", "postgresql://")
+        raw_url = url.replace("postgresql+asyncpg://", "postgresql://").strip()
 
         conn = await asyncpg.connect(
             dsn=raw_url,
@@ -49,7 +49,7 @@ def _make_engine():
     # Use NullPool — let asyncpg manage its own connection pooling
     # This avoids SQLAlchemy pool conflicts with pgbouncer
     engine = create_async_engine(
-        settings.database_url,
+        settings.database_url.strip(),
         echo=settings.debug,
         poolclass=NullPool,            # Disable SQLAlchemy pooling (pgbouncer handles it)
         connect_args={
@@ -108,7 +108,7 @@ async def check_db_connection() -> bool:
     """
     try:
         import asyncpg
-        raw_url = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
+        raw_url = settings.database_url.strip().replace("postgresql+asyncpg://", "postgresql://").strip()
 
         conn = await asyncpg.connect(
             dsn=raw_url,

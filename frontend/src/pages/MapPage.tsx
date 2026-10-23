@@ -15,7 +15,8 @@ import { getBuildingCenter } from '../utils/footprintUtils';
 import { applyVerifiedBuildingMetadata, getVerifiedBuildingMetadata } from '../utils/verifiedBuildingMetadata';
 import {
   Building2, MapPin, Layers,
-  ShieldCheck, Activity, Loader2, AlertTriangle
+  ShieldCheck, Activity, Loader2, AlertTriangle,
+  Compass, Box, PanelRight
 } from 'lucide-react';
 import './MapPage.css';
 
@@ -23,6 +24,7 @@ export default function MapPage() {
   const { buildingId: building_id } = useParams<{ buildingId: string }>();
 
   const [building, setBuilding]           = useState<Building | null>(null);
+  const [viewMode, setViewMode]           = useState<'deck' | 'three'>('deck');
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
   const [selectedUnit, setSelectedUnit]   = useState<Unit | null>(null);
   const [isLoading, setIsLoading]         = useState(true);
@@ -64,12 +66,19 @@ export default function MapPage() {
     loadData();
   }, [building_id]);
 
-  const [isRightOpen, setIsRightOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 900);
+  const [isRightOpen, setIsRightOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 768);
+
+  // Ensure page is always scrolled to top on mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    if (document.documentElement) document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
+  }, []);
 
   // Auto handle window resize for desktop site toggle on mobile
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth > 900) {
+      if (window.innerWidth > 768) {
         setIsRightOpen(true);
       }
     };
@@ -112,8 +121,23 @@ export default function MapPage() {
 
         {/* ── 3D Viewport (Full Width) ── */}
         <div className="map-viewport">
+          {/* Persistent Floating Tab to Re-open Sidebar whenever it's closed */}
+          {!isRightOpen && (
+            <button
+              type="button"
+              className="sidebar-open-floating-tab"
+              onClick={() => setIsRightOpen(true)}
+              title="Open 3D Cadastral Record & Floor Isolator Panel"
+            >
+              <PanelRight size={15} />
+              <span>3D Cadastral Record & Floors</span>
+            </button>
+          )}
+
           <Map3D
             building={building}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
             selectedFloor={selectedFloor}
             onFloorSelect={setSelectedFloor}
             selectedUnit={selectedUnit}
@@ -166,6 +190,26 @@ export default function MapPage() {
                 aria-label="Close Record"
               >✕</button>
             </div>
+          </div>
+
+          {/* Sidebar 3D Engine Mode Switcher Bar */}
+          <div className="sidebar-engine-mode-switcher">
+            <button
+              type="button"
+              className={`sidebar-mode-btn ${viewMode === 'deck' ? 'active' : ''}`}
+              onClick={() => setViewMode('deck')}
+            >
+              <Compass size={13} />
+              <span>deck.gl Geospatial</span>
+            </button>
+            <button
+              type="button"
+              className={`sidebar-mode-btn ${viewMode === 'three' ? 'active' : ''}`}
+              onClick={() => setViewMode('three')}
+            >
+              <Box size={13} />
+              <span>Three.js 3D Studio</span>
+            </button>
           </div>
 
           {/* Building Overview Card */}
@@ -399,12 +443,7 @@ export default function MapPage() {
                 </div>
                 <div style={{ fontFamily: 'var(--font-sans)', fontSize: '1.5rem',
                   fontWeight: 800, color: 'var(--text-primary)' }}>
-                  {((building?.validation?.confidence_score && building.validation.confidence_score > 0)
-                    ? building.validation.confidence_score
-                    : ((building as any)?.confidence_score && (building as any).confidence_score > 0)
-                      ? (building as any).confidence_score
-                      : 98.5
-                  ).toFixed(1)}<span style={{ fontSize: '0.85rem', fontWeight: 400,
+                  {(building?.validation?.confidence_score ?? 0).toFixed(1)}<span style={{ fontSize: '0.85rem', fontWeight: 400,
                     color: 'var(--text-muted)' }}>%</span>
                 </div>
               </div>
@@ -413,7 +452,7 @@ export default function MapPage() {
                   stroke="var(--bg-secondary)" />
                 <circle cx="20" cy="20" r="16" strokeWidth="4" fill="none"
                   stroke="var(--accent-teal)" strokeDasharray="100.53"
-                  strokeDashoffset={100.53 - (((building?.validation?.confidence_score && building.validation.confidence_score > 0) ? building.validation.confidence_score : 98.5) / 100) * 100.53} strokeLinecap="round"
+                  strokeDashoffset={100.53 - ((building?.validation?.confidence_score ?? 0) / 100) * 100.53} strokeLinecap="round"
                   style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }} />
               </svg>
             </div>

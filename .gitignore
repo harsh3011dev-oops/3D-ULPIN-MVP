@@ -12,6 +12,7 @@ node_modules/
 dist/
 build/
 .next/
+.vercel/
 
 # IDE
 .vscode/
@@ -42,4 +43,4 @@ runs/
 cache/
 sample_data/downloaded_satellite.png
 debug_pipeline_output.json
-
+Portfolio/

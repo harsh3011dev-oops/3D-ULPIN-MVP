@@ -8,6 +8,8 @@ import './Map3D.css';
 
 interface Map3DProps {
   building: Building | null;
+  viewMode?: 'deck' | 'three';
+  onViewModeChange?: (mode: 'deck' | 'three') => void;
   selectedUnit: Unit | null;
   onUnitClick: (unit: Unit) => void;
   selectedFloor: number | null;
@@ -22,6 +24,8 @@ interface Map3DProps {
 
 export default function Map3D({
   building,
+  viewMode: controlledViewMode,
+  onViewModeChange,
   selectedUnit,
   onUnitClick,
   selectedFloor,
@@ -33,7 +37,16 @@ export default function Map3D({
   onToggleLeft,
   onToggleRight,
 }: Map3DProps) {
-  const [viewMode, setViewMode] = useState<'deck' | 'three'>('deck');
+  const [internalViewMode, setInternalViewMode] = useState<'deck' | 'three'>('deck');
+  const viewMode = controlledViewMode !== undefined ? controlledViewMode : internalViewMode;
+
+  const handleSetViewMode = (mode: 'deck' | 'three') => {
+    if (onViewModeChange) {
+      onViewModeChange(mode);
+    }
+    setInternalViewMode(mode);
+  };
+
   const [copiedShot, setCopiedShot] = useState(false);
   const [exportedObj, setExportedObj] = useState(false);
 
@@ -166,7 +179,7 @@ export default function Map3D({
         <button
           type="button"
           className={`mode-switch-btn ${viewMode === 'deck' ? 'active' : ''}`}
-          onClick={() => setViewMode('deck')}
+          onClick={() => handleSetViewMode('deck')}
         >
           <Compass size={14} />
           <span>deck.gl Geospatial</span>
@@ -175,7 +188,7 @@ export default function Map3D({
         <button
           type="button"
           className={`mode-switch-btn ${viewMode === 'three' ? 'active' : ''}`}
-          onClick={() => setViewMode('three')}
+          onClick={() => handleSetViewMode('three')}
         >
           <Box size={14} />
           <span>Three.js 3D Studio</span>

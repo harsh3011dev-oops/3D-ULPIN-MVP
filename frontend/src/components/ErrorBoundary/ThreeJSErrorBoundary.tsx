@@ -78,9 +78,25 @@ export default class ThreeJSErrorBoundary extends Component<Props, State> {
           <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 8, color: '#f8fafc' }}>
             3D Studio Reconstruction Recovered
           </h3>
-          <p style={{ fontSize: '0.85rem', color: '#94a3b8', maxWidth: 460, marginBottom: 20, lineHeight: 1.5 }}>
+          <p style={{ fontSize: '0.85rem', color: '#94a3b8', maxWidth: 460, marginBottom: 12, lineHeight: 1.5 }}>
             {this.props.fallbackMessage || 'A procedural geometry rendering issue was intercepted. Safe fallback geometry is active.'}
           </p>
+          {this.state.errorMessage && (
+            <div style={{
+              margin: '0 0 16px',
+              padding: '6px 12px',
+              borderRadius: 6,
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              color: '#fca5a5',
+              fontSize: '0.75rem',
+              fontFamily: 'monospace',
+              maxWidth: 500,
+              wordBreak: 'break-word',
+            }}>
+              {this.state.errorMessage}
+            </div>
+          )}
           <button
             type="button"
             onClick={this.handleRetry}

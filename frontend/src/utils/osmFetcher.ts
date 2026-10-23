@@ -24,15 +24,15 @@ export interface OSMDataResponse {
   elements: OSMElement[];
 }
 
-// Primary and fallback Overpass API mirrors (prioritizing high-bandwidth global mirrors)
+// Primary and fallback Overpass API mirrors
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.osm.ch/api/interpreter',
   'https://lz4.overpass-api.de/api/interpreter',
   'https://z.overpass-api.de/api/interpreter',
-  'https://overpass.nchc.org.tw/api/interpreter',
-  'https://overpass.vlands.ru/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
 ];
 
 const _OSM_CLIENT_CACHE = new Map<string, OSMDataResponse>();
@@ -45,7 +45,7 @@ const _OSM_CLIENT_CACHE = new Map<string, OSMDataResponse>();
 export async function fetchDetailedOSMData(
   lat: number,
   lng: number,
-  radius: number = 350,
+  radius: number = 220,
   osmId?: string | number,
 ): Promise<OSMDataResponse | null> {
   const cacheKey = `${lat.toFixed(5)}_${lng.toFixed(5)}_${radius}_${osmId || ''}`;
@@ -103,7 +103,7 @@ out body geom;
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10_000);
+      const timeoutId = setTimeout(() => controller.abort(), 20_000);
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {

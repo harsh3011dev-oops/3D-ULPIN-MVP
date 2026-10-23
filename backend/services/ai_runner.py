@@ -123,12 +123,17 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
             if not building_id:
                 raise RuntimeError("AI pipeline completed without a building ID.")
             
-            try:
+            async def _persist_to_db():
                 from sqlalchemy import select
                 from backend.models import Parcel
+                try:
+                    from geoalchemy2.elements import WKTElement
+                except ImportError:
+                    WKTElement = lambda wkt, srid=4326: wkt
 
                 # Convert GeoJSON footprints to WKT for PostGIS
-                footprint_wkt = f"SRID=4326;{shape(result['footprint']).wkt}"
+                raw_footprint_wkt = shape(result['footprint']).wkt
+                footprint_wkt = WKTElement(raw_footprint_wkt, srid=4326)
                 
                 # Get or create Parcel
                 parcel_res = await db.execute(select(Parcel).filter_by(parcel_id=parcel_id))
@@ -153,13 +158,16 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
     
                 # Insert Units
                 for u in result.get('units', []):
-                    unit_wkt = f"SRID=4326;{shape(u['polygon_2d']).wkt}"
+                    unit_geom = u.get('polygon_2d') or result['footprint']
+                    raw_unit_wkt = shape(unit_geom).wkt
+                    unit_wkt = WKTElement(raw_unit_wkt, srid=4326)
+                    floor_val = u.get('floor_number') or u.get('floor') or 1
                     unit = Unit(
                         building_id=building.id,
                         unit_id=u['unit_id'],
                         ulpin=u['ulpin'],
-                        floor=u['floor_number'],
-                        floor_height_m=u['floor_height_m'],
+                        floor=floor_val,
+                        floor_height_m=u.get('floor_height_m', 3.5),
                         polygon_2d=unit_wkt,
                         centroid_lat=u['centroid'][0],
                         centroid_lon=u['centroid'][1],
@@ -179,11 +187,14 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
                 )
                 db.add(val_log)
                 await db.commit()
+
+            try:
+                await asyncio.wait_for(_persist_to_db(), timeout=6.0)
             except Exception as e:
-                logger.warning(f"Database unavailable for pipeline flush, saving result to memory cache: {e}")
+                logger.warning(f"Database unavailable or timed out for pipeline flush, saving result to memory cache: {e}")
                 if db:
                     try:
-                        await db.rollback()
+                        await asyncio.wait_for(db.rollback(), timeout=2.0)
                     except:
                         pass
             # Save result to disk for persistence across restarts
@@ -192,13 +203,14 @@ async def execute_ai_pipeline_job(job_id: str, parcel_id: str, address: str, hei
             supabase_service._BUILDINGS_CACHE[building_id] = result
             supabase_service._VALIDATIONS_CACHE[building_id] = result.get('validation', {})
 
-            # 4. Update Job to completed
+            # 4. Update Job to completed (explicitly pass building_id and result_json)
             await supabase_service.update_job_status(
                 db, 
                 job_id, 
                 "completed", 
                 100, 
                 "Done", 
+                building_id=building_id,
                 result_json=result,
                 completed_at=datetime.now(timezone.utc)
             )
