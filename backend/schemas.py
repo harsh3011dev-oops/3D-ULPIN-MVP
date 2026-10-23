@@ -119,3 +119,16 @@ class GenericResponse(BaseModel):
     status: str
     message: str
     job_id: Optional[str] = None
+
+# --- Multi-Building Society Schemas (Milestone 3) ---
+try:
+    from ai.models import (
+        BuildingHeight,
+        BuildingHint,
+        SocietyProcessRequest,
+        BuildingRecord,
+        SocietyProcessResponse
+    )
+except ImportError:
+    pass
+

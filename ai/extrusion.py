@@ -1,4 +1,8 @@
 from shapely.geometry import shape
+try:
+    from ai.utils.geo_utils import calculate_polygon_area_sqm
+except ModuleNotFoundError:
+    from utils.geo_utils import calculate_polygon_area_sqm
 
 def extrude_building(
     footprint: dict,
@@ -29,7 +33,8 @@ def extrude_building(
 
     floor_height = round(height_meters / floor_count, 2)
     poly = shape(footprint)
-    volume_approx = round(poly.area * (111_000 ** 2) * height_meters, 2)
+    area_sqm = calculate_polygon_area_sqm(poly)
+    volume_approx = round(area_sqm * height_meters, 2)
 
     return {
         "type": "Building3D",

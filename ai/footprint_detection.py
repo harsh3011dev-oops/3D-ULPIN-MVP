@@ -13,7 +13,8 @@ import os
 def detect_building_footprint(
     image_path: str,
     parcel_boundary: dict,
-    debug: bool = False
+    debug: bool = False,
+    geo_transform: dict | None = None
 ) -> dict:
     """
     Fine-Tuned Computer Vision Footprint Detection Pipeline:
@@ -23,6 +24,9 @@ def detect_building_footprint(
     4. Contour Area Filtering to pick prominent building shapes
     5. Polygon Approximation & Shapely Topology Validation
     """
+    if geo_transform is not None and isinstance(geo_transform, dict) and geo_transform.get("is_quarantined", False):
+        raise ValueError("Visual footprint detection is strictly prohibited on quarantined imagery.")
+
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"Image not found: {image_path}")
 
@@ -80,7 +84,7 @@ def detect_building_footprint(
 
     # Step 6: Convert pixel coords to geographic coords
     pixel_coords = approx.reshape(-1, 2).tolist()
-    geo_coords = _pixels_to_geo(pixel_coords, image_path)
+    geo_coords = _pixels_to_geo(pixel_coords, image_path, geo_transform=geo_transform)
 
     # Close the polygon (first and last points match)
     if geo_coords[0] != geo_coords[-1]:
@@ -118,7 +122,8 @@ def detect_multi_building_footprints(
     parcel_boundary: dict,
     min_area: int = 50,
     max_buildings: int = 5,
-    debug: bool = False
+    debug: bool = False,
+    geo_transform: dict | None = None
 ) -> list:
     """
     Detect multiple building footprints within a single parcel boundary/aerial image.
@@ -130,6 +135,7 @@ def detect_multi_building_footprints(
         min_area (int): Minimum contour pixel area to count as a building.
         max_buildings (int): Maximum number of buildings to detect (default top 5).
         debug (bool): Save debug image if True.
+        geo_transform (dict): Optional explicit georeferencing transform dict.
 
     Returns:
         list: List of GeoJSON Polygons for detected buildings.
@@ -156,14 +162,14 @@ def detect_multi_building_footprints(
         contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     if not contours:
-        return [detect_building_footprint(image_path, parcel_boundary, debug)]
+        return [detect_building_footprint(image_path, parcel_boundary, debug=debug, geo_transform=geo_transform)]
 
     # Filter contours by minimum area and sort by area descending
     valid_contours = [c for c in contours if cv2.contourArea(c) >= min_area]
     valid_contours = sorted(valid_contours, key=cv2.contourArea, reverse=True)[:max_buildings]
 
     if not valid_contours:
-        return [detect_building_footprint(image_path, parcel_boundary, debug)]
+        return [detect_building_footprint(image_path, parcel_boundary, debug=debug, geo_transform=geo_transform)]
 
     building_footprints = []
     from shapely.geometry import Polygon, mapping
@@ -180,7 +186,7 @@ def detect_multi_building_footprints(
                 approx = np.array([[[x, y]], [[x + w, y]], [[x + w, y + h]], [[x, y + h]]])
 
         pixel_coords = approx.reshape(-1, 2).tolist()
-        geo_coords = _pixels_to_geo(pixel_coords, image_path)
+        geo_coords = _pixels_to_geo(pixel_coords, image_path, geo_transform=geo_transform)
 
         if geo_coords[0] != geo_coords[-1]:
             geo_coords.append(geo_coords[0])
@@ -203,31 +209,57 @@ def detect_multi_building_footprints(
     return building_footprints
 
 
-def _pixels_to_geo(pixel_coords: list, image_path: str) -> list:
+def _pixels_to_geo(pixel_coords: list, image_path: str = None, geo_transform: dict | None = None) -> list:
     """
-    Convert pixel coordinates to real GPS (lat/lng) coordinates.
+    Convert pixel coordinates [(px, py), ...] to real GPS [lon, lat] coordinates.
     
     Priority:
-    1. Rasterio georeferencing (only if image is genuinely georeferenced, not identity matrix)
-    2. Geo bounds from last satellite tile download (most common case)
-    3. Last resort normalization fallback
+    1. Explicit geo_transform dictionary passed directly (thread-safe, deterministic).
+    2. Rasterio georeferencing on image_path (only if genuine affine with c != 0.0).
+    3. Legacy fallback to image_utils._last_image_bounds (for backwards compatibility).
+    4. Last resort normalization fallback.
     """
-    # Try rasterio ONLY if image is genuinely georeferenced (transform.c != 0.0)
-    try:
-        with rasterio.open(image_path) as src:
-            transform = src.transform
-            # Skip if identity/empty transform (c=0 means no real x-origin set)
-            if transform.c != 0.0 or transform.f != 0.0:
-                return [
-                    list(xy(transform, py, px, offset='center'))
-                    for px, py in pixel_coords
-                ]
-    except Exception:
-        pass
+    # Priority 1: Explicit geo_transform provided by caller
+    if geo_transform is not None:
+        if isinstance(geo_transform, dict) and "min_lon" in geo_transform and "max_lon" in geo_transform:
+            min_lon = float(geo_transform["min_lon"])
+            max_lon = float(geo_transform["max_lon"])
+            min_lat = float(geo_transform["min_lat"])
+            max_lat = float(geo_transform["max_lat"])
+            img_w = geo_transform.get("img_w")
+            img_h = geo_transform.get("img_h")
+            if (img_w is None or img_h is None) and image_path and os.path.exists(image_path):
+                img = cv2.imread(image_path)
+                if img is not None:
+                    img_h, img_w = img.shape[:2]
+            if img_w and img_h:
+                geo_coords = []
+                for px, py in pixel_coords:
+                    lon = min_lon + (px / float(img_w)) * (max_lon - min_lon)
+                    lat = max_lat - (py / float(img_h)) * (max_lat - min_lat)
+                    geo_coords.append([round(lon, 7), round(lat, 7)])
+                return geo_coords
+        elif HAS_RASTERIO and hasattr(geo_transform, "c"):
+            return [
+                list(xy(geo_transform, py, px, offset='center'))
+                for px, py in pixel_coords
+            ]
 
-    # Use geo bounds from satellite tile download (correct GPS coordinates)
-    # Scan sys.modules for whichever image_utils variant was actually imported
-    # (could be 'ai.utils.image_utils', 'utils.image_utils', etc.)
+    # Priority 2: Try rasterio ONLY if image is genuinely georeferenced (transform.c != 0.0)
+    if HAS_RASTERIO and image_path and os.path.exists(image_path):
+        try:
+            with rasterio.open(image_path) as src:
+                transform = src.transform
+                # Skip if identity/empty transform (c=0 means no real x-origin set)
+                if transform.c != 0.0 or transform.f != 0.0:
+                    return [
+                        list(xy(transform, py, px, offset='center'))
+                        for px, py in pixel_coords
+                    ]
+        except Exception:
+            pass
+
+    # Priority 3: Use geo bounds from satellite tile download (legacy mutable global)
     import sys
     _bounds = None
     for _mod_name, _mod in list(sys.modules.items()):
@@ -243,15 +275,15 @@ def _pixels_to_geo(pixel_coords: list, image_path: str) -> list:
         max_lat = _bounds.get("max_lat")
 
         if min_lon is not None and max_lon is not None:
-            img = cv2.imread(image_path)
+            img = cv2.imread(image_path) if image_path and os.path.exists(image_path) else None
             if img is not None:
                 img_h, img_w = img.shape[:2]
                 geo_coords = []
                 for px, py in pixel_coords:
-                    lon = min_lon + (px / img_w) * (max_lon - min_lon)
-                    lat = max_lat - (py / img_h) * (max_lat - min_lat)
+                    lon = min_lon + (px / float(img_w)) * (max_lon - min_lon)
+                    lat = max_lat - (py / float(img_h)) * (max_lat - min_lat)
                     geo_coords.append([round(lon, 7), round(lat, 7)])
                 return geo_coords
 
-    # Last resort: normalize pixel coords
+    # Priority 4: Last resort normalize pixel coords
     return [[float(px) / 1000.0, float(py) / 1000.0] for px, py in pixel_coords]

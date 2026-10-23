@@ -467,3 +467,78 @@ def fetch_osm_building_comprehensive(lat: float, lon: float, radius: int = 350, 
         return None
 
 
+def get_utm_crs_for_latlon(lat: float, lon: float) -> str:
+    """
+    Determine the EPSG code of the appropriate projected UTM zone for a (lat, lon) coordinate.
+    
+    UTM zones span 6 degrees of longitude from zone 1 (-180° to -174°) to zone 60 (+174° to +180°).
+    EPSG 326xx for Northern hemisphere (lat >= 0), EPSG 327xx for Southern hemisphere (lat < 0).
+    """
+    zone = int((lon + 180.0) / 6.0) + 1
+    zone = max(1, min(60, zone))
+    hemisphere_base = 32600 if lat >= 0 else 32700
+    return f"EPSG:{hemisphere_base + zone}"
+
+
+def calculate_polygon_area_sqm(geometry_or_geojson) -> float:
+    """
+    Calculate accurate metric ground area in square meters (m²) for a 2D geometry.
+    
+    If coordinates are in geographic degrees (WGS84, EPSG:4326), this function projects
+    the geometry to the appropriate local UTM projection (EPSG:326xx / EPSG:327xx)
+    using rasterio.warp.transform_geom before taking the Cartesian area.
+    
+    If rasterio is unavailable or projection fails, it falls back to an ellipsoidal
+    WGS84 metric scaling based on the centroid latitude:
+        m_per_deg_lat ≈ 111,133 m
+        m_per_deg_lon ≈ 111,413 * cos(lat) m
+    
+    This replaces naive degree multiplication (poly.area * 111000**2) which had
+    a ~14% error across India due to ignoring the cosine of latitude.
+    """
+    if geometry_or_geojson is None:
+        return 0.0
+
+    import math
+    from shapely.geometry import shape, mapping
+
+    if isinstance(geometry_or_geojson, dict):
+        if "geometry" in geometry_or_geojson:
+            geometry_or_geojson = geometry_or_geojson["geometry"]
+        geom_obj = shape(geometry_or_geojson)
+    else:
+        geom_obj = geometry_or_geojson
+
+    if geom_obj.is_empty:
+        return 0.0
+
+    minx, miny, maxx, maxy = geom_obj.bounds
+    # Check if coordinates are in geographic degrees (WGS84 range)
+    is_geographic = (
+        -180.0 <= minx <= 180.0 and
+        -180.0 <= maxx <= 180.0 and
+        -90.0 <= miny <= 90.0 and
+        -90.0 <= maxy <= 90.0
+    )
+
+    if not is_geographic:
+        # Already projected or in local Cartesian/metric coordinates
+        return float(geom_obj.area)
+
+    centroid = geom_obj.centroid
+    target_crs = get_utm_crs_for_latlon(centroid.y, centroid.x)
+
+    try:
+        from rasterio.warp import transform_geom
+        transformed = transform_geom("EPSG:4326", target_crs, mapping(geom_obj))
+        projected_geom = shape(transformed)
+        return float(projected_geom.area)
+    except Exception:
+        # Ellipsoidal WGS84 geodesic metric approximation fallback
+        lat_rad = math.radians(centroid.y)
+        m_per_deg_lat = 111132.954 - 559.822 * math.cos(2 * lat_rad) + 1.175 * math.cos(4 * lat_rad)
+        m_per_deg_lon = 111412.84 * math.cos(lat_rad) - 93.5 * math.cos(3 * lat_rad)
+        return float(geom_obj.area * m_per_deg_lat * m_per_deg_lon)
+
+
+

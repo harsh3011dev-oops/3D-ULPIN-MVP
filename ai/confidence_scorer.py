@@ -103,8 +103,9 @@ class ConfidenceScorer:
 
             for u in units_list:
                 u_poly = shape(u.get("polygon_2d", {}))
-                if not footprint_shape.contains(u_poly):
+                if not (footprint_shape.covers(u_poly) or footprint_shape.buffer(1e-6).contains(u_poly)):
                     out_of_bounds_cnt += 1
+
 
             if out_of_bounds_cnt > 0:
                 score -= (out_of_bounds_cnt / len(units_list)) * 50.0

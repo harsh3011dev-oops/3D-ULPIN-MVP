@@ -1,5 +1,9 @@
 from shapely.geometry import shape, mapping, box
 import numpy as np
+try:
+    from ai.utils.geo_utils import calculate_polygon_area_sqm
+except ModuleNotFoundError:
+    from utils.geo_utils import calculate_polygon_area_sqm
 
 def divide_into_floors(
     footprint: dict,
@@ -140,7 +144,7 @@ def divide_floor_into_units(
                 "label": label,
                 "polygon_2d": mapping(unit_poly),
                 "centroid": [centroid.y, centroid.x],
-                "area_sqm": round(unit_poly.area * (111_000 ** 2), 2),
+                "area_sqm": round(calculate_polygon_area_sqm(unit_poly), 2),
                 "floor_height_m": floor.get("floor_height_m", round(floor["z_max"] - floor["z_min"], 2)),
                 "z_min": floor["z_min"],
                 "z_max": floor["z_max"]

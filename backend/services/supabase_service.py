@@ -36,6 +36,27 @@ _JOBS_CACHE = _load_jobs_cache()
 _BUILDINGS_CACHE = {}
 _VALIDATIONS_CACHE = {}
 
+_SOCIETIES_FILE = os.path.join(_CACHE_DIR, 'societies_cache.json')
+
+def _load_societies_cache():
+    if os.path.exists(_SOCIETIES_FILE):
+        try:
+            with open(_SOCIETIES_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load societies cache from disk: {e}")
+    return {}
+
+def _save_societies_cache():
+    try:
+        with open(_SOCIETIES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(_SOCIETIES_CACHE, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.warning(f"Failed to save societies cache to disk: {e}")
+
+_SOCIETIES_CACHE = _load_societies_cache()
+
+
 async def create_job(db: AsyncSession, parcel_id: str) -> Job:
     """Create a new job in the database with in-memory fallback."""
     job_id = str(uuid.uuid4())
@@ -216,3 +237,56 @@ async def get_validation_log(db: AsyncSession, building_id: str):
                 self.checked_at = datetime.utcnow()
         return DummyValidation(cached)
     return None
+
+
+async def save_society_record(db: AsyncSession, society_data: dict) -> dict:
+    """
+    Persist society processing result and child building records to database and persistent cache.
+    Ensures building IDs survive application restarts and repeated processing.
+    """
+    soc_id = society_data.get("society_id")
+    if not soc_id:
+        return society_data
+
+    _SOCIETIES_CACHE[soc_id] = society_data
+    _save_societies_cache()
+
+    # Also register child buildings into _BUILDINGS_CACHE
+    for b in society_data.get("buildings", []):
+        b_id = b.get("internal_building_id") or b.get("building_id")
+        if b_id:
+            h_val = 10.5
+            if isinstance(b.get("height"), dict):
+                h_val = b.get("height", {}).get("value_meters", 10.5)
+            elif b.get("height") is not None:
+                h_val = float(b.get("height"))
+
+            _BUILDINGS_CACHE[b_id] = {
+                "building_id": b_id,
+                "parcel_id": b.get("parcel_id", society_data.get("parcel_id")),
+                "height": h_val,
+                "floor_count": b.get("floor_count", 3),
+                "building_name": b.get("building_name", f"Building {b_id}"),
+                "footprint": b.get("footprint"),
+                "units": b.get("units", []),
+                "floors": b.get("floors", []),
+                "validation": b.get("validation", {"valid": True}),
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            _VALIDATIONS_CACHE[b_id] = b.get("validation", {"valid": True})
+
+    return society_data
+
+
+async def get_society_record(db: AsyncSession, society_id: str) -> dict | None:
+    """Retrieve persisted society record by society_id."""
+    if society_id in _SOCIETIES_CACHE:
+        return _SOCIETIES_CACHE[society_id]
+
+    disk_cache = _load_societies_cache()
+    if society_id in disk_cache:
+        _SOCIETIES_CACHE[society_id] = disk_cache[society_id]
+        return disk_cache[society_id]
+
+    return None
+

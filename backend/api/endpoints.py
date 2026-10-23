@@ -11,9 +11,12 @@ from backend.schemas import (
     JobStatusResponse, 
     BuildingResponse, 
     UnitResponse, 
+    FloorResponse,
     ValidationResponse,
     GenericResponse,
-    BuildingValidationSummary
+    BuildingValidationSummary,
+    SocietyProcessRequest,
+    SocietyProcessResponse
 )
 from backend.services.gemini_lookup import CACHE, cache_key, call_gemini_api
 from backend.services.gemini_architectural_inference import infer_architectural_metadata
@@ -21,11 +24,15 @@ from backend.services.supabase_service import (
     create_job, 
     get_job, 
     get_building_with_units, 
-    get_validation_log
+    get_validation_log,
+    save_society_record,
+    get_society_record
 )
 from backend.services.ai_runner import execute_ai_pipeline_job
+from ai.pipeline import process_multi_building_parcel
 
 router = APIRouter(tags=["3D ULPIN MVP"])
+
 
 @router.post("/ai/infer-building-metadata")
 async def infer_building_metadata_endpoint(request: dict):
@@ -185,6 +192,20 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
             b_lon = (disk_result or {}).get("longitude") or getattr(building, "centroid_lon", None)
             b_created = getattr(building, "created_at", None)
 
+            floors_raw = (disk_result or {}).get("floors", [])
+            floors_response = [
+                FloorResponse(
+                    floor_number=fl.get("floor_number", idx + 1),
+                    label=fl.get("label"),
+                    z_min=float(fl.get("z_min", 0.0)),
+                    z_max=float(fl.get("z_max", 0.0)),
+                    height_meters=float(fl.get("floor_height_m", fl.get("height_meters", 3.0))),
+                    area_sqm=fl.get("area_sqm"),
+                    polygon_2d=fl.get("footprint") or fl.get("polygon_2d")
+                )
+                for idx, fl in enumerate(floors_raw)
+            ] if floors_raw else None
+
             return BuildingResponse(
                 building_id=str(building.building_id),
                 parcel_id=str(building.parcel_id) if building.parcel_id else (disk_result or {}).get("parcel_id", "unknown"),
@@ -193,6 +214,7 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
                 floor_count=int(building.floor_count or 1),
                 total_units=int(building.total_units or len(units_response)),
                 units=units_response,
+                floors=floors_response,
                 building_name=str(b_name) if isinstance(b_name, str) else None,
                 address=str(b_addr) if isinstance(b_addr, str) else None,
                 latitude=float(b_lat) if isinstance(b_lat, (int, float)) else None,
@@ -276,6 +298,20 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
             )
         )
 
+    floors_raw = result.get("floors", [])
+    floors_response = [
+        FloorResponse(
+            floor_number=fl.get("floor_number", idx + 1),
+            label=fl.get("label"),
+            z_min=float(fl.get("z_min", 0.0)),
+            z_max=float(fl.get("z_max", 0.0)),
+            height_meters=float(fl.get("floor_height_m", fl.get("height_meters", 3.0))),
+            area_sqm=fl.get("area_sqm"),
+            polygon_2d=fl.get("footprint") or fl.get("polygon_2d")
+        )
+        for idx, fl in enumerate(floors_raw)
+    ] if floors_raw else None
+
     return BuildingResponse(
         building_id=result.get("building_id", building_id),
         parcel_id=result.get("parcel_id", "unknown"),
@@ -283,6 +319,7 @@ async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
         height_meters=float(height),
         floor_count=int(floor_count),
         total_units=len(units_response), units=units_response,
+        floors=floors_response,
         building_name=result.get("building_name"), address=result.get("address"),
         latitude=result.get("latitude"), longitude=result.get("longitude"),
         created_at=result.get("created_at"),
@@ -428,6 +465,44 @@ async def get_unit_3d_ulpin_certificate(
 
     html_content = generate_3d_ulpin_certificate_html(building_dict, target_unit)
     return HTMLResponse(content=html_content)
+
+
+@router.post("/societies/process", response_model=SocietyProcessResponse)
+async def process_society_endpoint(
+    request: SocietyProcessRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Process a residential society or campus parcel containing multiple buildings (Phase 2).
+    Validates input geometry, runs multi-building detection, establishes stable IDs,
+    calculates aggregate metrics, and persists society & building records.
+    """
+    try:
+        result = process_multi_building_parcel(request)
+        if result.get("status") == "error":
+            raise HTTPException(
+                status_code=400,
+                detail=result.get("errors") or [result.get("message", "Processing error")]
+            )
+        await save_society_record(db, result)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Society processing failed: {str(e)}")
+
+
+@router.get("/societies/{society_id}", response_model=SocietyProcessResponse)
+async def get_society_endpoint(
+    society_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Fetch persisted society record and all its child buildings."""
+    soc = await get_society_record(db, society_id)
+    if not soc:
+        raise HTTPException(status_code=404, detail=f"Society '{society_id}' not found.")
+    return soc
+
 
 
 

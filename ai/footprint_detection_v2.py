@@ -19,10 +19,12 @@ try:
     from ai.config.fine_tuning_config import FINE_TUNING_CONFIG
     from ai.footprint_detection import _pixels_to_geo
     from ai.spatial_validation import _normalize_geojson
+    from ai.utils.image_utils import is_placeholder_image
 except ModuleNotFoundError:
     from config.fine_tuning_config import FINE_TUNING_CONFIG
     from footprint_detection import _pixels_to_geo
     from spatial_validation import _normalize_geojson
+    from utils.image_utils import is_placeholder_image
 
 
 def detect_edges_multiscale(image_path: str) -> np.ndarray:
@@ -197,7 +199,8 @@ def score_footprint_confidence(
 def detect_building_footprint_hybrid(
     image_path: str,
     parcel_boundary: dict,
-    osm_footprint: dict = None
+    osm_footprint: dict = None,
+    geo_transform: dict | None = None
 ) -> dict:
     """
     Hybrid Footprint Detection Strategy blending CV computer vision with OpenStreetMap data.
@@ -210,6 +213,28 @@ def detect_building_footprint_hybrid(
         - 'blend_ratio': float (ratio of CV used: 1.0, 0.7, or 0.3)
         - 'method_used': 'cv_only' | 'osm_only' | 'hybrid'
     """
+    # Safe Quarantine Check:
+    # If imagery acquisition failed, image is a stock placeholder, or transform is unavailable,
+    # strictly prohibit OpenCV/YOLO visual detection on that image.
+    if is_placeholder_image(image_path, geo_transform):
+        if osm_footprint:
+            # Fallback mode: use available OSM building vectors only with clear provenance
+            return {
+                "footprint": osm_footprint,
+                "cv_confidence": 0.0,
+                "osm_confidence": 95.0,
+                "blend_ratio": 0.0,
+                "method_used": "osm_only",
+                "quarantine_reason": "Visual detection prohibited on quarantined/unreferenced placeholder imagery."
+            }
+        else:
+            # No usable vector footprints exist -> return clear error rather than fabricated footprints
+            raise ValueError(
+                "Satellite imagery acquisition failed (or image is quarantined placeholder) and no "
+                "authoritative OSM building footprint exists for this parcel. Visual detection on "
+                "placeholder imagery is strictly prohibited to prevent fabricated footprints."
+            )
+
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"Image not found: {image_path}")
 
@@ -228,7 +253,15 @@ def detect_building_footprint_hybrid(
         contours, _ = cv2.findContours(multiscale_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     if not contours:
-        cv_footprint = parcel_boundary
+        if osm_footprint:
+            return {
+                "footprint": osm_footprint,
+                "cv_confidence": 0.0,
+                "osm_confidence": 95.0,
+                "blend_ratio": 0.0,
+                "method_used": "osm_only"
+            }
+        raise ValueError("No building contour detected in satellite imagery, and no authoritative OSM building footprint exists.")
     else:
         valid_contours = [c for c in contours if cv2.contourArea(c) >= 100]
         largest_cnt = max(valid_contours, key=cv2.contourArea) if valid_contours else max(contours, key=cv2.contourArea)
@@ -253,7 +286,7 @@ def detect_building_footprint_hybrid(
                 approx = np.array([[[x, y]], [[x + w, y]], [[x + w, y + h]], [[x, y + h]]])
 
         pixel_coords = approx.reshape(-1, 2).tolist()
-        geo_coords = _pixels_to_geo(pixel_coords, image_path)
+        geo_coords = _pixels_to_geo(pixel_coords, image_path, geo_transform=geo_transform)
 
         if geo_coords[0] != geo_coords[-1]:
             geo_coords.append(geo_coords[0])

@@ -45,11 +45,15 @@ class QualityGates:
                 inter = poly_s.intersection(parcel_s).area
                 union = poly_s.union(parcel_s).area
                 iou = (inter / union) if union > 0 else 0.0
+                containment = (inter / poly_s.area) if poly_s.area > 0 else 0.0
+                # Pass if standard IoU is met OR building footprint is substantially overlapping parcel
+                passed = (iou >= self.min_iou) or (containment >= 0.40)
             else:
                 iou = 0.90  # Default assumed IoU when parcel boundary is unsupplied
+                passed = True
 
-            passed = iou >= self.min_iou
-            error_msg = None if passed else f"Footprint IoU score ({iou:.4f}) is below minimum required threshold ({self.min_iou})."
+
+            error_msg = None if passed else f"Footprint IoU score ({iou:.4f}) is below minimum required threshold ({self.min_iou}) and not contained in parcel."
 
             return {
                 "passed": passed,
@@ -76,8 +80,10 @@ class QualityGates:
 
             for u in units:
                 u_poly = shape(u.get("polygon_2d", {}))
-                if not bound_shape.contains(u_poly):
+                # Use covers or buffer(1e-6) to account for unit outer edges aligned with building footprint
+                if not (bound_shape.covers(u_poly) or bound_shape.buffer(1e-6).contains(u_poly)):
                     problematic.append(u.get("unit_id", "UNKNOWN_UNIT"))
+
 
             passed = len(problematic) == 0
             return {

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { AutoDetectBuildingPayload, AutoDetectBuildingResult, Building, CreateBuildingPayload, JobStatus, JobStatusResponse, SpatialValidation, ValidationResult } from '../types';
+import { AutoDetectBuildingPayload, AutoDetectBuildingResult, Building, CreateBuildingPayload, JobStatus, JobStatusResponse, SpatialValidation, ValidationResult, SocietyProcessRequest, SocietyProcessResponse } from '../types';
 
 const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 const BASE_URL = rawBaseUrl.replace(/\/+$/, '');
@@ -113,6 +113,24 @@ export async function inferBuildingMetadata(
     console.debug('Optional Gemini inference skipped or unavailable:', err);
     return null;
   }
+}
+
+/**
+ * Submit a multi-building residential society parcel to the AI pipeline.
+ */
+export async function processSociety(payload: SocietyProcessRequest): Promise<SocietyProcessResponse> {
+  const response = await apiClient.post<SocietyProcessResponse>('/societies/process', payload, {
+    timeout: 180000, // 3 minutes timeout for high-res satellite downloading, OSM queries & ML segmentation
+  });
+  return response.data;
+}
+
+/**
+ * Fetch persisted residential society record with all its child buildings.
+ */
+export async function getSociety(societyId: string): Promise<SocietyProcessResponse> {
+  const response = await apiClient.get<SocietyProcessResponse>(`/societies/${societyId}`);
+  return response.data;
 }
 
 

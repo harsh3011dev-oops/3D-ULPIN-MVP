@@ -1,0 +1,37 @@
+{
+  "package_name": "ulpin_building_segmentation_model",
+  "version": "1.0.0",
+  "model_architecture": "YOLO11s-seg",
+  "task": "instance_segmentation",
+  "target_entity": "building",
+  "num_classes": 1,
+  "class_names": {
+    "0": "building"
+  },
+  "checkpoint_relative_path": "weights/best.pt",
+  "checkpoint_sha256": "9e649fbdf265420f1dd30899935d60df70c7961a716b3f432d978d7c0bbfb02b",
+  "defaults": {
+    "conf": 0.25,
+    "imgsz": 800,
+    "device": "cpu",
+    "iou": 0.70,
+    "max_det": 300
+  },
+  "performance_metrics": {
+    "dataset": "datasets/validation_set (200 tiles, 1691 ground truth instances)",
+    "mask_mAP50": 0.4233,
+    "mask_mAP50_95": 0.1668,
+    "mask_recall": 0.4039,
+    "mask_precision": 0.4634,
+    "box_mAP50": 0.4316,
+    "box_recall": 0.4219,
+    "box_precision": 0.4616
+  },
+  "known_limitations": [
+    "Pixel-space predictions only: Outputs are 2D image-pixel coordinates [X, Y], NOT geographic coordinates (lat/long or UTM) and NOT cadastral parcel boundaries.",
+    "No height/elevation estimation: The model operates exclusively on 2D RGB imagery and does not predict 3D roof pitch, building height, or volume.",
+    "No legal/cadastral semantics: Does not assign official ULPIN identifiers, ownership, or land-use classification.",
+    "Seamless compound roofs: Visually continuous compound roofs with shared planar tin/concrete sheets lack RGB boundary contrast and cannot be reliably partitioned without elevation/DSM or cadastral vector data.",
+    "Dense cluster resolution: While YOLO11s-seg achieves 4.5x higher recall in dense clusters than the nano baseline, small buildings (<500 px^2) in high-density settlements may experience anchorless suppression."
+  ]
+}

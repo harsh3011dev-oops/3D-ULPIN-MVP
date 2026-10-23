@@ -12,19 +12,24 @@ import {
   ChevronUp,
   CheckCircle,
 } from 'lucide-react';
-import { autoDetectBuilding } from '../../api/api';
+import { autoDetectBuilding, processSociety } from '../../api/api';
+import { SocietyProcessResponse } from '../../types';
 import { resolvePlace } from '../../utils/placeResolver';
 import './SocietyExplorer.css';
 
-interface DiscoveredBuilding {
+export interface DiscoveredBuilding {
   id: string;
   name: string;
   type: string;
   height: number;
+  heightSource?: string;
   floors: number;
+  floorSource?: string;
   lat: number;
   lon: number;
+  areaSqm?: number;
   unitsPerFloor: number;
+  city?: string;
 }
 
 interface SocietyExplorerProps {
@@ -44,6 +49,7 @@ function getSatelliteThumbnail(lat: number, lon: number, zoom = 17): string {
 
 // Overpass API endpoints with fallbacks
 const OVERPASS_ENDPOINTS = [
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
   'https://lz4.overpass-api.de/api/interpreter',
@@ -241,6 +247,7 @@ export default function SocietyExplorer({ onBuildingSelect, onGenerateSociety, o
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [satelliteUrl, setSatelliteUrl] = useState<string | null>(null);
   const [dataSource, setDataSource] = useState<string>('');
+  const [societyResponse, setSocietyResponse] = useState<SocietyProcessResponse | null>(null);
 
   const handleScanSociety = async () => {
     if (!societyName.trim()) {
@@ -258,6 +265,7 @@ export default function SocietyExplorer({ onBuildingSelect, onGenerateSociety, o
     setSocietyInfo(null);
     setSatelliteUrl(null);
     setDataSource('');
+    setSocietyResponse(null);
 
     let baseLat: number | null = null;
     let baseLon: number | null = null;
@@ -296,22 +304,75 @@ export default function SocietyExplorer({ onBuildingSelect, onGenerateSociety, o
     setSocietyInfo({ name: societyName, lat: baseLat, lon: baseLon });
     setSatelliteUrl(getSatelliteThumbnail(baseLat, baseLon, 16));
 
-    // Step 2: Fetch REAL buildings from OpenStreetMap Overpass API
+    // Step 2: Call the backend multi-building pipeline API
     try {
-      const realBuildings = await fetchRealBuildingsFromOSM(baseLat, baseLon, 500, societyName);
+      const deltaLat = 0.0025; // ~270m extent
+      const deltaLon = 0.0025 / Math.cos((baseLat * Math.PI) / 180);
+      const boundary = {
+        type: "Polygon",
+        coordinates: [[
+          [Number((baseLon - deltaLon).toFixed(7)), Number((baseLat - deltaLat).toFixed(7))],
+          [Number((baseLon + deltaLon).toFixed(7)), Number((baseLat - deltaLat).toFixed(7))],
+          [Number((baseLon + deltaLon).toFixed(7)), Number((baseLat + deltaLat).toFixed(7))],
+          [Number((baseLon - deltaLon).toFixed(7)), Number((baseLat + deltaLat).toFixed(7))],
+          [Number((baseLon - deltaLon).toFixed(7)), Number((baseLat - deltaLat).toFixed(7))]
+        ]]
+      };
 
-      if (realBuildings.length > 0) {
-        setDiscoveredBuildings(realBuildings);
-        setDataSource(`OpenStreetMap Overpass API · ${realBuildings.length} buildings · 500m radius`);
+      const slug = societyName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 20);
+      const socResp = await processSociety({
+        society_id: `SOC_${slug}`,
+        parcel_id: `PARCEL_${slug}`,
+        society_name: societyName,
+        boundary: boundary,
+        detection_mode: 'hybrid',
+        max_buildings: 20
+      });
+
+      if (socResp && socResp.buildings && socResp.buildings.length > 0) {
+        const mapped: DiscoveredBuilding[] = socResp.buildings.map((b) => {
+          const coords = b.footprint?.coordinates?.[0] || [];
+          let latSum = 0;
+          let lonSum = 0;
+          coords.forEach((pt: number[]) => { lonSum += pt[0]; latSum += pt[1]; });
+          const cLat = coords.length > 0 ? latSum / coords.length : baseLat!;
+          const cLon = coords.length > 0 ? lonSum / coords.length : baseLon!;
+
+          return {
+            id: b.internal_building_id,
+            name: b.building_name || b.internal_building_id,
+            type: b.detector_provenance?.tags?.building || 'Apartment / Strata Unit',
+            height: b.height?.value_meters || 15.0,
+            heightSource: b.height?.source || 'estimated',
+            floors: b.floor_count || 4,
+            floorSource: b.floor_count_source || 'estimated',
+            lat: cLat,
+            lon: cLon,
+            areaSqm: b.area_sqm,
+            unitsPerFloor: b.units && b.floor_count ? Math.round(b.units.length / b.floor_count) : 4,
+            city: city.trim()
+          };
+        });
+        setDiscoveredBuildings(mapped);
+        setSocietyResponse(socResp);
+        setDataSource(`3D-ULPIN AI Multi-Building Engine · ${socResp.buildings.length} validated buildings · Ground Coverage ${socResp.ground_coverage_pct}%`);
       } else {
-        const fallbackBuildings = generateProceduralSocietyBuildings(societyName, baseLat, baseLon);
-        setDiscoveredBuildings(fallbackBuildings);
-        setDataSource(`Smart Society Synthesizer · 5 campus towers generated · Center: ${baseLat.toFixed(4)}°, ${baseLon.toFixed(4)}°`);
+        const warn = (socResp?.warnings || []).join(', ') || 'No building footprints detected within this society boundary.';
+        setError(warn);
       }
-    } catch {
-      const fallbackBuildings = generateProceduralSocietyBuildings(societyName, baseLat, baseLon);
-      setDiscoveredBuildings(fallbackBuildings);
-      setDataSource(`Smart Society Synthesizer · 5 campus towers generated · Center: ${baseLat.toFixed(4)}°, ${baseLon.toFixed(4)}°`);
+    } catch (apiErr: any) {
+      console.warn('Backend processSociety error, trying Overpass fallback:', apiErr);
+      try {
+        const realBuildings = await fetchRealBuildingsFromOSM(baseLat, baseLon, 500, societyName);
+        if (realBuildings.length > 0) {
+          setDiscoveredBuildings(realBuildings);
+          setDataSource(`OpenStreetMap Overpass API · ${realBuildings.length} buildings · 500m radius`);
+        } else {
+          setError('No buildings found for this society/campus location.');
+        }
+      } catch (osmErr) {
+        setError('Failed to scan society buildings. Please check coordinates or connection.');
+      }
     } finally {
       setLoading(false);
     }
@@ -400,6 +461,42 @@ export default function SocietyExplorer({ onBuildingSelect, onGenerateSociety, o
               </span>
             </div>
 
+            {/* Society Telemetry Panel */}
+            {societyResponse && (
+              <div className="society-telemetry-panel font-mono">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      SOCIETY ID: {societyResponse.society_id}
+                    </span>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                      [CRS: {societyResponse.crs}]
+                    </span>
+                  </div>
+                  <div>
+                    <span className="ulpin-status-badge">
+                      OFFICIAL ULPIN: {societyResponse.official_ulpin ? societyResponse.official_ulpin : 'NULL (PENDING OFFICIAL SURVEY)'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="telemetry-grid">
+                  <div className="telemetry-metric">
+                    <span className="telemetry-label">GROUND COVERAGE</span>
+                    <span className="telemetry-value">{societyResponse.ground_coverage_pct?.toFixed(1)}%</span>
+                  </div>
+                  <div className="telemetry-metric">
+                    <span className="telemetry-label">TOTAL FOOTPRINT AREA</span>
+                    <span className="telemetry-value">{societyResponse.total_footprint_area_sqm?.toFixed(1)} m²</span>
+                  </div>
+                  <div className="telemetry-metric">
+                    <span className="telemetry-label">EST. BUILT-UP AREA</span>
+                    <span className="telemetry-value">{societyResponse.total_built_up_area_sqm?.toFixed(1)} m²</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Satellite Banner */}
             {satelliteUrl && (
               <div className="society-satellite-banner">
@@ -449,26 +546,31 @@ export default function SocietyExplorer({ onBuildingSelect, onGenerateSociety, o
                     </div>
                     <div className="building-card-info">
                       <span className="building-card-name">{bldg.name.split(' - ').pop()}</span>
-                      <span className="building-card-type font-mono">{bldg.type}</span>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <span className="building-card-type font-mono">{bldg.type}</span>
+                        <span className="font-mono" style={{ fontSize: '0.62rem', color: 'var(--accent-teal)' }}>ID: {bldg.id}</span>
+                      </div>
                     </div>
                   </div>
 
                   <div className="building-card-metrics font-mono">
                     <div className="building-metric">
                       <span className="building-metric-label">HEIGHT</span>
-                      <span className="building-metric-value">{bldg.height}m</span>
+                      <span className="building-metric-value">
+                        {bldg.height}m <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)' }}>({bldg.heightSource || 'est'})</span>
+                      </span>
                     </div>
                     <div className="building-metric">
                       <span className="building-metric-label">FLOORS</span>
                       <span className="building-metric-value">{bldg.floors} FL</span>
                     </div>
                     <div className="building-metric">
-                      <span className="building-metric-label">LATITUDE</span>
-                      <span className="building-metric-value">{bldg.lat.toFixed(5)}°</span>
+                      <span className="building-metric-label">FOOTPRINT AREA</span>
+                      <span className="building-metric-value">{bldg.areaSqm ? `${bldg.areaSqm.toFixed(1)} m²` : '—'}</span>
                     </div>
                     <div className="building-metric">
-                      <span className="building-metric-label">LONGITUDE</span>
-                      <span className="building-metric-value">{bldg.lon.toFixed(5)}°</span>
+                      <span className="building-metric-label">COORDINATES</span>
+                      <span className="building-metric-value">{bldg.lat.toFixed(4)}°, {bldg.lon.toFixed(4)}°</span>
                     </div>
                   </div>
 

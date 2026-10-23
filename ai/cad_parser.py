@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple, Union
 from shapely.geometry import shape, mapping, Polygon, MultiPolygon, box
 from shapely.ops import transform, unary_union
+try:
+    from ai.utils.geo_utils import calculate_polygon_area_sqm
+except ModuleNotFoundError:
+    from utils.geo_utils import calculate_polygon_area_sqm
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +89,7 @@ class FloorPlanParser:
                     # Scaled transformation to target footprint bounding box
                     poly_shape = FloorPlanParser._fit_geometry_to_target(poly_shape, target_shape)
 
-                area_sqm = round(poly_shape.area * (111_000 ** 2), 2) if poly_shape.area < 0.1 else round(poly_shape.area, 2)
+                area_sqm = round(calculate_polygon_area_sqm(poly_shape), 2)
 
                 centroid = poly_shape.centroid
                 parsed_units.append({

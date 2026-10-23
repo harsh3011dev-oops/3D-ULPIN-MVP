@@ -609,3 +609,70 @@ export interface VolumetricULPINCertificate {
   /** ISO timestamp of certificate generation */
   generatedAt: string;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MULTI-BUILDING SOCIETY & CAMPUS CONTRACTS (Milestone 3 / Phases B-H)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface BuildingHeightInfo {
+  value_meters: number;
+  source: 'measured' | 'user_supplied' | 'estimated_from_floors' | 'gemini_vision' | string;
+  confidence: number;
+  measured_accuracy_m?: number;
+  assumption_notes?: string;
+}
+
+export interface SocietyBuildingRecord {
+  internal_building_id: string;
+  society_id: string;
+  parcel_id: string;
+  building_name?: string | null;
+  official_ulpin?: string | null;
+  footprint: GeoJSONPolygon | any;
+  area_sqm: number;
+  height: BuildingHeightInfo;
+  floor_count: number;
+  floor_count_source: string;
+  built_up_area_sqm: number;
+  detector_provenance: Record<string, any>;
+  units?: Unit[];
+  floors?: any[];
+  validation?: Record<string, any>;
+  is_within_boundary?: boolean;
+}
+
+export interface SocietyProcessRequest {
+  society_id: string;
+  parcel_id: string;
+  society_name?: string;
+  address?: string;
+  boundary: GeoJSONPolygon | any;
+  detection_mode?: 'auto' | 'osm_only' | 'cv_only' | 'hybrid' | 'manual_hints';
+  max_buildings?: number;
+  buffer_tiles?: number;
+  zoom?: number;
+  building_hints?: any[];
+  allow_clipping?: boolean;
+  options?: Record<string, any>;
+}
+
+export interface SocietyProcessResponse {
+  status: 'success' | 'partial_success' | 'error';
+  society_id: string;
+  parcel_id: string;
+  society_name?: string | null;
+  crs?: string;
+  boundary: GeoJSONPolygon | any;
+  total_society_area_sqm: number;
+  total_footprint_area_sqm: number;
+  total_built_up_area_sqm: number;
+  ground_coverage_ratio: number;
+  ground_coverage_pct: number;
+  buildings_detected_count: number;
+  buildings: SocietyBuildingRecord[];
+  excluded_buildings: any[];
+  official_ulpin?: string | null;
+  warnings: string[];
+  errors: string[];
+  execution_metadata?: Record<string, any>;
+}

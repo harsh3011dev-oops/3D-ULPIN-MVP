@@ -20,6 +20,7 @@ import {
   Sparkles,
   Check
 } from 'lucide-react';
+import SocietyExplorer, { DiscoveredBuilding } from '../components/SocietyExplorer/SocietyExplorer';
 import './ExplorePage.css';
 
 interface FormState {
@@ -31,7 +32,7 @@ interface FormState {
   floors: string;
 }
 
-type EntryMode = 'select' | 'search' | 'manual';
+type EntryMode = 'select' | 'search' | 'manual' | 'society';
 
 export interface LandmarkPreset {
   name: string;
@@ -568,6 +569,34 @@ export default function ExplorePage() {
     }
   };
 
+  const handleSocietyBuildingSelect = async (building: DiscoveredBuilding) => {
+    setLoading(true);
+    setError('');
+    try {
+      const parcelId = `BLDG_${building.id.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase().slice(0, 18)}_${Date.now().toString(36).toUpperCase()}`;
+      const res = await createBuilding({
+        parcel_id: parcelId,
+        building_name: building.name,
+        address: `${building.name}, ${building.city || 'Society Campus'}`,
+        latitude: building.lat,
+        longitude: building.lon,
+        height_meters: building.height,
+        floor_count: building.floors,
+      });
+      if (!res.job_id) throw new Error('Pipeline job failed to queue.');
+      navigate(`/processing/${res.job_id}`);
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || err?.message || 'Failed to submit building for 3D reconstruction.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerateSociety = async (buildings: DiscoveredBuilding[]) => {
+    if (!buildings.length) return;
+    await handleSocietyBuildingSelect(buildings[0]);
+  };
+
 
   // Parsed coordinates for live HUD indicator & badges
   const parsedCoord = parseCoordinatePair(form.coordinates || (form.latitude && form.longitude ? `${form.latitude}, ${form.longitude}` : ''));
@@ -753,6 +782,20 @@ export default function ExplorePage() {
                       <div className="mode-heading">Manual Coordinates</div>
                       <div className="mode-sub">
                         Define custom geodetic parcel boundaries, Z-elevations, and floor strata parameters.
+                      </div>
+                    </div>
+                    <ArrowRight size={18} className="mode-arrow" />
+                  </div>
+
+                  <div
+                    className="mode-row-card"
+                    onClick={() => setEntryMode('society')}
+                  >
+                    <div className="mode-num font-mono">03</div>
+                    <div className="mode-content">
+                      <div className="mode-heading">Multi-Building Society / Campus Scan</div>
+                      <div className="mode-sub">
+                        Detect, validate, and isolate multiple residential towers with stable IDs and geospatial bounds.
                       </div>
                     </div>
                     <ArrowRight size={18} className="mode-arrow" />
@@ -1156,6 +1199,15 @@ export default function ExplorePage() {
                     )}
                   </div>
                 </div>
+              )}
+
+              {/* ── MULTI-BUILDING SOCIETY FLOW ── */}
+              {entryMode === 'society' && (
+                <SocietyExplorer
+                  onBack={() => setEntryMode('select')}
+                  onBuildingSelect={handleSocietyBuildingSelect}
+                  onGenerateSociety={handleGenerateSociety}
+                />
               )}
 
               {/* Error Callout */}

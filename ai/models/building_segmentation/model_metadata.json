@@ -1,0 +1,22 @@
+{
+  "timestamp_utc": "2026-10-14T09:57:45.963521+00:00",
+  "model_architecture": "yolov8s-seg.pt",
+  "input_size": 256,
+  "epochs_trained": 3,
+  "batch_size": 64,
+  "dataset_manifest": "/home/piet/Buidling-footprint-2/data.yaml",
+  "device": "0",
+  "source_checkpoint": "/home/piet/Desktop/3d ulpin/3D-ULPIN-MVP/ml_training/building_segmentation/experiments/building_seg_run/weights/best.pt",
+  "deployable_path": "/home/piet/Desktop/3d ulpin/3D-ULPIN-MVP/ai/models/building_segmentation/best.pt",
+  "validation_metrics": {
+    "metrics/precision(B)": 0.6756908298827822,
+    "metrics/recall(B)": 0.5769188176390074,
+    "metrics/mAP50(B)": 0.6188004808278268,
+    "metrics/mAP50-95(B)": 0.3467682223796503,
+    "metrics/precision(M)": 0.6204305559199049,
+    "metrics/recall(M)": 0.511441910301546,
+    "metrics/mAP50(M)": 0.5325326104086793,
+    "metrics/mAP50-95(M)": 0.2437359484148065,
+    "fitness": 0.5905041707944568
+  }
+}

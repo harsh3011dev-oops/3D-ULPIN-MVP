@@ -38,3 +38,8 @@ ai/exports/
 
 frontend/node_modules
 frontend/node_modules/
+runs/
+cache/
+sample_data/downloaded_satellite.png
+debug_pipeline_output.json
+
