@@ -38,10 +38,10 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     hf_api_key: str = ""
 
-    # ── Keep-Alive (Render Free Tier 24/7) ────
-    keep_alive_enabled: bool = True
-    keep_alive_interval_seconds: int = 600  # Ping every 10 mins (safely under 15 min limit)
-    backend_public_url: str = "https://threed-ulpin-backend-v9ur.onrender.com"
+    # ── Keep-Alive ───────────────────────────
+    keep_alive_enabled: bool = False
+    keep_alive_interval_seconds: int = 600
+    backend_public_url: str = ""
 
     @property
     def cors_origins_list(self) -> list[str]:

@@ -7,7 +7,7 @@
  * the user interacts with maps or generation, the API is hot.
  */
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://threed-ulpin-backend-v9ur.onrender.com/api';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 // Resolve base origin for /api/ping
 const PING_URL = BASE_URL.endsWith('/api') ? `${BASE_URL}/ping` : `${BASE_URL}/api/ping`;
 
