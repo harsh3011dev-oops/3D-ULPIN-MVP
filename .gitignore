@@ -45,3 +45,7 @@ sample_data/downloaded_satellite.png
 debug_pipeline_output.json
 Portfolio/
 *.zip
+*.pptx
+*.ppt
+*.docx
+*.doc

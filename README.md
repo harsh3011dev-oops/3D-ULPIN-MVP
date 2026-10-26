@@ -9,6 +9,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11-3776AB.svg?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Google Gemini](https://img.shields.io/badge/Vision%20AI-Gemini%202.5%20Flash-4285F4.svg?style=for-the-badge&logo=google&logoColor=white)](https://deepmind.google/technologies/gemini/)
+[![YOLO11](https://img.shields.io/badge/Segmentation-YOLO11s--seg-FF6F00.svg?style=for-the-badge&logo=ultralytics&logoColor=white)](https://github.com/ultralytics/ultralytics)
 [![PostGIS](https://img.shields.io/badge/Database-PostgreSQL%20%2B%20PostGIS-336791.svg?style=for-the-badge&logo=postgresql&logoColor=white)](https://postgis.net/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
@@ -137,7 +138,7 @@ flowchart TD
 | **3D & Geospatial Engine** | Deck.gl v9, Three.js, MapLibre GL, React Three Fiber | Hardware-accelerated 3D tile rendering and spatial projection |
 | **UI & Motion** | Framer Motion, Lucide Icons, Vanilla CSS Tokens | Glassmorphic design system with micro-interactions |
 | **Backend Framework** | FastAPI (Python 3.10 / 3.11), Uvicorn, Pydantic v2 | High-throughput asynchronous REST API |
-| **Spatial & AI Engine** | OpenCV, Shapely, GeoPandas, `google-genai` | Geometric polygon operations, 3D extrusions & Multimodal AI |
+| **Spatial & AI Engine** | Ultralytics YOLO11s-seg, OpenCV, Shapely, GeoPandas, `google-genai` | Deep learning footprint segmentation, 3D geometry & Multimodal AI |
 | **Database & GIS** | PostgreSQL 15+, PostGIS 3.3+, Supabase | 3D spatial indexing (`ST_3DIntersects`, `ST_Extrude`) |
 | **Data Providers** | OpenStreetMap Overpass API, ESRI World Imagery | Global base vector boundaries and satellite imagery |
 | **Container & CI** | Docker, Render Cloud Blueprint, Pytest | Production-ready containerization and automated testing |
@@ -149,7 +150,9 @@ flowchart TD
 ```
 3D-ULPIN-MVP/
 ├── ai/                                # Spatial AI & 3D Extrusion Engine
-│   ├── footprint_detection_v2.py     # Satellite polygon extraction & contouring
+│   ├── detector_protocol.py           # Unified YOLO & OpenCV detection protocol
+│   ├── footprint_detection_v2.py      # Satellite polygon extraction & contouring
+│   ├── building_registry.py           # Multi-building society registry & hierarchy
 │   ├── extrusion.py                   # 2D footprint to 3D volumetric extrusion
 │   ├── floor_division.py              # Strata vertical floor & unit partitioning
 │   ├── gemini_vision_analyzer.py      # Gemini Multimodal satellite vision analyzer
@@ -177,6 +180,7 @@ flowchart TD
 │   │   │   ├── Cadastral3D/           # 3D globe & architectural visualizers
 │   │   │   ├── Header/                # Navigation bar with dark glassmorphism
 │   │   │   ├── Map3D/                 # Three.js & Deck.gl geospatial canvas
+│   │   │   ├── SocietyExplorer/       # Multi-building complex explorer & unit selector
 │   │   │   └── UndergroundPanel/      # Subterranean utility network controller
 │   │   ├── pages/
 │   │   │   ├── ExplorePage.tsx        # Ingestion Workbench (Universal coordinate input)
@@ -186,9 +190,18 @@ flowchart TD
 │   │   └── styles/                    # Design tokens & dark theme CSS variables
 │   └── package.json
 │
+├── models/                            # Deep Learning Model Packages & Checkpoints
+│   └── building_segmentation/         # YOLO11s-seg weights, config & inference CLI
+│
+├── windows_deployment/                # Automated Windows Auto-Boot & Cloudflare Tunnels
 ├── sample_data/                       # Reference geospatial datasets & aerial imagery
+├── setup.bat / setup.sh               # 1-Click Environment Setup & Auto-Startup Registration
+├── start.bat / start.sh               # 1-Click Launchers (Backend + Frontend)
+├── start_backend.bat / .sh            # Standalone Backend Runner
+├── start_ngrok.bat / .sh              # ngrok Tunnel Runner for Cloud Frontend Pairing
 ├── Dockerfile                         # Production multi-stage Docker container
 ├── requirements.txt                   # Backend Python dependencies
+├── requirements_windows.txt           # Windows CPU optimized backend requirements
 ├── render.yaml                        # Cloud deployment specification
 └── pytest.ini                         # Pytest configuration
 ```
@@ -196,6 +209,32 @@ flowchart TD
 ---
 
 ## ⚡ Quickstart Guide
+
+### 🚀 1-Click Setup (Fastest)
+
+#### Windows
+Simply run `setup.bat` (or double-click in Windows Explorer):
+```cmd
+setup.bat
+```
+This automatically initializes the Python virtual environment, installs CPU-optimized dependencies, validates the YOLO11s-seg model, and sets up an optional silent background boot task.
+
+To launch the backend and frontend simultaneously:
+```cmd
+start.bat
+```
+
+#### Linux / macOS
+```bash
+bash setup.sh
+bash start.sh
+```
+
+*(For Windows background deployment with ngrok/Cloudflare tunnels, see [README_LOCAL_DEPLOY.md](README_LOCAL_DEPLOY.md).)*
+
+---
+
+### 📦 Manual Setup Guide
 
 ### Prerequisites
 * **Python**: `3.10` or `3.11`
