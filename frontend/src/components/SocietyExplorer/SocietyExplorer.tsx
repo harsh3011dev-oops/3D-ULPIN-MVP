@@ -361,18 +361,9 @@ export default function SocietyExplorer({ onBuildingSelect, onGenerateSociety, o
         setError(warn);
       }
     } catch (apiErr: any) {
-      console.warn('Backend processSociety error, trying Overpass fallback:', apiErr);
-      try {
-        const realBuildings = await fetchRealBuildingsFromOSM(baseLat, baseLon, 500, societyName);
-        if (realBuildings.length > 0) {
-          setDiscoveredBuildings(realBuildings);
-          setDataSource(`OpenStreetMap Overpass API · ${realBuildings.length} buildings · 500m radius`);
-        } else {
-          setError('No buildings found for this society/campus location.');
-        }
-      } catch (osmErr) {
-        setError('Failed to scan society buildings. Please check coordinates or connection.');
-      }
+      console.warn('Backend processSociety error:', apiErr);
+      const errMsg = apiErr?.response?.data?.detail || apiErr?.message || 'Society scan failed. Please verify location or try again.';
+      setError(`Detection note: ${errMsg}`);
     } finally {
       setLoading(false);
     }

@@ -478,7 +478,8 @@ async def process_society_endpoint(
     calculates aggregate metrics, and persists society & building records.
     """
     try:
-        result = process_multi_building_parcel(request)
+        import asyncio
+        result = await asyncio.to_thread(process_multi_building_parcel, request)
         if result.get("status") == "error":
             raise HTTPException(
                 status_code=400,

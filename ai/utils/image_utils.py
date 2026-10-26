@@ -1,6 +1,7 @@
 import os
 import math
 import requests
+import concurrent.futures
 from shapely.geometry import shape
 from PIL import Image
 from io import BytesIO
@@ -235,32 +236,51 @@ def download_satellite_image(
 
         stitched = Image.new("RGB", (img_w, img_h))
 
-        # Try Stadia Maps first, then ESRI
+        # Download tiles in parallel using ThreadPoolExecutor (ESRI World Imagery as primary)
         primary_success = False
 
-        for ty in range(ty_start, ty_end + 1):
-            for tx in range(tx_start, tx_end + 1):
-                url = STADIA_TILE_URL.format(z=zoom, x=tx, y=ty)
-                resp = None
-                try:
-                    resp = requests.get(url, timeout=5)
-                except Exception:
-                    resp = None
-
-                # Fallback attempt: ESRI World Imagery
-                if not resp or resp.status_code != 200:
-                    url = ESRI_TILE_URL.format(z=zoom, y=ty, x=tx)
-                    try:
-                        resp = requests.get(url, timeout=5)
-                    except Exception:
-                        resp = None
-
+        def _fetch_single_tile(tx: int, ty: int):
+            # 1. Try ESRI World Imagery directly (high-res, reliable, zero key required)
+            url = ESRI_TILE_URL.format(z=zoom, y=ty, x=tx)
+            try:
+                resp = requests.get(url, timeout=3.5)
                 if resp and resp.status_code == 200:
                     tile_img = Image.open(BytesIO(resp.content)).convert("RGB")
-                    paste_x = (tx - tx_start) * tile_size
-                    paste_y = (ty - ty_start) * tile_size
-                    stitched.paste(tile_img, (paste_x, paste_y))
-                    primary_success = True
+                    return tx, ty, tile_img
+            except Exception:
+                pass
+
+            # 2. Fallback to Stadia Maps only if key is non-default
+            if STADIA_API_KEY and STADIA_API_KEY != "24c9f5e8-ab09-4848-97f1-1bdfdecf8091":
+                try:
+                    url_st = STADIA_TILE_URL.format(z=zoom, x=tx, y=ty)
+                    resp_st = requests.get(url_st, timeout=3.5)
+                    if resp_st and resp_st.status_code == 200:
+                        tile_img = Image.open(BytesIO(resp_st.content)).convert("RGB")
+                        return tx, ty, tile_img
+                except Exception:
+                    pass
+
+            return tx, ty, None
+
+        tile_coords = [
+            (tx, ty)
+            for ty in range(ty_start, ty_end + 1)
+            for tx in range(tx_start, tx_end + 1)
+        ]
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(12, len(tile_coords) or 1)) as executor:
+            futures = [executor.submit(_fetch_single_tile, tx, ty) for tx, ty in tile_coords]
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    tx, ty, tile_img = future.result()
+                    if tile_img is not None:
+                        paste_x = (tx - tx_start) * tile_size
+                        paste_y = (ty - ty_start) * tile_size
+                        stitched.paste(tile_img, (paste_x, paste_y))
+                        primary_success = True
+                except Exception:
+                    continue
 
         if primary_success:
             stitched.save(output_path)
