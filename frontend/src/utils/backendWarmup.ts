@@ -44,6 +44,9 @@ export async function triggerBackendWarmup() {
 
       const res = await fetch(PING_URL, {
         method: 'GET',
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+        },
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
