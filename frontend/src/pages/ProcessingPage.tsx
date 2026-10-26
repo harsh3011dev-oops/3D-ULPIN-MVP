@@ -89,8 +89,8 @@ export default function ProcessingPage() {
         }
       }
 
-      // Safety timeout after 20 polls (~45 seconds)
-      if (currentPolls >= 20) {
+      // Safety timeout after 90 polls (~3.5 minutes) for multi-story / high-rise landmarks
+      if (currentPolls >= 90) {
         if (buildingId) {
           setStatus('done');
           navigate(`/map/${buildingId}`);
